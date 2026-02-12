@@ -152,7 +152,7 @@ class CrossPointSettings {
   uint8_t statusBarTitle = CHAPTER_TITLE;
   uint8_t statusBarBattery = 1;
   // Text rendering settings
-  uint8_t extraParagraphSpacing = 1;
+  uint8_t extraParagraphSpacing = 0;
   uint8_t textAntiAliasing = 1;
   // Short power button click behaviour
   uint8_t shortPwrBtn = IGNORE;
@@ -164,20 +164,20 @@ class CrossPointSettings {
   uint8_t sideButtonLayout = PREV_NEXT;
   // Front button remap (logical -> hardware)
   // Used by MappedInputManager to translate logical buttons into physical front buttons.
-  uint8_t frontButtonBack = FRONT_HW_BACK;
-  uint8_t frontButtonConfirm = FRONT_HW_CONFIRM;
-  uint8_t frontButtonLeft = FRONT_HW_LEFT;
-  uint8_t frontButtonRight = FRONT_HW_RIGHT;
+  uint8_t frontButtonBack = FRONT_HW_LEFT;
+  uint8_t frontButtonConfirm = FRONT_HW_RIGHT;
+  uint8_t frontButtonLeft = FRONT_HW_BACK;
+  uint8_t frontButtonRight = FRONT_HW_CONFIRM;
   // Reader font settings
   uint8_t fontFamily = BOOKERLY;
-  uint8_t fontSize = MEDIUM;
-  uint8_t lineSpacing = NORMAL;
-  uint8_t paragraphAlignment = JUSTIFIED;
+  uint8_t fontSize = SMALL;
+  uint8_t lineSpacing = TIGHT;
+  uint8_t paragraphAlignment = LEFT_ALIGN;
   // Auto-sleep timeout setting (default 10 minutes)
   uint8_t sleepTimeout = SLEEP_10_MIN;
   // E-ink refresh frequency (default 15 pages)
   uint8_t refreshFrequency = REFRESH_15;
-  uint8_t hyphenationEnabled = 0;
+  uint8_t hyphenationEnabled = 1;
 
   // Reader screen margin settings
   uint8_t screenMargin = 5;
