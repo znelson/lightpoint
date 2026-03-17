@@ -1,30 +1,30 @@
-#include "lib/EpdFont/EpdFont.h"
-#include "lib/EpdFont/EpdFontData.h"
-
 #include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
+#include "lib/EpdFont/EpdFont.h"
+#include "lib/EpdFont/EpdFontData.h"
+
 static int testsPassed = 0;
 static int testsFailed = 0;
 
-#define ASSERT_EQ(a, b)                                                                             \
-  do {                                                                                              \
-    if ((a) != (b)) {                                                                               \
+#define ASSERT_EQ(a, b)                                                                            \
+  do {                                                                                             \
+    if ((a) != (b)) {                                                                              \
       fprintf(stderr, "  FAIL: %s:%d: %s == %d, expected %d\n", __FILE__, __LINE__, #a, (a), (b)); \
-      testsFailed++;                                                                                \
-      return;                                                                                       \
-    }                                                                                               \
+      testsFailed++;                                                                               \
+      return;                                                                                      \
+    }                                                                                              \
   } while (0)
 
-#define ASSERT_TRUE(cond)                                                        \
-  do {                                                                           \
-    if (!(cond)) {                                                               \
-      fprintf(stderr, "  FAIL: %s:%d: %s\n", __FILE__, __LINE__, #cond);         \
-      testsFailed++;                                                             \
-      return;                                                                    \
-    }                                                                            \
+#define ASSERT_TRUE(cond)                                                \
+  do {                                                                   \
+    if (!(cond)) {                                                       \
+      fprintf(stderr, "  FAIL: %s:%d: %s\n", __FILE__, __LINE__, #cond); \
+      testsFailed++;                                                     \
+      return;                                                            \
+    }                                                                    \
   } while (0)
 
 #define PASS() testsPassed++
@@ -207,10 +207,10 @@ void testKernLookup() {
   ASSERT_EQ(testFont.getKerning('T', 'o'), -7);
   ASSERT_EQ(testFont.getKerning('o', 'a'), -2);
   ASSERT_EQ(testFont.getKerning('o', 'o'), -3);
-  ASSERT_EQ(testFont.getKerning('a', 'o'), 0);   // 'a' has no left class
-  ASSERT_EQ(testFont.getKerning('x', 'o'), 0);   // 'x' has no left class
-  ASSERT_EQ(testFont.getKerning('T', 'x'), 0);   // 'x' has no right class
-  ASSERT_EQ(testFont.getKerning('T', 'T'), 0);   // 'T' has no right class
+  ASSERT_EQ(testFont.getKerning('a', 'o'), 0);  // 'a' has no left class
+  ASSERT_EQ(testFont.getKerning('x', 'o'), 0);  // 'x' has no left class
+  ASSERT_EQ(testFont.getKerning('T', 'x'), 0);  // 'x' has no right class
+  ASSERT_EQ(testFont.getKerning('T', 'T'), 0);  // 'T' has no right class
 
   printf("  All kern lookups correct\n");
   PASS();
@@ -296,7 +296,7 @@ void testPairConsistencyViaFont() {
 
   // The oo gap = width(prefix + "oo") - width(prefix + "o")
   // This isolates the pixel distance contributed by the second 'o'.
-  const int oo_gap_bare   = textWidth("oo")  - textWidth("o");
+  const int oo_gap_bare = textWidth("oo") - textWidth("o");
   const int oo_gap_after_x = textWidth("xoo") - textWidth("xo");
   const int oo_gap_after_T = textWidth("Too") - textWidth("To");
   const int oo_gap_after_o = textWidth("ooo") - textWidth("oo");
