@@ -515,6 +515,56 @@ std::optional<Section::TocPageRange> Section::getPageRangeForTocIndex(const int 
   return std::nullopt;
 }
 
+std::optional<uint16_t> Section::readCachedPageCount(const std::string& cachePath, const int spineIndex,
+                                                     const int fontId, const float lineCompression,
+                                                     const bool extraParagraphSpacing, const uint8_t paragraphAlignment,
+                                                     const uint16_t viewportWidth, const uint16_t viewportHeight,
+                                                     const bool hyphenationEnabled, const bool embeddedStyle,
+                                                     const uint8_t imageRendering, const bool focusReadingEnabled) {
+  const std::string filePath = cachePath + "/sections/" + std::to_string(spineIndex) + ".bin";
+  HalFile f;
+  if (!Storage.openFileForRead("SCT", filePath, f)) {
+    return std::nullopt;
+  }
+
+  uint8_t version;
+  serialization::readPod(f, version);
+  if (version != SECTION_FILE_VERSION) {
+    return std::nullopt;
+  }
+
+  int fileFontId;
+  float fileLineCompression;
+  bool fileExtraParagraphSpacing;
+  uint8_t fileParagraphAlignment;
+  uint16_t fileViewportWidth, fileViewportHeight;
+  bool fileHyphenationEnabled, fileEmbeddedStyle;
+  uint8_t fileImageRendering;
+  bool fileFocusReadingEnabled;
+  serialization::readPod(f, fileFontId);
+  serialization::readPod(f, fileLineCompression);
+  serialization::readPod(f, fileExtraParagraphSpacing);
+  serialization::readPod(f, fileParagraphAlignment);
+  serialization::readPod(f, fileViewportWidth);
+  serialization::readPod(f, fileViewportHeight);
+  serialization::readPod(f, fileHyphenationEnabled);
+  serialization::readPod(f, fileEmbeddedStyle);
+  serialization::readPod(f, fileImageRendering);
+  serialization::readPod(f, fileFocusReadingEnabled);
+
+  if (fontId != fileFontId || lineCompression != fileLineCompression ||
+      extraParagraphSpacing != fileExtraParagraphSpacing || paragraphAlignment != fileParagraphAlignment ||
+      viewportWidth != fileViewportWidth || viewportHeight != fileViewportHeight ||
+      hyphenationEnabled != fileHyphenationEnabled || embeddedStyle != fileEmbeddedStyle ||
+      imageRendering != fileImageRendering || focusReadingEnabled != fileFocusReadingEnabled) {
+    return std::nullopt;
+  }
+
+  uint16_t count;
+  serialization::readPod(f, count);
+  return count;
+}
+
 std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) const {
   HalFile f;
   if (!Storage.openFileForRead("SCT", filePath, f)) {

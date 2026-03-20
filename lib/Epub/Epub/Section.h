@@ -65,6 +65,15 @@ class Section {
   // Returns the page range [start, end) within this spine that belongs to the given TOC index.
   std::optional<TocPageRange> getPageRangeForTocIndex(int tocIndex) const;
 
+  // Reads just the pageCount from an existing section cache file without loading the full section.
+  // Returns nullopt if the cache is missing, stale, or has mismatched render parameters.
+  static std::optional<uint16_t> readCachedPageCount(const std::string& cachePath, int spineIndex, int fontId,
+                                                     float lineCompression, bool extraParagraphSpacing,
+                                                     uint8_t paragraphAlignment, uint16_t viewportWidth,
+                                                     uint16_t viewportHeight, bool hyphenationEnabled,
+                                                     bool embeddedStyle, uint8_t imageRendering,
+                                                     bool focusReadingEnabled);
+
   // Look up the page number for an anchor id from the section cache file.
   std::optional<uint16_t> getPageForAnchor(const std::string& anchor) const;
 
