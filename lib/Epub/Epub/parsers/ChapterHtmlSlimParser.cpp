@@ -99,10 +99,10 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
 }
 
 BlockStyle ChapterHtmlSlimParser::getAccumulatedBlockStyle() const {
-  if (blockStyleStackSize <= 0 || blockStyleStackSize > MAX_BLOCK_STYLE_DEPTH) {
-    return {};
-  }
-  return blockStyleStack[blockStyleStackSize - 1].accumulated;
+  if (blockStyleStackSize <= 0) return {};
+  // During overflow, return the deepest stored entry (best available approximation)
+  const int index = (blockStyleStackSize < MAX_BLOCK_STYLE_DEPTH) ? blockStyleStackSize - 1 : MAX_BLOCK_STYLE_DEPTH - 1;
+  return blockStyleStack[index].accumulated;
 }
 
 void ChapterHtmlSlimParser::pushBlockStyle(const int depth, const BlockStyle& style) {
