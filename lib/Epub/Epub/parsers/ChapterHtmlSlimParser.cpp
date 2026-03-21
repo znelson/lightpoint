@@ -107,9 +107,11 @@ BlockStyle ChapterHtmlSlimParser::getAccumulatedBlockStyle() const {
 
 void ChapterHtmlSlimParser::pushBlockStyle(const int depth, const BlockStyle& style) {
   if (blockStyleStackSize < MAX_BLOCK_STYLE_DEPTH) {
-    const BlockStyle parent =
-        (blockStyleStackSize > 0) ? blockStyleStack[blockStyleStackSize - 1].accumulated : BlockStyle();
-    blockStyleStack[blockStyleStackSize] = {depth, parent.getCombinedBlockStyle(style)};
+    const BlockStyle accumulated = (blockStyleStackSize > 0)
+                                       ? blockStyleStack[blockStyleStackSize - 1].accumulated.getCombinedBlockStyle(
+                                             style, BlockStyle::CombineAxis::Horizontal)
+                                       : style;
+    blockStyleStack[blockStyleStackSize] = {depth, accumulated};
   } else {
     LOG_ERR("EHP", "Block style stack overflow at depth %d", depth);
   }
@@ -155,9 +157,13 @@ void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
   if (currentTextBlock) {
     // already have a text block running and it is empty - just reuse it
     if (currentTextBlock->isEmpty()) {
-      // The accumulated block style from the stack already includes all ancestor contributions,
-      // so we set it directly rather than merging with the previous empty block's style.
-      currentTextBlock->setBlockStyle(blockStyle);
+      // The stack accumulates horizontal margins and text properties from ancestors.
+      // Vertical margins are per-element and not inherited through the stack, but
+      // container elements (div, blockquote) deposit their vertical margins on the
+      // empty block when they open. Merge those into the new style so the first
+      // child in a container inherits the container's vertical spacing.
+      currentTextBlock->setBlockStyle(
+          currentTextBlock->getBlockStyle().getCombinedBlockStyle(blockStyle, BlockStyle::CombineAxis::Vertical));
 
       if (!pendingAnchorId.empty()) {
         anchorData.push_back({std::move(pendingAnchorId), static_cast<uint16_t>(completedPageCount)});
