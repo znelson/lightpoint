@@ -102,7 +102,10 @@ BlockStyle ChapterHtmlSlimParser::getAccumulatedBlockStyle() const {
   if (blockStyleStackSize <= 0) return {};
   // During overflow, return the deepest stored entry (best available approximation)
   const int index = (blockStyleStackSize < MAX_BLOCK_STYLE_DEPTH) ? blockStyleStackSize - 1 : MAX_BLOCK_STYLE_DEPTH - 1;
-  return blockStyleStack[index].accumulated;
+  // Bottom margins/padding are applied at element close in endElement, not here.
+  // This ensures they appear after the element's content (on the last child),
+  // not on the first child via the empty-block merge in startNewTextBlock.
+  return blockStyleStack[index].accumulated.withoutBottom();
 }
 
 void ChapterHtmlSlimParser::pushBlockStyle(const int depth, const BlockStyle& style) {
@@ -986,6 +989,16 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
   if (headerOrBlockTag) {
     self->currentCssStyle.reset();
     self->updateEffectiveInlineStyle();
+
+    // Apply the closing element's bottom margin/padding to the current text block.
+    // These are excluded from getAccumulatedBlockStyle() so they appear after the
+    // element's content rather than being merged into the first child.
+    if (self->currentTextBlock && self->blockStyleStackSize > 0 && self->blockStyleStackSize <= MAX_BLOCK_STYLE_DEPTH &&
+        self->blockStyleStack[self->blockStyleStackSize - 1].depth == self->depth) {
+      self->currentTextBlock->setBlockStyle(self->currentTextBlock->getBlockStyle().addBottom(
+          self->blockStyleStack[self->blockStyleStackSize - 1].accumulated));
+    }
+
     self->popBlockStyle(self->depth);
   }
 }

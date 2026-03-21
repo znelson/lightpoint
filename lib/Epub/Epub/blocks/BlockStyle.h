@@ -28,6 +28,22 @@ struct BlockStyle {
   [[nodiscard]] int16_t rightInset() const { return marginRight + paddingRight; }
   [[nodiscard]] int16_t totalHorizontalInset() const { return leftInset() + rightInset(); }
 
+  // Return a copy with bottom margins/padding zeroed out.
+  [[nodiscard]] BlockStyle withoutBottom() const {
+    BlockStyle result = *this;
+    result.marginBottom = 0;
+    result.paddingBottom = 0;
+    return result;
+  }
+
+  // Return a copy with the source's bottom margins/padding added to this style's.
+  [[nodiscard]] BlockStyle addBottom(const BlockStyle& source) const {
+    BlockStyle result = *this;
+    result.marginBottom = static_cast<int16_t>(marginBottom + source.marginBottom);
+    result.paddingBottom = static_cast<int16_t>(paddingBottom + source.paddingBottom);
+    return result;
+  }
+
   enum class CombineAxis : uint8_t {
     Horizontal = 1,  // margins left/right, padding left/right, text-align, text-indent
     Vertical = 2,    // margins top/bottom, padding top/bottom
