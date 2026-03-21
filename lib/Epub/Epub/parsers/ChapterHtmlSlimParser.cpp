@@ -99,17 +99,17 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
 }
 
 BlockStyle ChapterHtmlSlimParser::getAccumulatedBlockStyle() const {
-  BlockStyle accumulated;
-  const int count = (blockStyleStackSize < MAX_BLOCK_STYLE_DEPTH) ? blockStyleStackSize : MAX_BLOCK_STYLE_DEPTH;
-  for (int i = 0; i < count; ++i) {
-    accumulated = accumulated.getCombinedBlockStyle(blockStyleStack[i].style);
+  if (blockStyleStackSize <= 0 || blockStyleStackSize > MAX_BLOCK_STYLE_DEPTH) {
+    return {};
   }
-  return accumulated;
+  return blockStyleStack[blockStyleStackSize - 1].accumulated;
 }
 
 void ChapterHtmlSlimParser::pushBlockStyle(const int depth, const BlockStyle& style) {
   if (blockStyleStackSize < MAX_BLOCK_STYLE_DEPTH) {
-    blockStyleStack[blockStyleStackSize] = {depth, style};
+    const BlockStyle parent =
+        (blockStyleStackSize > 0) ? blockStyleStack[blockStyleStackSize - 1].accumulated : BlockStyle();
+    blockStyleStack[blockStyleStackSize] = {depth, parent.getCombinedBlockStyle(style)};
   } else {
     LOG_ERR("EHP", "Block style stack overflow at depth %d", depth);
   }
@@ -118,8 +118,7 @@ void ChapterHtmlSlimParser::pushBlockStyle(const int depth, const BlockStyle& st
 
 void ChapterHtmlSlimParser::popBlockStyle(const int depth) {
   if (blockStyleStackSize <= 0) return;
-  if (blockStyleStackSize > MAX_BLOCK_STYLE_DEPTH ||
-      blockStyleStack[blockStyleStackSize - 1].depth == depth) {
+  if (blockStyleStackSize > MAX_BLOCK_STYLE_DEPTH || blockStyleStack[blockStyleStackSize - 1].depth == depth) {
     --blockStyleStackSize;
   }
 }

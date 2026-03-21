@@ -69,7 +69,7 @@ class ChapterHtmlSlimParser {
   static constexpr int MAX_BLOCK_STYLE_DEPTH = 8;
   struct BlockStyleStackEntry {
     int depth = 0;
-    BlockStyle style;
+    BlockStyle accumulated;  // all ancestors combined up to and including this entry
   };
   BlockStyleStackEntry blockStyleStack[MAX_BLOCK_STYLE_DEPTH] = {};
   int blockStyleStackSize = 0;
