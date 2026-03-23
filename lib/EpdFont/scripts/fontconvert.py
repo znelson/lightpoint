@@ -23,6 +23,18 @@ parser.add_argument("--additional-intervals", dest="additional_intervals", actio
 parser.add_argument("--compress", dest="compress", action="store_true", help="Compress glyph bitmaps using DEFLATE with group-based compression.")
 parser.add_argument("--force-autohint", dest="force_autohint", action="store_true", help="Force FreeType auto-hinter instead of native font hinting. Improves stem width consistency for fonts with weak or no native TrueType hints.")
 parser.add_argument("--pnum", dest="pnum", action="store_true", help="Use proportional numerals (pnum OpenType feature) instead of default tabular figures. Reduces visual gaps between digits in running prose.")
+parser.add_argument("--supersample", dest="supersample", nargs="?", const=2, type=int,
+                    default=None, metavar="N",
+                    help="Render glyphs at Nx resolution and downsample for higher-quality "
+                         "2-bit antialiasing. Default factor is 2 if no value given. "
+                         "Metrics come from the native 1x render. Requires --2bit.")
+parser.add_argument("--2bit-thresholds", dest="thresholds_2bit", default="64,128,192",
+                    help="1-3 comma-separated 8-bit boundaries for 2-bit quantization "
+                         "(level 0/1, 1/2, 2/3). Scaled by N*N for supersample. "
+                         "Omitted values keep defaults: 64,128,192.")
+parser.add_argument("--downsample-filter", dest="downsample_filter", default="box",
+                    choices=["box", "gaussian", "lanczos", "max"],
+                    help="Downsampling filter for --supersample (default: box).")
 args = parser.parse_args()
 
 import freetype
@@ -32,11 +44,26 @@ GlyphProps = namedtuple("GlyphProps", ["width", "height", "advance_x", "left", "
 
 font_stack = [freetype.Face(f) for f in args.fontstack]
 is2Bit = args.is2Bit
+supersample = args.supersample  # None or integer factor (2, 3, 4, ...)
 size = args.size
 font_name = args.name
 load_flags = freetype.FT_LOAD_RENDER
 if args.force_autohint:
     load_flags |= freetype.FT_LOAD_FORCE_AUTOHINT
+
+_defaults = [64, 128, 192]
+_parts = [int(x) for x in args.thresholds_2bit.split(",")]
+t1, t2, t3 = (_parts + _defaults[len(_parts):])[0:3]
+
+if supersample and not is2Bit:
+    parser.error("--supersample requires --2bit")
+
+# When supersampling, we maintain a second font stack at Nx DPI (150*N).
+# This multiplies the ppem by N, so FreeType rasterizes at N-times the pixel
+# resolution. We downsample NxN blocks to produce the 2-bit glyph data,
+# but use the 1x font stack for all metrics (advance, left, top, ascender,
+# descender) since those were tuned by the hinter for the actual display grid.
+font_stack_nx = [freetype.Face(f) for f in args.fontstack] if supersample else None
 
 # inclusive unicode code point intervals
 # must not overlap and be in ascending order
@@ -244,6 +271,18 @@ def load_glyph(code_point):
         face_index += 1
     return None
 
+def load_glyph_nx(code_point):
+    """Load a glyph from the Nx font stack (high resolution)."""
+    face_index = 0
+    while face_index < len(font_stack_nx):
+        face = font_stack_nx[face_index]
+        glyph_index = face.get_char_index(code_point)
+        if glyph_index > 0:
+            face.load_glyph(glyph_index, load_flags)
+            return face
+        face_index += 1
+    return None
+
 unmerged_intervals = sorted(intervals + add_ints)
 intervals = []
 unvalidated_intervals = []
@@ -267,34 +306,168 @@ for i_start, i_end in unvalidated_intervals:
 for face in font_stack:
     face.set_char_size(size << 6, size << 6, 150, 150)
 
+if font_stack_nx:
+    nx_dpi = 150 * supersample
+    for face in font_stack_nx:
+        face.set_char_size(size << 6, size << 6, nx_dpi, nx_dpi)
+
 total_size = 0
 all_glyphs = []
+
+downsample_filter = args.downsample_filter
+
+def build_kernel(N, filter_name):
+    """Build an NxN weight kernel for the given filter.
+
+    Returns a flat list of N*N float weights normalized so that
+    sum(w) * 255 == 255 * N * N  (i.e. weights sum to N*N).
+    For 'box' and 'max', returns None (handled as special cases).
+    """
+    if filter_name in ("box", "max"):
+        return None
+
+    center = (N - 1) / 2.0
+    raw = []
+
+    if filter_name == "gaussian":
+        sigma = N / 3.0
+        for r in range(N):
+            for c in range(N):
+                d2 = (r - center) ** 2 + (c - center) ** 2
+                raw.append(math.exp(-d2 / (2 * sigma * sigma)))
+
+    elif filter_name == "lanczos":
+        a = 2.0
+        for r in range(N):
+            for c in range(N):
+                dy = (r - center) / (N / 2.0)
+                dx = (c - center) / (N / 2.0)
+                d = math.sqrt(dx * dx + dy * dy)
+                if d < 1e-9:
+                    raw.append(1.0)
+                elif d >= a:
+                    raw.append(0.0)
+                else:
+                    raw.append((math.sin(math.pi * d) / (math.pi * d)) *
+                               (math.sin(math.pi * d / a) / (math.pi * d / a)))
+
+    raw_sum = sum(raw)
+    scale = N * N / raw_sum
+    return [w * scale for w in raw]
+
+ss_kernel = build_kernel(supersample, downsample_filter) if supersample else None
+
+def supersample_glyph(code_point, face_1x):
+    """Render a glyph at Nx and downsample to produce 2-bit pixel data at 1x size.
+
+    The 1x face has already been loaded (for metrics). We render the same glyph
+    at Nx resolution, align the Nx bitmap to the 1x pixel grid, then filter
+    each NxN block and quantize into a single 2-bit pixel value (0-3).
+
+    Returns a flat list of 2-bit pixel values (one per 1x pixel, row-major)
+    with dimensions matching the 1x bitmap.
+    """
+    N = supersample
+    bmp_1x = face_1x.glyph.bitmap
+    w1 = bmp_1x.width
+    h1 = bmp_1x.rows
+    left1 = face_1x.glyph.bitmap_left
+    top1 = face_1x.glyph.bitmap_top
+
+    face_nx = load_glyph_nx(code_point)
+    bmp_nx = face_nx.glyph.bitmap
+    wn = bmp_nx.width
+    hn = bmp_nx.rows
+    leftn = face_nx.glyph.bitmap_left
+    topn = face_nx.glyph.bitmap_top
+
+    buf_nx = list(bmp_nx.buffer)
+
+    ox = N * left1 - leftn
+    oy = topn - N * top1
+
+    def get_nx_pixel(r, c):
+        if 0 <= r < hn and 0 <= c < wn:
+            return buf_nx[r * wn + c]
+        return 0
+
+    scale = N * N
+    st1 = t1 * scale
+    st2 = t2 * scale
+    st3 = t3 * scale
+
+    result = []
+    for y in range(h1):
+        for x in range(w1):
+            r0 = oy + y * N
+            c0 = ox + x * N
+
+            if downsample_filter == "max":
+                mv = max(get_nx_pixel(r0 + dr, c0 + dc)
+                         for dr in range(N) for dc in range(N))
+                s = mv * scale
+            elif ss_kernel is not None:
+                s = int(round(sum(get_nx_pixel(r0 + dr, c0 + dc) * ss_kernel[dr * N + dc]
+                                  for dr in range(N) for dc in range(N))))
+            else:
+                s = sum(get_nx_pixel(r0 + dr, c0 + dc)
+                        for dr in range(N) for dc in range(N))
+
+            if s >= st3:
+                result.append(3)
+            elif s >= st2:
+                result.append(2)
+            elif s >= st1:
+                result.append(1)
+            else:
+                result.append(0)
+
+    return result
+
+def pack_2bit(values, width, height):
+    """Pack a flat list of 2-bit values (0-3) into byte-packed format."""
+    pixels2b = []
+    px = 0
+    for i, v in enumerate(values):
+        px = (px << 2) | v
+        if i % 4 == 3:
+            pixels2b.append(px)
+            px = 0
+    if (width * height) % 4 != 0:
+        px = px << (4 - (width * height) % 4) * 2
+        pixels2b.append(px)
+    return pixels2b
 
 for i_start, i_end in intervals:
     for code_point in range(i_start, i_end + 1):
         face = load_glyph(code_point)
         bitmap = face.glyph.bitmap
 
-        # Build out 4-bit greyscale bitmap
-        pixels4g = []
-        px = 0
-        for i, v in enumerate(bitmap.buffer):
-            y = i / bitmap.width
-            x = i % bitmap.width
-            if x % 2 == 0:
-                px = (v >> 4)
-            else:
-                px = px | (v & 0xF0)
-                pixels4g.append(px);
-                px = 0
-            # eol
-            if x == bitmap.width - 1 and bitmap.width % 2 > 0:
-                pixels4g.append(px)
-                px = 0
+        if is2Bit and supersample:
+            # --- Supersampled 2-bit path ---
+            # The 1x glyph is already loaded (face), giving us the metrics.
+            # supersample_glyph() renders at 2x, aligns, and downsamples.
+            values_2bit = supersample_glyph(code_point, face)
+            pixels = pack_2bit(values_2bit, bitmap.width, bitmap.rows)
 
-        if is2Bit:
-            # 0-3 white, 4-7 light grey, 8-11 dark grey, 12-15 black
-            # Downsample to 2-bit bitmap
+        elif is2Bit:
+            # --- Standard 2-bit path (via 4-bit intermediate) ---
+            # Build out 4-bit greyscale bitmap
+            pixels4g = []
+            px = 0
+            for i, v in enumerate(bitmap.buffer):
+                y = i / bitmap.width
+                x = i % bitmap.width
+                if x % 2 == 0:
+                    px = (v >> 4)
+                else:
+                    px = px | (v & 0xF0)
+                    pixels4g.append(px);
+                    px = 0
+                if x == bitmap.width - 1 and bitmap.width % 2 > 0:
+                    pixels4g.append(px)
+                    px = 0
+
             pixels2b = []
             px = 0
             pitch = (bitmap.width // 2) + (bitmap.width % 2)
@@ -317,18 +490,25 @@ for i_start, i_end in intervals:
             if (bitmap.width * bitmap.rows) % 4 != 0:
                 px = px << (4 - (bitmap.width * bitmap.rows) % 4) * 2
                 pixels2b.append(px)
+            pixels = pixels2b
 
-            # for y in range(bitmap.rows):
-            #     line = ''
-            #     for x in range(bitmap.width):
-            #         pixelPosition = y * bitmap.width + x
-            #         byte = pixels2b[pixelPosition // 4]
-            #         bit_index = (3 - (pixelPosition % 4)) * 2
-            #         line += '#' if ((byte >> bit_index) & 3) > 0 else '.'
-            #     print(line)
-            # print('')
         else:
-            # Downsample to 1-bit bitmap - treat any 2+ as black
+            # --- 1-bit path (via 4-bit intermediate) ---
+            pixels4g = []
+            px = 0
+            for i, v in enumerate(bitmap.buffer):
+                y = i / bitmap.width
+                x = i % bitmap.width
+                if x % 2 == 0:
+                    px = (v >> 4)
+                else:
+                    px = px | (v & 0xF0)
+                    pixels4g.append(px);
+                    px = 0
+                if x == bitmap.width - 1 and bitmap.width % 2 > 0:
+                    pixels4g.append(px)
+                    px = 0
+
             pixelsbw = []
             px = 0
             pitch = (bitmap.width // 2) + (bitmap.width % 2)
@@ -344,20 +524,9 @@ for i_start, i_end in intervals:
             if (bitmap.width * bitmap.rows) % 8 != 0:
                 px = px << (8 - (bitmap.width * bitmap.rows) % 8)
                 pixelsbw.append(px)
+            pixels = pixelsbw
 
-            # for y in range(bitmap.rows):
-            #     line = ''
-            #     for x in range(bitmap.width):
-            #         pixelPosition = y * bitmap.width + x
-            #         byte = pixelsbw[pixelPosition // 8]
-            #         bit_index = 7 - (pixelPosition % 8)
-            #         line += '#' if (byte >> bit_index) & 1 else '.'
-            #     print(line)
-            # print('')
-
-        pixels = pixels2b if is2Bit else pixelsbw
-
-        # Build output data
+        # Build output data — all metrics come from the 1x render.
         packed = bytes(pixels)
         glyph = GlyphProps(
             width = bitmap.width,
