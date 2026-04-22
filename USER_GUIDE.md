@@ -155,7 +155,7 @@ The Settings screen allows you to configure the device's behavior. There are a f
 
 #### 3.6.2 Reader
 - **Reader Font Family**: Choose the font used for reading:
-  - "Bookerly" (default) - Amazon's reading font
+  - "Noto Serif" (default) - Google's serif font
   - "Noto Sans" - Google's sans-serif font
   - "Open Dyslexic" - Font designed for readers with dyslexia
 - **Reader Font Size**: Adjust the text size for reading; options are "Small", "Medium" (default), "Large", or "X Large".
@@ -336,7 +336,8 @@ To use custom sleep images, set the sleep screen mode to **Custom** or **Cover +
 > [!TIP]
 > For best results:
 > - Use uncompressed BMP files with 24-bit color depth
-> - Use a resolution of 480x800 pixels to match the device's screen resolution.
+> - X4: Use a resolution of 480x800 pixels to match the device's screen resolution.
+> - X3: Use a resolution of 528x792 pixels to match the device's screen resolution.
 
 ---
 

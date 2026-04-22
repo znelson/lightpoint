@@ -16,6 +16,7 @@ class EpubReaderActivity final : public Activity {
   // Set when navigating to a TOC entry in a different spine (chapter skip or chapter selector).
   // Cleared on the next render after the new section loads and resolves it to a page.
   std::optional<int> pendingTocIndex;
+  std::optional<uint16_t> pendingPageJump;
   // Set when navigating to a footnote href with a fragment (e.g. #note1).
   // Cleared on the next render after the new section loads and resolves it to a page.
   std::string pendingAnchor;
