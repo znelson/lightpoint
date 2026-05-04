@@ -674,6 +674,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     }
 
     if (pendingTocIndex) {
+      cachedChapterTotalPageCount = 0;
       if (const auto resolvedPage = section->getPageForTocIndex(*pendingTocIndex)) {
         section->currentPage = *resolvedPage;
       }
