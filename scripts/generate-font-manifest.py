@@ -36,6 +36,8 @@ STYLE_TOC_ENTRY_FORMAT = "<B31x"
 CPFONT_MAGIC = b"CPFONT\x00\x00"
 CPFONT_VERSION = 4
 
+FONTS_MANIFEST_VERSION = 1
+
 STYLE_NAMES = {0: "regular", 1: "bold", 2: "italic", 3: "bolditalic"}
 
 # Family descriptions can be loaded from the sd-fonts.yaml config
@@ -174,7 +176,7 @@ def build_manifest(
         )
 
     return {
-        "version": 1,
+        "version": FONTS_MANIFEST_VERSION,
         "baseUrl": base_url,
         "families": manifest_families,
     }

@@ -63,6 +63,8 @@ void FontDownloadActivity::onWifiSelectionComplete(const bool success) {
 
 // --- Manifest fetching ---
 
+static constexpr int FONTS_MANIFEST_VERSION = 1;
+
 bool FontDownloadActivity::fetchAndParseManifest() {
   // Download manifest to a temp file on SD card to avoid holding both
   // TLS buffers and the full JSON string in RAM simultaneously.
@@ -97,7 +99,7 @@ bool FontDownloadActivity::fetchAndParseManifest() {
   }
 
   int version = doc["version"] | 0;
-  if (version != 1) {
+  if (version != FONTS_MANIFEST_VERSION) {
     LOG_ERR("FONT", "Unsupported manifest version: %d", version);
     errorMessage_ = "Unsupported manifest version";
     return false;
