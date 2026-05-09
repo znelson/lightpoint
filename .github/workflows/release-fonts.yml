@@ -96,14 +96,13 @@ jobs:
         run: |
           BASE="${{ steps.tags.outputs.base }}"
 
-          # Delete the old stable release (assets only — the versioned release is the archive)
+          # Delete the old stable release for this m/b pair (the versioned releases are kept)
           gh release delete "$BASE" --repo "${{ env.FONTS_REPO }}" --yes 2>/dev/null || true
 
-          # Create a new stable release pointing at the same assets
           gh release create "$BASE" dist/* \
             --repo "${{ env.FONTS_REPO }}" \
-            --title "SD Card Fonts (latest)" \
-            --notes "Latest font build. Devices download from this release.
+            --title "SD Card Fonts (${BASE#sd-fonts-})" \
+            --notes "Current font build for manifest v${{ steps.versions.outputs.metadata }}, binary format v${{ steps.versions.outputs.binary }}. Devices with this firmware version download from this release.
 
           This is revision **${{ steps.tags.outputs.revision }}** — see [\`${{ steps.tags.outputs.versioned }}\`](https://github.com/${{ env.FONTS_REPO }}/releases/tag/${{ steps.tags.outputs.versioned }}) for the immutable copy.
 
