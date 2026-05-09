@@ -50,28 +50,38 @@ jobs:
           mkdir -p dist
           find lib/EpdFont/scripts/output -name '*.cpfont' -exec cp {} dist/ \;
 
-      - name: Generate manifest
-        id: manifest
-        run: |
-          TAG="sd-fonts-m${{ steps.versions.outputs.metadata }}-b${{ steps.versions.outputs.binary }}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          python3 scripts/generate-font-manifest.py \
-            --input dist \
-            --base-url "https://github.com/${{ env.FONTS_REPO }}/releases/download/${TAG}/" \
-            --output dist/fonts.json \
-            --descriptions-from lib/EpdFont/scripts/sd-fonts.yaml
-
-      - name: Publish release to fonts repo
+      - name: Compute release tags
+        id: tags
         env:
           GH_TOKEN: ${{ secrets.FONTS_REPO_TOKEN }}
         run: |
-          TAG="${{ steps.manifest.outputs.tag }}"
-          TITLE="SD Card Fonts (${TAG#sd-fonts-})"
+          BASE="sd-fonts-m${{ steps.versions.outputs.metadata }}-b${{ steps.versions.outputs.binary }}"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
 
-          # Delete existing release for this tag if present (idempotent re-runs)
-          gh release delete "$TAG" --repo "${{ env.FONTS_REPO }}" --yes 2>/dev/null || true
+          # Find the highest existing revision for this m/b pair
+          LAST=$(gh release list --repo "${{ env.FONTS_REPO }}" \
+            --json tagName --jq \
+            '[.[] | select(.tagName | startswith("'"${BASE}-r"'")) | .tagName | split("-r")[1] | tonumber] | max // 0')
+          NEXT=$((LAST + 1))
+          echo "revision=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "versioned=${BASE}-r${NEXT}" >> "$GITHUB_OUTPUT"
 
-          gh release create "$TAG" dist/* \
+      - name: Generate manifest
+        run: |
+          python3 scripts/generate-font-manifest.py \
+            --input dist \
+            --base-url "https://github.com/${{ env.FONTS_REPO }}/releases/download/${{ steps.tags.outputs.base }}/" \
+            --output dist/fonts.json \
+            --descriptions-from lib/EpdFont/scripts/sd-fonts.yaml
+
+      - name: Publish versioned release to fonts repo
+        env:
+          GH_TOKEN: ${{ secrets.FONTS_REPO_TOKEN }}
+        run: |
+          VERSIONED="${{ steps.tags.outputs.versioned }}"
+          TITLE="SD Card Fonts (${VERSIONED#sd-fonts-})"
+
+          gh release create "$VERSIONED" dist/* \
             --repo "${{ env.FONTS_REPO }}" \
             --title "$TITLE" \
             --notes "Pre-built \`.cpfont\` font files for CrossPoint Reader.
@@ -79,3 +89,22 @@ jobs:
           Download individual files or use **Settings > System > Download Fonts** on the device.
 
           See [SD Card Fonts documentation](https://github.com/${{ github.repository }}/blob/main/docs/sd-card-fonts.md) for details."
+
+      - name: Update stable tag for device downloads
+        env:
+          GH_TOKEN: ${{ secrets.FONTS_REPO_TOKEN }}
+        run: |
+          BASE="${{ steps.tags.outputs.base }}"
+
+          # Delete the old stable release (assets only — the versioned release is the archive)
+          gh release delete "$BASE" --repo "${{ env.FONTS_REPO }}" --yes 2>/dev/null || true
+
+          # Create a new stable release pointing at the same assets
+          gh release create "$BASE" dist/* \
+            --repo "${{ env.FONTS_REPO }}" \
+            --title "SD Card Fonts (latest)" \
+            --notes "Latest font build. Devices download from this release.
+
+          This is revision **${{ steps.tags.outputs.revision }}** — see [\`${{ steps.tags.outputs.versioned }}\`](https://github.com/${{ env.FONTS_REPO }}/releases/tag/${{ steps.tags.outputs.versioned }}) for the immutable copy.
+
+          Download individual files or use **Settings > System > Download Fonts** on the device."
