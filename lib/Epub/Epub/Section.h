@@ -1,11 +1,12 @@
 #pragma once
+#include <Typesetter/SectionCache.h>
+
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 
 #include "Epub.h"
-#include "SectionCache.h"
 
 class Page;
 class GfxRenderer;

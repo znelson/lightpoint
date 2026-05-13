@@ -1,7 +1,7 @@
 #pragma once
 #include <Epub.h>
-#include <Epub/FootnoteEntry.h>
 #include <Epub/Section.h>
+#include <Typesetter/FootnoteEntry.h>
 
 #include <optional>
 

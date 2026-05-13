@@ -12,7 +12,7 @@
 
 enum PageElementTag : uint8_t {
   TAG_PageLine = 1,
-  TAG_PageImage = 2,  // New tag
+  TAG_PageImage = 2,
 };
 
 // represents something that has been added to a page
@@ -24,7 +24,7 @@ class PageElement {
   virtual ~PageElement() = default;
   virtual void render(GfxRenderer& renderer, int fontId, int xOffset, int yOffset) = 0;
   virtual bool serialize(FsFile& file) = 0;
-  virtual PageElementTag getTag() const = 0;  // Add type identification
+  virtual PageElementTag getTag() const = 0;
 };
 
 // a line from a block element
@@ -41,7 +41,6 @@ class PageLine final : public PageElement {
   static std::unique_ptr<PageLine> deserialize(FsFile& file);
 };
 
-// New PageImage class
 class PageImage final : public PageElement {
   std::shared_ptr<ImageBlock> imageBlock;
 

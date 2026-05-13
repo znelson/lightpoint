@@ -3,8 +3,7 @@
 #include <HalStorage.h>
 #include <Logging.h>
 #include <Serialization.h>
-
-#include "Page.h"
+#include <Typesetter/Page.h>
 
 bool SectionCache::openForWrite() {
   if (!Storage.openFileForWrite("SCC", filePath, file)) {

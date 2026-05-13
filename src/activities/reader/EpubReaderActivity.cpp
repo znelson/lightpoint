@@ -1,13 +1,13 @@
 #include "EpubReaderActivity.h"
 
-#include <Epub/Page.h>
-#include <Epub/blocks/TextBlock.h>
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
+#include <Typesetter/Page.h>
+#include <Typesetter/blocks/TextBlock.h>
 #include <esp_system.h>
 
 #include <iterator>

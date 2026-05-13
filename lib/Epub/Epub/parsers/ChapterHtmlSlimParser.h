@@ -1,6 +1,10 @@
 #pragma once
 
 #include <Typesetter.h>
+#include <Typesetter/FootnoteEntry.h>
+#include <Typesetter/ParsedText.h>
+#include <Typesetter/blocks/ImageBlock.h>
+#include <Typesetter/blocks/TextBlock.h>
 #include <expat.h>
 
 #include <climits>
@@ -9,10 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "Epub/FootnoteEntry.h"
-#include "Epub/ParsedText.h"
-#include "Epub/blocks/ImageBlock.h"
-#include "Epub/blocks/TextBlock.h"
+#include "Epub/css/BlockStyleFactory.h"
 #include "Epub/css/CssParser.h"
 #include "Epub/css/CssStyle.h"
 

@@ -1,9 +1,10 @@
 #pragma once
 
+#include <Typesetter/TextAlign.h>
+
 #include <cstdint>
 
-// Matches order of PARAGRAPH_ALIGNMENT in CrossPointSettings
-enum class CssTextAlign : uint8_t { Justify = 0, Left = 1, Center = 2, Right = 3, None = 4 };
+// CssTextAlign is defined in <Typesetter/TextAlign.h>
 enum class CssUnit : uint8_t { Pixels = 0, Em = 1, Rem = 2, Points = 3, Percent = 4 };
 
 // Represents a CSS length value with its unit, allowing deferred resolution to pixels

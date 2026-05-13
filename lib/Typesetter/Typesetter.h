@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Epub/FootnoteEntry.h>
-#include <Epub/Page.h>
-#include <Epub/ParsedText.h>
-#include <Epub/blocks/ImageBlock.h>
+#include <Typesetter/FootnoteEntry.h>
+#include <Typesetter/Page.h>
+#include <Typesetter/ParsedText.h>
+#include <Typesetter/blocks/ImageBlock.h>
 
 #include <functional>
 #include <memory>

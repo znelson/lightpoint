@@ -2,9 +2,9 @@
 
 #include <HalStorage.h>
 #include <Logging.h>
+#include <Typesetter/Page.h>
 
 #include "Epub/css/CssParser.h"
-#include "Page.h"
 #include "hyphenation/Hyphenator.h"
 #include "parsers/ChapterHtmlSlimParser.h"
 
