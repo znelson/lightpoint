@@ -5,7 +5,7 @@
 #include <Typesetter/Page.h>
 
 #include "Epub/css/CssParser.h"
-#include "hyphenation/Hyphenator.h"
+#include <Hyphenator.h>
 #include "parsers/ChapterHtmlSlimParser.h"
 
 bool Section::loadSectionFile(const int fontId, const float lineCompression, const bool extraParagraphSpacing,

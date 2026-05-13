@@ -12,8 +12,8 @@
 #include <iterator>
 
 #include "Epub.h"
-#include "Epub/converters/ImageDecoderFactory.h"
-#include "Epub/converters/ImageToFramebufferDecoder.h"
+#include <ImageDecoderFactory.h>
+#include <ImageToFramebufferDecoder.h>
 #include "Epub/htmlEntities.h"
 
 // Minimum file size (in bytes) to show indexing popup - smaller chapters don't benefit from it

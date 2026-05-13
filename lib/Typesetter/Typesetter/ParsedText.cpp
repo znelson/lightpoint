@@ -1,6 +1,6 @@
 #include "ParsedText.h"
 
-#include <Epub/hyphenation/Hyphenator.h>
+#include <Hyphenator.h>
 #include <GfxRenderer.h>
 #include <Utf8.h>
 
