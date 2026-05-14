@@ -219,6 +219,7 @@ void EpubReaderActivity::loop() {
   // spine before the current chapter's first spine (clamped to 0 in render()).
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP) {
     lastPageTurnTime = millis();
+    // We don't want to delete the section mid-render, so grab the semaphore
     {
       RenderLock lock(*this);
 
