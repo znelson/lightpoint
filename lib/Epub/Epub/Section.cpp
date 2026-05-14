@@ -375,9 +375,12 @@ void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16
     tocBoundaries.push_back({i, page});
   }
 
-  // Defensive sort in case TOC entries are out of document order in a malformed epub
-  std::sort(tocBoundaries.begin(), tocBoundaries.end(),
-            [](const TocBoundary& a, const TocBoundary& b) { return a.startPage < b.startPage; });
+  // Defensive sort in case TOC entries are out of document order in a malformed epub.
+  // Tie-break on tocIndex so entries sharing a page (e.g. unresolved anchors at page 0)
+  // remain in logical document order, making lookup results deterministic.
+  std::sort(tocBoundaries.begin(), tocBoundaries.end(), [](const TocBoundary& a, const TocBoundary& b) {
+    return a.startPage != b.startPage ? a.startPage < b.startPage : a.tocIndex < b.tocIndex;
+  });
 }
 
 // Resolve TOC anchor-to-page mappings by scanning the section cache's on-disk anchor data.
@@ -447,9 +450,12 @@ void Section::buildTocBoundariesFromFile(FsFile& f) {
     }
   }
 
-  // Defensive sort in case TOC entries are out of document order in a malformed epub
-  std::sort(tocBoundaries.begin(), tocBoundaries.end(),
-            [](const TocBoundary& a, const TocBoundary& b) { return a.startPage < b.startPage; });
+  // Defensive sort in case TOC entries are out of document order in a malformed epub.
+  // Tie-break on tocIndex so entries sharing a page (e.g. unresolved anchors at page 0)
+  // remain in logical document order, making lookup results deterministic.
+  std::sort(tocBoundaries.begin(), tocBoundaries.end(), [](const TocBoundary& a, const TocBoundary& b) {
+    return a.startPage != b.startPage ? a.startPage < b.startPage : a.tocIndex < b.tocIndex;
+  });
 }
 
 int Section::getTocIndexForPage(const int page) const {
