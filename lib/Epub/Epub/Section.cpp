@@ -25,9 +25,9 @@ constexpr uint32_t kEmbeddedStyle = kHyphenation + sizeof(bool);
 constexpr uint32_t kImageRendering = kEmbeddedStyle + sizeof(bool);
 constexpr uint32_t kFocusReading = kImageRendering + sizeof(uint8_t);
 constexpr uint32_t kPageCount = kFocusReading + sizeof(bool);
-constexpr uint32_t kLutOffset = kPageCount + sizeof(uint32_t);
-constexpr uint32_t kAnchorMapOffset = kLutOffset + sizeof(uint32_t);
-constexpr uint32_t kParagraphLut = kAnchorMapOffset + sizeof(uint32_t);
+constexpr uint32_t kPageLut = kPageCount + sizeof(uint16_t);
+constexpr uint32_t kAnchorMap = kPageLut + sizeof(uint32_t);
+constexpr uint32_t kParagraphLut = kAnchorMap + sizeof(uint32_t);
 constexpr uint32_t kListItemLut = kParagraphLut + sizeof(uint32_t);
 constexpr uint32_t kSize = kListItemLut + sizeof(uint32_t);
 }  // namespace header
@@ -319,7 +319,7 @@ std::unique_ptr<Page> Section::loadPageFromSectionFile() {
     return nullptr;
   }
 
-  file.seek(header::kLutOffset);
+  file.seek(header::kPageLut);
   uint32_t lutOffset;
   serialization::readPod(file, lutOffset);
   file.seek(lutOffset + sizeof(uint32_t) * currentPage);
@@ -340,7 +340,7 @@ std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) con
   }
 
   const uint32_t fileSize = f.size();
-  f.seek(header::kAnchorMapOffset);
+  f.seek(header::kAnchorMap);
   uint32_t anchorMapOffset;
   serialization::readPod(f, anchorMapOffset);
   if (anchorMapOffset == 0 || anchorMapOffset >= fileSize) {
@@ -441,14 +441,14 @@ std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex)
   }
 
   const uint32_t fileSize = f.size();
-  f.seek(header::kLiLut);
+  f.seek(header::kListItemLut);
   uint32_t liLutOffset;
   serialization::readPod(f, liLutOffset);
   if (liLutOffset == 0 || liLutOffset >= fileSize) {
     return std::nullopt;
   }
 
-  // The li LUT shares count with the paragraph LUT; read count from paragraphLutOffset
+  // The list item LUT shares count with the paragraph LUT; read count from paragraphLutOffset
   f.seek(header::kParagraphLut);
   uint32_t paragraphLutOffset;
   serialization::readPod(f, paragraphLutOffset);
