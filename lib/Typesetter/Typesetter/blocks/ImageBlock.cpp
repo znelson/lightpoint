@@ -1,8 +1,8 @@
 #include "ImageBlock.h"
 
 #include <DirectPixelWriter.h>
-#include <ImageDecoderFactory.h>
 #include <GfxRenderer.h>
+#include <ImageDecoderFactory.h>
 #include <Logging.h>
 #include <Serialization.h>
 

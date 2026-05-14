@@ -1,7 +1,7 @@
 #include "ParsedText.h"
 
-#include <Hyphenator.h>
 #include <GfxRenderer.h>
+#include <Hyphenator.h>
 #include <Utf8.h>
 
 #include <algorithm>
