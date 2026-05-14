@@ -222,7 +222,6 @@ void EpubReaderActivity::loop() {
     // We don't want to delete the section mid-render, so grab the semaphore
     {
       RenderLock lock(*this);
-
       if (section && section->pageCount > 0) {
         const int curTocIndex = section->getTocIndexForPage(section->currentPage);
         const int nextTocIndex = nextTriggered ? curTocIndex + 1 : curTocIndex - 1;
