@@ -22,11 +22,8 @@ class I18n {
 
   Language getLanguage() const { return _language; }
   void setLanguage(Language lang);
-  const char* getLanguageCode(Language lang) const;
   const char* getLanguageName(Language lang) const;
-
-  void saveSettings();
-  void loadSettings();
+  static Language languageFromCode(const char* code);
 
  private:
   I18n() : _language(Language::EN) {}
