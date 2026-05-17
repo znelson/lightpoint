@@ -28,7 +28,8 @@ class Section {
   };
   std::vector<TocBoundary> tocBoundaries;
 
-  void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors);
+  void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, int startTocIndex,
+                          uint16_t totalEntries, uint16_t unresolvedCount);
   void buildTocBoundariesFromFile(FsFile& f);
 
  public:

@@ -226,18 +226,23 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
     }
   }
 
-  // Collect TOC anchors for this spine so the parser can insert page breaks at chapter boundaries
+  // Collect TOC anchors for this spine so the parser can insert page breaks at chapter boundaries.
+  // Also track totalEntries and unresolvedCount here so buildTocBoundaries can skip re-deriving them.
+  // unresolvedCount must be captured before tocAnchors is moved into the parser constructor.
   std::vector<std::string> tocAnchors;
   const int startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
+  uint16_t tocTotalEntries = 0;
   if (startTocIndex >= 0) {
     for (int i = startTocIndex; i < epub->getTocItemsCount(); i++) {
       auto entry = epub->getTocItem(i);
       if (entry.spineIndex != spineIndex) break;
+      tocTotalEntries++;
       if (!entry.anchor.empty()) {
         tocAnchors.push_back(std::move(entry.anchor));
       }
     }
   }
+  const uint16_t tocUnresolvedCount = static_cast<uint16_t>(tocAnchors.size());
 
   ChapterHtmlSlimParser visitor(
       epub, tmpHtmlPath, renderer, fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
@@ -313,7 +318,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
     cssParser->clear();
   }
 
-  buildTocBoundaries(anchors);
+  buildTocBoundaries(anchors, startTocIndex, tocTotalEntries, tocUnresolvedCount);
   return true;
 }
 
@@ -341,25 +346,12 @@ std::unique_ptr<Page> Section::loadPageFromSectionFile() {
 // See buildTocBoundariesFromFile for the on-disk variant; the two are kept separate
 // because the anchor resolution has fundamentally different iteration patterns
 // (scan in-memory vector vs. stream from file with early exit).
-void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors) {
-  const int startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
-  if (startTocIndex < 0) return;
-
-  // Count TOC entries for this spine and how many have anchors to resolve
-  const int tocCount = epub->getTocItemsCount();
-  uint16_t totalEntries = 0;
-  uint16_t unresolvedCount = 0;
-  for (int i = startTocIndex; i < tocCount; i++) {
-    const auto entry = epub->getTocItem(i);
-    if (entry.spineIndex != spineIndex) break;
-    totalEntries++;
-    if (!entry.anchor.empty()) unresolvedCount++;
-  }
-
+void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, const int startTocIndex,
+                                 const uint16_t totalEntries, const uint16_t unresolvedCount) {
   // If no TOC entries have anchors, all chapters start at page 0 and
   // getTocIndexForPage falls back to epub->getTocIndexForSpineIndex,
   // so there's nothing to resolve and no value in storing boundaries.
-  if (totalEntries == 0 || unresolvedCount == 0) return;
+  if (startTocIndex < 0 || totalEntries == 0 || unresolvedCount == 0) return;
 
   tocBoundaries.reserve(totalEntries);
   for (int i = startTocIndex; i < startTocIndex + totalEntries; i++) {
