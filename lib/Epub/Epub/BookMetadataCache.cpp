@@ -476,6 +476,7 @@ void BookMetadataCache::skipSpineEntry(FsFile& file) const {
 }
 
 void BookMetadataCache::skipTocEntry(FsFile& file) const {
+  // 3: title, href, anchor
   for (int i = 0; i < 3; i++) {
     uint32_t len;
     serialization::readPod(file, len);
