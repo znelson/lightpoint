@@ -13,6 +13,14 @@ constexpr uint8_t BOOK_CACHE_VERSION = 5;
 constexpr char bookBinFile[] = "/book.bin";
 constexpr char tmpSpineBinFile[] = "/spine.bin.tmp";
 constexpr char tmpTocBinFile[] = "/toc.bin.tmp";
+
+namespace header {
+constexpr uint32_t kVersion = 0;
+constexpr uint32_t kLutOffset = kVersion + sizeof(uint8_t);
+constexpr uint32_t kSpineCount = kLutOffset + sizeof(uint32_t);
+constexpr uint32_t kTocCount = kSpineCount + sizeof(uint16_t);
+constexpr uint32_t kSize = kTocCount + sizeof(uint16_t);
+}  // namespace header
 }  // namespace
 
 /* ============= WRITING / BUILDING FUNCTIONS ================ */
@@ -118,13 +126,14 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
     return false;
   }
 
-  constexpr uint32_t headerASize =
-      sizeof(BOOK_CACHE_VERSION) + /* LUT Offset */ sizeof(uint32_t) + sizeof(spineCount) + sizeof(tocCount);
+  static_assert(header::kSize == sizeof(BOOK_CACHE_VERSION) + sizeof(lutOffset) + sizeof(spineCount) + sizeof(tocCount),
+                "BookMetadataCache header size mismatch");
+
   const uint32_t metadataSize = metadata.title.size() + metadata.author.size() + metadata.language.size() +
                                 metadata.coverItemHref.size() + metadata.textReferenceHref.size() +
                                 sizeof(uint32_t) * 5;
   const uint32_t lutSize = sizeof(uint32_t) * spineCount + sizeof(uint32_t) * tocCount;
-  const uint32_t lutOffset = headerASize + metadataSize;
+  const uint32_t lutOffset = header::kSize + metadataSize;
 
   // Header A
   serialization::writePod(bookFile, BOOK_CACHE_VERSION);
