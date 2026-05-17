@@ -347,8 +347,8 @@ std::unique_ptr<Page> Section::loadPageFromSectionFile() {
   file.seek(header::kPageLut);
   uint32_t lutOffset;
   serialization::readPod(file, lutOffset);
-  file.seek(lutOffset + sizeof(uint32_t) * currentPage);
   uint32_t pagePos;
+  file.seek(lutOffset + sizeof(pagePos) * currentPage);
   serialization::readPod(file, pagePos);
   file.seek(pagePos);
 
@@ -572,14 +572,14 @@ std::optional<uint16_t> Section::getPageForParagraphIndex(const uint16_t pIndex)
     return std::nullopt;
   }
 
-  const uint32_t lutEnd = paragraphLutOffset + sizeof(uint16_t) + count * sizeof(uint16_t);
+  uint16_t pagePIdx;
+  const uint32_t lutEnd = paragraphLutOffset + sizeof(count) + count * sizeof(pagePIdx);
   if (lutEnd > fileSize) {
     return std::nullopt;
   }
 
   uint16_t resultPage = count - 1;
   for (uint16_t i = 0; i < count; i++) {
-    uint16_t pagePIdx;
     serialization::readPod(f, pagePIdx);
     if (pagePIdx >= pIndex) {
       resultPage = i;
@@ -611,13 +611,13 @@ std::optional<uint16_t> Section::getParagraphIndexForPage(const uint16_t page) c
     return std::nullopt;
   }
 
-  const uint32_t entryEnd = paragraphLutOffset + sizeof(uint16_t) + (page + 1) * sizeof(uint16_t);
+  uint16_t pIdx;
+  const uint32_t entryEnd = paragraphLutOffset + sizeof(count) + (page + 1) * sizeof(pIdx);
   if (entryEnd > fileSize) {
     return std::nullopt;
   }
 
-  f.seek(paragraphLutOffset + sizeof(uint16_t) + page * sizeof(uint16_t));
-  uint16_t pIdx;
+  f.seek(paragraphLutOffset + sizeof(count) + page * sizeof(pIdx));
   serialization::readPod(f, pIdx);
   return pIdx;
 }
@@ -651,7 +651,8 @@ std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex)
     return std::nullopt;
   }
 
-  const uint32_t lutEnd = liLutOffset + count * sizeof(uint16_t);
+  uint16_t pageLiIdx;
+  const uint32_t lutEnd = liLutOffset + count * sizeof(pageLiIdx);
   if (lutEnd > fileSize) {
     return std::nullopt;
   }
@@ -659,7 +660,6 @@ std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex)
   f.seek(liLutOffset);
   uint16_t resultPage = count - 1;
   for (uint16_t i = 0; i < count; i++) {
-    uint16_t pageLiIdx;
     serialization::readPod(f, pageLiIdx);
     if (pageLiIdx >= liIndex) {
       resultPage = i;
