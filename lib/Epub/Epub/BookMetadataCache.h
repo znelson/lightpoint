@@ -80,6 +80,8 @@ class BookMetadataCache {
   uint32_t writeTocEntry(FsFile& file, const TocEntry& entry) const;
   SpineEntry readSpineEntry(FsFile& file) const;
   TocEntry readTocEntry(FsFile& file) const;
+  void skipSpineEntry(FsFile& file) const;
+  void skipTocEntry(FsFile& file) const;
 
  public:
   BookMetadata coreMetadata;
