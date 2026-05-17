@@ -153,7 +153,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   spineFile.seek(0);
   for (int i = 0; i < spineCount; i++) {
     uint32_t pos = spineFile.position();
-    readSpineEntry(spineFile);  // advance file cursor
+    skipSpineEntry(spineFile);
     serialization::writePod(bookFile, pos + lutOffset + lutSize);
   }
 
@@ -163,7 +163,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   tocFile.seek(0);
   for (int i = 0; i < tocCount; i++) {
     uint32_t pos = tocFile.position();
-    readTocEntry(tocFile);  // advance file cursor
+    skipTocEntry(tocFile);
     serialization::writePod(bookFile, pos + lutOffset + lutSize + spineDataSize);
   }
 
@@ -425,8 +425,8 @@ BookMetadataCache::SpineEntry BookMetadataCache::getSpineEntry(const int index) 
   }
 
   // Seek to spine LUT item, read from LUT and get out data
-  bookFile.seek(lutOffset + sizeof(uint32_t) * index);
   uint32_t spineEntryPos;
+  bookFile.seek(lutOffset + sizeof(spineEntryPos) * index);
   serialization::readPod(bookFile, spineEntryPos);
   bookFile.seek(spineEntryPos);
   return readSpineEntry(bookFile);
@@ -444,8 +444,8 @@ BookMetadataCache::TocEntry BookMetadataCache::getTocEntry(const int index) {
   }
 
   // Seek to TOC LUT item, read from LUT and get out data
-  bookFile.seek(lutOffset + sizeof(uint32_t) * spineCount + sizeof(uint32_t) * index);
   uint32_t tocEntryPos;
+  bookFile.seek(lutOffset + sizeof(tocEntryPos) * (spineCount + index));
   serialization::readPod(bookFile, tocEntryPos);
   bookFile.seek(tocEntryPos);
   return readTocEntry(bookFile);
@@ -467,4 +467,19 @@ BookMetadataCache::TocEntry BookMetadataCache::readTocEntry(FsFile& file) const 
   serialization::readPod(file, entry.level);
   serialization::readPod(file, entry.spineIndex);
   return entry;
+}
+
+void BookMetadataCache::skipSpineEntry(FsFile& file) const {
+  uint32_t len;
+  serialization::readPod(file, len);
+  file.seek(file.position() + len + sizeof(SpineEntry::cumulativeSize) + sizeof(SpineEntry::tocIndex));
+}
+
+void BookMetadataCache::skipTocEntry(FsFile& file) const {
+  for (int i = 0; i < 3; i++) {
+    uint32_t len;
+    serialization::readPod(file, len);
+    file.seek(file.position() + len);
+  }
+  file.seek(file.position() + sizeof(TocEntry::level) + sizeof(TocEntry::spineIndex));
 }
