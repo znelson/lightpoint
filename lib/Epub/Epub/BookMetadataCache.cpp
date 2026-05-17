@@ -129,15 +129,11 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   static_assert(header::kSize == sizeof(BOOK_CACHE_VERSION) + sizeof(lutOffset) + sizeof(spineCount) + sizeof(tocCount),
                 "BookMetadataCache header size mismatch");
 
-  const uint32_t metadataSize = metadata.title.size() + metadata.author.size() + metadata.language.size() +
-                                metadata.coverItemHref.size() + metadata.textReferenceHref.size() +
-                                sizeof(uint32_t) * 5;
-  const uint32_t lutSize = sizeof(uint32_t) * spineCount + sizeof(uint32_t) * tocCount;
-  const uint32_t lutOffset = header::kSize + metadataSize;
+  const uint32_t lutSize = sizeof(uint32_t) * (spineCount + tocCount);
 
-  // Header A
+  // Header
   serialization::writePod(bookFile, BOOK_CACHE_VERSION);
-  serialization::writePod(bookFile, lutOffset);
+  serialization::writePod(bookFile, uint32_t{0});  // lutOffset placeholder, patched later
   serialization::writePod(bookFile, spineCount);
   serialization::writePod(bookFile, tocCount);
   // Metadata
@@ -146,6 +142,12 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   serialization::writeString(bookFile, metadata.language);
   serialization::writeString(bookFile, metadata.coverItemHref);
   serialization::writeString(bookFile, metadata.textReferenceHref);
+
+  // Patch lutOffset with actual position
+  const uint32_t lutOffset = bookFile.position();
+  bookFile.seek(header::kLutOffset);
+  serialization::writePod(bookFile, lutOffset);
+  bookFile.seek(lutOffset);
 
   // Loop through spine entries, writing LUT positions
   spineFile.seek(0);
