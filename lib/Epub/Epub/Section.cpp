@@ -448,10 +448,18 @@ void Section::buildTocBoundariesFromFile(FsFile& f) {
     f.seek(anchorMapOffset);
     uint16_t count;
     serialization::readPod(f, count);
-    std::string key;
     for (uint16_t i = 0; i < count && unresolvedCount > 0; i++) {
+      uint32_t keyLen;
+      serialization::readPod(f, keyLen);
+      // Skip string alloc if no unresolved TOC anchor shares this length, meaning on-disk key cannot match any target
+      if (!std::any_of(tocAnchorsToResolve.begin(), tocAnchorsToResolve.end(),
+                       [keyLen](const TocAnchorEntry& e) { return !e.anchor.empty() && e.anchor.size() == keyLen; })) {
+        f.seek(f.position() + keyLen + sizeof(uint16_t));  // page field
+        continue;
+      }
+      std::string key(keyLen, '\0');
+      f.read(reinterpret_cast<uint8_t*>(&key[0]), keyLen);
       uint16_t page;
-      serialization::readString(f, key);
       serialization::readPod(f, page);
       for (auto& tocAnchor : tocAnchorsToResolve) {
         if (!tocAnchor.anchor.empty() && key == tocAnchor.anchor) {
@@ -524,9 +532,16 @@ std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) con
   uint16_t count;
   serialization::readPod(f, count);
   for (uint16_t i = 0; i < count; i++) {
-    std::string key;
+    uint32_t keyLen;
+    serialization::readPod(f, keyLen);
+    // Skip string alloc if lengths differ, meaning on-disk key cannot equal anchor
+    if (keyLen != anchor.size()) {
+      f.seek(f.position() + keyLen + sizeof(uint16_t));  // page field
+      continue;
+    }
+    std::string key(keyLen, '\0');
+    f.read(reinterpret_cast<uint8_t*>(&key[0]), keyLen);
     uint16_t page;
-    serialization::readString(f, key);
     serialization::readPod(f, page);
     if (key == anchor) {
       return page;
