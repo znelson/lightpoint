@@ -343,7 +343,7 @@ void setup() {
   }
 
   // First serial output only here to avoid timing inconsistencies for power button press duration verification
-  LOG_DBG("MAIN", "Starting CrossPoint version " CROSSPOINT_VERSION);
+  LOG_DBG("MAIN", "Starting LightPoint version " LIGHTPOINT_VERSION);
 
   setupDisplayAndFonts();
 

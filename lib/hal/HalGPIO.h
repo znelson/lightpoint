@@ -39,7 +39,7 @@
 #define QMI8658_WHO_AM_I_VALUE 0x05  // WHO_AM_I expected value
 
 class HalGPIO {
-#if CROSSPOINT_EMULATED == 0
+#if LIGHTPOINT_EMULATED == 0
   InputManager inputMgr;
 #endif
 
