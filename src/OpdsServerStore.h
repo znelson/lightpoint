@@ -12,7 +12,7 @@ struct OpdsServer {
 class OpdsServerStore;
 namespace JsonSettingsIO {
 bool saveOpds(const OpdsServerStore& store, const char* path);
-bool loadOpds(OpdsServerStore& store, const char* json, bool* needsResave);
+bool loadOpds(OpdsServerStore& store, const char* json);
 }  // namespace JsonSettingsIO
 
 /**
@@ -30,7 +30,7 @@ class OpdsServerStore {
   OpdsServerStore() = default;
 
   friend bool JsonSettingsIO::saveOpds(const OpdsServerStore&, const char*);
-  friend bool JsonSettingsIO::loadOpds(OpdsServerStore&, const char*, bool*);
+  friend bool JsonSettingsIO::loadOpds(OpdsServerStore&, const char*);
 
  public:
   OpdsServerStore(const OpdsServerStore&) = delete;
@@ -49,12 +49,6 @@ class OpdsServerStore {
   const OpdsServer* getServer(size_t index) const;
   size_t getCount() const { return servers.size(); }
   bool hasServers() const { return !servers.empty(); }
-
-  /**
-   * Migrate from legacy single-server settings in CrossPointSettings.
-   * Called once during first load if no opds.json exists.
-   */
-  bool migrateFromSettings();
 };
 
 #define OPDS_STORE OpdsServerStore::getInstance()

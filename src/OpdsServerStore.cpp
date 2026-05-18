@@ -4,10 +4,6 @@
 #include <JsonSettingsIO.h>
 #include <Logging.h>
 
-#include <cstring>
-
-#include "CrossPointSettings.h"
-
 OpdsServerStore OpdsServerStore::instance;
 
 namespace {
@@ -23,51 +19,10 @@ bool OpdsServerStore::loadFromFile() {
   if (Storage.exists(OPDS_FILE_JSON)) {
     String json = Storage.readFile(OPDS_FILE_JSON);
     if (!json.isEmpty()) {
-      // resave flag is set when passwords were stored in plaintext and need re-obfuscation
-      bool resave = false;
-      bool result = JsonSettingsIO::loadOpds(*this, json.c_str(), &resave);
-      if (result && resave) {
-        LOG_DBG("OPS", "Resaving JSON with obfuscated passwords");
-        saveToFile();
-      }
-      return result;
+      return JsonSettingsIO::loadOpds(*this, json.c_str());
     }
   }
 
-  // No opds.json found — attempt one-time migration from the legacy single-server
-  // fields in CrossPointSettings (opdsServerUrl/opdsUsername/opdsPassword).
-  if (migrateFromSettings()) {
-    LOG_DBG("OPS", "Migrated legacy OPDS settings");
-    return true;
-  }
-
-  return false;
-}
-
-bool OpdsServerStore::migrateFromSettings() {
-  if (strlen(SETTINGS.opdsServerUrl) == 0) {
-    return false;
-  }
-
-  OpdsServer server;
-  server.name = "OPDS Server";
-  server.url = SETTINGS.opdsServerUrl;
-  server.username = SETTINGS.opdsUsername;
-  server.password = SETTINGS.opdsPassword;
-  servers.push_back(std::move(server));
-
-  if (saveToFile()) {
-    // Clear legacy fields so migration won't run again on next boot
-    SETTINGS.opdsServerUrl[0] = '\0';
-    SETTINGS.opdsUsername[0] = '\0';
-    SETTINGS.opdsPassword[0] = '\0';
-    SETTINGS.saveToFile();
-    LOG_DBG("OPS", "Migrated single-server OPDS config to opds.json");
-    return true;
-  }
-
-  // Save failed — roll back in-memory state so we don't have a partial migration
-  servers.clear();
   return false;
 }
 
