@@ -6,6 +6,7 @@
 #include <Logging.h>
 #include <PngToBmpConverter.h>
 #include <ZipFile.h>
+#include <esp_heap_caps.h>
 
 #include "Epub/parsers/ContainerParser.h"
 #include "Epub/parsers/ContentOpfParser.h"
@@ -278,7 +279,7 @@ void Epub::parseCssFiles() const {
     LOG_DBG("EBP", "Parsing CSS file: %s", cssPath.c_str());
 
     // Check heap before parsing - CSS parsing allocates heavily
-    const uint32_t freeHeap = ESP.getFreeHeap();
+    const uint32_t freeHeap = esp_get_free_heap_size();
     if (freeHeap < MIN_HEAP_FOR_CSS_PARSING) {
       LOG_ERR("EBP", "Insufficient heap for CSS parsing (%u bytes free, need %zu), skipping: %s", freeHeap,
               MIN_HEAP_FOR_CSS_PARSING, cssPath.c_str());

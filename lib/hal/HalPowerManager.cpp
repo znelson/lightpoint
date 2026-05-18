@@ -2,7 +2,9 @@
 
 #include <Logging.h>
 #include <WiFi.h>
+#include <driver/gpio.h>
 #include <esp_sleep.h>
+#include <soc/rtc.h>
 
 #include <cassert>
 
@@ -18,9 +20,11 @@ void HalPowerManager::begin() {
     Wire.setTimeOut(4);
     _batteryUseI2C = true;
   } else {
-    pinMode(BAT_GPIO0, INPUT);
+    gpio_set_direction((gpio_num_t)BAT_GPIO0, GPIO_MODE_INPUT);
   }
-  normalFreq = getCpuFrequencyMhz();
+  rtc_cpu_freq_config_t freqConf;
+  rtc_clk_cpu_freq_get_config(&freqConf);
+  normalFreq = static_cast<int>(freqConf.freq_mhz);
   modeMutex = xSemaphoreCreateMutex();
   assert(modeMutex != nullptr);
 }
@@ -40,9 +44,18 @@ void HalPowerManager::setPowerSaving(bool enabled) {
   // it's not very important if we read a slightly stale value for currentLockMode
   const LockMode mode = currentLockMode;
 
+  auto setCpuFreqMhz = [](int mhz) -> bool {
+    rtc_cpu_freq_config_t conf;
+    if (!rtc_clk_cpu_freq_mhz_to_config(static_cast<uint32_t>(mhz), &conf)) {
+      return false;
+    }
+    rtc_clk_cpu_freq_set_config(&conf);
+    return true;
+  };
+
   if (mode == None && enabled && !isLowPower) {
     LOG_DBG("PWR", "Going to low-power mode");
-    if (!setCpuFrequencyMhz(LOW_POWER_FREQ)) {
+    if (!setCpuFreqMhz(LOW_POWER_FREQ)) {
       LOG_DBG("PWR", "Failed to set CPU frequency = %d MHz", LOW_POWER_FREQ);
       return;
     }
@@ -50,7 +63,7 @@ void HalPowerManager::setPowerSaving(bool enabled) {
 
   } else if ((!enabled || mode != None) && isLowPower) {
     LOG_DBG("PWR", "Restoring normal CPU frequency");
-    if (!setCpuFrequencyMhz(normalFreq)) {
+    if (!setCpuFreqMhz(normalFreq)) {
       LOG_DBG("PWR", "Failed to set CPU frequency = %d MHz", normalFreq);
       return;
     }
@@ -75,7 +88,8 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
   esp_sleep_config_gpio_isolate();
   gpio_deep_sleep_hold_en();
   gpio_hold_en(GPIO_SPIWP);
-  pinMode(InputManager::POWER_BUTTON_PIN, INPUT_PULLUP);
+  gpio_set_direction((gpio_num_t)InputManager::POWER_BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode((gpio_num_t)InputManager::POWER_BUTTON_PIN, GPIO_PULLUP_ONLY);
   // Arm the wakeup trigger *after* the button is released
   // Note: this is only useful for waking up on USB power. On battery, the MCU will be completely powered off, so the
   // power button is hard-wired to briefly provide power to the MCU, waking it up regardless of the wakeup source
