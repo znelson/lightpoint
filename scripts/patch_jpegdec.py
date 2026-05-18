@@ -35,7 +35,7 @@ def patch_jpegdec(env):
 
 
 def _apply_mcu_skip_pointer_fix(filepath):
-    MARKER = "// CrossPoint patch: safe pMCU for MCU_SKIP"
+    MARKER = "// LightPoint patch: safe pMCU for MCU_SKIP"
     with open(filepath, "r") as f:
         content = f.read()
 

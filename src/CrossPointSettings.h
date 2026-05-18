@@ -34,16 +34,6 @@ class CrossPointSettings {
     SLEEP_SCREEN_COVER_FILTER_COUNT
   };
 
-  // Status bar enum - legacy
-  enum STATUS_BAR_MODE {
-    NONE = 0,
-    NO_PROGRESS = 1,
-    FULL = 2,
-    BOOK_PROGRESS_BAR = 3,
-    ONLY_BOOK_PROGRESS_BAR = 4,
-    CHAPTER_PROGRESS_BAR = 5,
-    STATUS_BAR_MODE_COUNT
-  };
   enum STATUS_BAR_PROGRESS_BAR {
     BOOK_PROGRESS = 0,
     CHAPTER_PROGRESS = 1,
@@ -70,17 +60,6 @@ class CrossPointSettings {
     INVERTED = 2,       // 480x800 logical coordinates, inverted
     LANDSCAPE_CCW = 3,  // 800x480 logical coordinates, native panel orientation
     ORIENTATION_COUNT
-  };
-
-  // Front button layout options (legacy)
-  // Default: Back, Confirm, Left, Right
-  // Swapped: Left, Right, Back, Confirm
-  enum FRONT_BUTTON_LAYOUT {
-    BACK_CONFIRM_LEFT_RIGHT = 0,
-    LEFT_RIGHT_BACK_CONFIRM = 1,
-    LEFT_BACK_CONFIRM_RIGHT = 2,
-    BACK_CONFIRM_RIGHT_LEFT = 3,
-    FRONT_BUTTON_LAYOUT_COUNT
   };
 
   // Front button hardware identifiers (for remapping)
@@ -161,8 +140,6 @@ class CrossPointSettings {
   uint8_t sleepScreenCoverMode = FIT;
   // Sleep screen cover filter
   uint8_t sleepScreenCoverFilter = NO_FILTER;
-  // Status bar settings (statusBar retained for migration only)
-  uint8_t statusBar = FULL;
   uint8_t statusBarChapterPageCount = 1;
   uint8_t statusBarBookProgressPercentage = 1;
   uint8_t statusBarProgressBar = HIDE_PROGRESS;
@@ -178,8 +155,6 @@ class CrossPointSettings {
   // EPUB reading orientation settings
   // 0 = portrait (default), 1 = landscape clockwise, 2 = inverted, 3 = landscape counter-clockwise
   uint8_t orientation = PORTRAIT;
-  // Button layouts (front layout retained for migration only)
-  uint8_t frontButtonLayout = BACK_CONFIRM_LEFT_RIGHT;
   uint8_t sideButtonLayout = PREV_NEXT;
   // Front button remap (logical -> hardware)
   // Used by MappedInputManager to translate logical buttons into physical front buttons.
@@ -200,10 +175,6 @@ class CrossPointSettings {
 
   // Reader screen margin settings
   uint8_t screenMargin = 5;
-  // OPDS browser settings
-  char opdsServerUrl[128] = "";
-  char opdsUsername[64] = "";
-  char opdsPassword[64] = "";
   // Hide battery percentage
   uint8_t hideBatteryPercentage = HIDE_NEVER;
   // Long-press page turn button behavior
@@ -252,10 +223,6 @@ class CrossPointSettings {
   bool loadFromFile();
 
   static void validateFrontButtonMapping(CrossPointSettings& settings);
-
- private:
-  bool loadFromBinaryFile();
-  bool migrateLanguageBinaryFile();
 
  public:
   float getReaderLineCompression() const;

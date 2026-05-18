@@ -18,7 +18,6 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
-#include "KOReaderCredentialStore.h"
 #include "MappedInputManager.h"
 #include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
@@ -299,7 +298,6 @@ void setup() {
 
   SETTINGS.loadFromFile();
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
-  KOREADER_STORE.loadFromFile();
   OPDS_STORE.loadFromFile();
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
@@ -343,7 +341,7 @@ void setup() {
   }
 
   // First serial output only here to avoid timing inconsistencies for power button press duration verification
-  LOG_DBG("MAIN", "Starting CrossPoint version " CROSSPOINT_VERSION);
+  LOG_DBG("MAIN", "Starting LightPoint version " LIGHTPOINT_VERSION);
 
   setupDisplayAndFonts();
 
@@ -498,7 +496,7 @@ void loop() {
   }
 
   // Add delay at the end of the loop to prevent tight spinning
-  // When an activity requests skip loop delay (e.g., webserver running), use yield() for faster response
+  // When an activity requests skip loop delay (e.g., active download), use yield() for faster response
   // Otherwise, use longer delay to save power
   if (activityManager.skipLoopDelay()) {
     powerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested

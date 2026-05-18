@@ -10,7 +10,7 @@ struct WifiCredential {
 class WifiCredentialStore;
 namespace JsonSettingsIO {
 bool saveWifi(const WifiCredentialStore& store, const char* path);
-bool loadWifi(WifiCredentialStore& store, const char* json, bool* needsResave);
+bool loadWifi(WifiCredentialStore& store, const char* json);
 }  // namespace JsonSettingsIO
 
 /**
@@ -30,10 +30,8 @@ class WifiCredentialStore {
   // Private constructor for singleton
   WifiCredentialStore() = default;
 
-  bool loadFromBinaryFile();
-
   friend bool JsonSettingsIO::saveWifi(const WifiCredentialStore&, const char*);
-  friend bool JsonSettingsIO::loadWifi(WifiCredentialStore&, const char*, bool*);
+  friend bool JsonSettingsIO::loadWifi(WifiCredentialStore&, const char*);
 
  public:
   // Delete copy constructor and assignment

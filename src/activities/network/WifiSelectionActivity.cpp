@@ -81,8 +81,7 @@ void WifiSelectionActivity::onExit() {
   LOG_DBG("WIFI", "Free heap after scanDelete: %d bytes", ESP.getFreeHeap());
 
   // Note: We do NOT disconnect WiFi here - the parent activity
-  // (CrossPointWebServerActivity) manages WiFi connection state. We just clean
-  // up the scan and task.
+  // manages WiFi connection state. We just clean up the scan and task.
 
   LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", ESP.getFreeHeap());
 }
@@ -220,10 +219,10 @@ void WifiSelectionActivity::attemptConnection() {
   WiFi.disconnect(true, true);  // Abort any in-progress SDK auto-connect and clear NVS-saved SSID
   delay(100);
 
-  // Set hostname so routers show "CrossPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
+  // Set hostname so routers show "LightPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
   String mac = WiFi.macAddress();
   mac.replace(":", "");
-  String hostname = "CrossPoint-Reader-" + mac;
+  String hostname = "LightPoint-Reader-" + mac;
   WiFi.setHostname(hostname.c_str());
 
   if (selectedRequiresPassword && !enteredPassword.empty()) {
@@ -256,7 +255,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
     }
 
     // If we entered a new password, ask if user wants to save it
-    // Otherwise, immediately complete so parent can start web server
+    // Otherwise, immediately complete
     if (!usedSavedPassword && !enteredPassword.empty()) {
       state = WifiSelectionState::SAVE_PROMPT;
       savePromptSelection = 0;  // Default to "Yes"
@@ -330,7 +329,7 @@ void WifiSelectionActivity::loop() {
         RenderLock lock(*this);
         WIFI_STORE.addCredential(selectedSSID, enteredPassword);
       }
-      // Complete - parent will start web server
+      // Complete
       onComplete(true);
     } else if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
       // Skip saving, complete anyway
