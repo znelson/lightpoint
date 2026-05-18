@@ -4,6 +4,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h>
 
 #include <map>
 
@@ -73,17 +74,17 @@ void WifiSelectionActivity::onEnter() {
 void WifiSelectionActivity::onExit() {
   Activity::onExit();
 
-  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", esp_get_free_heap_size());
 
   // Stop any ongoing WiFi scan
   LOG_DBG("WIFI", "Deleting WiFi scan...");
   WiFi.scanDelete();
-  LOG_DBG("WIFI", "Free heap after scanDelete: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap after scanDelete: %d bytes", esp_get_free_heap_size());
 
   // Note: We do NOT disconnect WiFi here - the parent activity
   // manages WiFi connection state. We just clean up the scan and task.
 
-  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", esp_get_free_heap_size());
 }
 
 void WifiSelectionActivity::startWifiScan() {

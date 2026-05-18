@@ -3,6 +3,7 @@
 #include <GfxRenderer.h>
 #include <I18n.h>
 #include <WiFi.h>
+#include <esp_system.h>
 
 #include "MappedInputManager.h"
 #include "activities/network/WifiSelectionActivity.h"
@@ -201,6 +202,6 @@ void OtaUpdateActivity::loop() {
   }
 
   if (state == SHUTTING_DOWN) {
-    ESP.restart();
+    esp_restart();
   }
 }

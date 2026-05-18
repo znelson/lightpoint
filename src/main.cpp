@@ -13,6 +13,8 @@
 #include <Logging.h>
 #include <SPI.h>
 #include <builtinFonts/all.h>
+#include <esp_heap_caps.h>
+#include <esp_system.h>
 
 #include <cstring>
 
@@ -129,7 +131,7 @@ EpdFontFamily ui12FontFamily(&ui12RegularFont, &ui12BoldFont);
 unsigned long t1 = 0;
 unsigned long t2 = 0;
 
-// Definitions for SilentRestart.h. RTC_NOINIT survives ESP.restart() but not power loss.
+// Definitions for SilentRestart.h. RTC_NOINIT survives esp_restart() but not power loss.
 RTC_NOINIT_ATTR uint32_t silentRebootMagic;
 RTC_NOINIT_ATTR uint32_t silentRebootTarget;
 constexpr uint32_t SILENT_REBOOT_MAGIC = 0xC1EAB007;
@@ -141,7 +143,7 @@ void silentRestart() {
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=home)");
   delay(50);
-  ESP.restart();
+  esp_restart();
 }
 
 void silentRestartToReader() {
@@ -149,7 +151,7 @@ void silentRestartToReader() {
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=reader)");
   delay(50);
-  ESP.restart();
+  esp_restart();
 }
 
 // Verify power button press duration on wake-up from deep sleep
@@ -395,19 +397,25 @@ void loop() {
   renderer.setFadingFix(SETTINGS.fadingFix);
 
   if (Serial && millis() - lastMemPrint >= 10000) {
-    LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", ESP.getFreeHeap(),
-            ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap());
+    LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", esp_get_free_heap_size(),
+            heap_caps_get_total_size(MALLOC_CAP_DEFAULT), esp_get_minimum_free_heap_size(),
+            heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT));
     lastMemPrint = millis();
   }
 
   // Handle incoming serial commands,
   // nb: we use logSerial from logging to avoid deprecation warnings
   if (logSerial.available() > 0) {
-    String line = logSerial.readStringUntil('\n');
-    if (line.startsWith("CMD:")) {
-      String cmd = line.substring(4);
-      cmd.trim();
-      if (cmd == "SCREENSHOT") {
+    char lineBuf[64];
+    const size_t len = logSerial.readBytesUntil('\n', lineBuf, sizeof(lineBuf) - 1);
+    lineBuf[len] = '\0';
+    if (strncmp(lineBuf, "CMD:", 4) == 0) {
+      char* cmd = lineBuf + 4;
+      size_t cmdLen = len >= 4 ? len - 4 : 0;
+      while (cmdLen > 0 && (cmd[cmdLen - 1] == '\r' || cmd[cmdLen - 1] == ' ')) {
+        cmd[--cmdLen] = '\0';
+      }
+      if (strcmp(cmd, "SCREENSHOT") == 0) {
         const uint32_t bufferSize = display.getBufferSize();
         logSerial.printf("SCREENSHOT_START:%d\n", bufferSize);
         uint8_t* buf = display.getFrameBuffer();

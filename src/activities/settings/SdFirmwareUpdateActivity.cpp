@@ -6,6 +6,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
+#include <esp_system.h>
 
 #include "MappedInputManager.h"
 #include "activities/home/FileBrowserActivity.h"
@@ -181,7 +182,7 @@ void SdFirmwareUpdateActivity::performUpdate() {
   }
   requestUpdateAndWait();
   delay(1500);
-  ESP.restart();
+  esp_restart();
 }
 
 void SdFirmwareUpdateActivity::loop() {

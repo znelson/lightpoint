@@ -5,6 +5,7 @@
 #include <HalStorage.h>
 #include <JPEGDEC.h>
 #include <Logging.h>
+#include <esp_heap_caps.h>
 
 #include <cstdlib>
 #include <new>
@@ -341,7 +342,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
 }  // namespace
 
 bool JpegToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = esp_get_free_heap_size();
   if (freeHeap < MIN_FREE_HEAP_FOR_JPEG) {
     LOG_ERR("JPG", "Not enough heap for JPEG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_JPEG);
     return false;
@@ -373,7 +374,7 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
                                                      const RenderConfig& config) {
   LOG_DBG("JPG", "Decoding JPEG: %s", imagePath.c_str());
 
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = esp_get_free_heap_size();
   if (freeHeap < MIN_FREE_HEAP_FOR_JPEG) {
     LOG_ERR("JPG", "Not enough heap for JPEG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_JPEG);
     return false;
