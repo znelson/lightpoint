@@ -15,7 +15,6 @@ enum class SettingAction {
   None,
   RemapFrontButtons,
   CustomiseStatusBar,
-  OPDSBrowser,
   Network,
   ClearCache,
   CheckForUpdates,

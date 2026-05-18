@@ -10,7 +10,6 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
-#include "OpdsServerStore.h"
 #include "RecentBooksStore.h"
 #include "SettingsList.h"
 #include "WifiCredentialStore.h"
@@ -64,7 +63,7 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
 
   for (const auto& info : getSettingsList()) {
     if (!info.key) continue;
-    // Dynamic entries (e.g. OPDS) are stored in their own files -- skip.
+    // Dynamic entries are stored in their own files -- skip.
     if (!info.valuePtr && !info.stringOffset) continue;
 
     if (info.stringOffset) {
@@ -112,7 +111,7 @@ bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json) {
 
   for (const auto& info : getSettingsList()) {
     if (!info.key) continue;
-    // Dynamic entries (e.g. OPDS) are stored in their own files -- skip.
+    // Dynamic entries are stored in their own files -- skip.
     if (!info.valuePtr && !info.stringOffset) continue;
 
     if (info.stringOffset) {
@@ -254,50 +253,5 @@ bool JsonSettingsIO::loadRecentBooks(RecentBooksStore& store, const char* json) 
   }
 
   LOG_DBG("RBS", "Recent books loaded from file (%d entries)", store.getCount());
-  return true;
-}
-
-// ---- OpdsServerStore ----
-// Follows the same save/load pattern as WifiCredentialStore above.
-// Passwords are XOR-obfuscated with the device MAC and base64-encoded ("password_obf" key).
-
-bool JsonSettingsIO::saveOpds(const OpdsServerStore& store, const char* path) {
-  JsonDocument doc;
-
-  JsonArray arr = doc["servers"].to<JsonArray>();
-  for (const auto& server : store.getServers()) {
-    JsonObject obj = arr.add<JsonObject>();
-    obj["name"] = server.name;
-    obj["url"] = server.url;
-    obj["username"] = server.username;
-    obj["password_obf"] = obfuscation::obfuscateToBase64(server.password);
-  }
-
-  String json;
-  serializeJson(doc, json);
-  return Storage.writeFile(path, json);
-}
-
-bool JsonSettingsIO::loadOpds(OpdsServerStore& store, const char* json) {
-  JsonDocument doc;
-  auto error = deserializeJson(doc, json);
-  if (error) {
-    LOG_ERR("OPS", "JSON parse error: %s", error.c_str());
-    return false;
-  }
-
-  store.servers.clear();
-  JsonArray arr = doc["servers"].as<JsonArray>();
-  for (JsonObject obj : arr) {
-    if (store.servers.size() >= OpdsServerStore::MAX_SERVERS) break;
-    OpdsServer server;
-    server.name = obj["name"] | std::string("");
-    server.url = obj["url"] | std::string("");
-    server.username = obj["username"] | std::string("");
-    server.password = obfuscation::deobfuscateFromBase64(obj["password_obf"] | "");
-    store.servers.push_back(std::move(server));
-  }
-
-  LOG_DBG("OPS", "Loaded %zu OPDS servers from file", store.servers.size());
   return true;
 }
