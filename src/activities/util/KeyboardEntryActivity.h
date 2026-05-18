@@ -63,9 +63,9 @@ class KeyboardEntryActivity : public Activity {
   size_t rightStartCursorPos = 0;
 
   bool urlMode = false;
-  static constexpr int URL_SNIPPET_COUNT = 9;
-  static constexpr const char* const urlSnippets[URL_SNIPPET_COUNT] = {
-      "https://", "www.", ".com", "http://", "192.168.", ".org", "/opds", ":8080", ".net"};
+  static constexpr int URL_SNIPPET_COUNT = 8;
+  static constexpr const char* const urlSnippets[URL_SNIPPET_COUNT] = {"https://", "www.", ".com",  "http://",
+                                                                       "192.168.", ".org", ":8080", ".net"};
 
   int delPressCount = 0;
   bool hintVisible = false;
