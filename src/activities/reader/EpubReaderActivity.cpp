@@ -19,10 +19,7 @@
 #include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "EpubReaderUtils.h"
-#include "KOReaderCredentialStore.h"
-#include "KOReaderSyncActivity.h"
 #include "MappedInputManager.h"
-#include "ProgressMapper.h"
 #include "QrDisplayActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
@@ -467,57 +464,6 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       requestUpdate();
       break;
     }
-    case EpubReaderMenuActivity::MenuAction::SYNC: {
-      if (KOREADER_STORE.hasCredentials()) {
-        const int currentPage = section ? section->currentPage : nextPageNumber;
-        const int totalPages = section ? section->pageCount : cachedChapterTotalPageCount;
-        std::optional<uint16_t> paragraphIndex;
-        if (section && currentPage >= 0 && currentPage < section->pageCount) {
-          const uint16_t paragraphPage =
-              currentPage > 0 ? static_cast<uint16_t>(currentPage - 1) : static_cast<uint16_t>(currentPage);
-          if (const auto pIdx = section->getParagraphIndexForPage(paragraphPage)) {
-            paragraphIndex = *pIdx;
-          }
-        }
-
-        // Pre-compute local KO position and chapter name while Epub is still in RAM.
-        CrossPointPosition localPos = {currentSpineIndex, currentPage, totalPages};
-        if (paragraphIndex.has_value()) {
-          localPos.paragraphIndex = *paragraphIndex;
-          localPos.hasParagraphIndex = true;
-        }
-        KOReaderPosition localKoPos = ProgressMapper::toKOReader(epub, localPos);
-        const int tocIdx = epub->getTocIndexForSpineIndex(currentSpineIndex);
-        std::string localChapterName = (tocIdx >= 0) ? epub->getTocItem(tocIdx).title : "";
-        const std::string savedEpubPath = epub->getPath();
-
-        // Persist current position so the reader resumes at the right page on return.
-        // goToReader() depends on this file, so abort the sync if the write fails.
-        if (!saveProgress(currentSpineIndex, currentPage, totalPages)) {
-          LOG_ERR("KOSync", "Aborting sync because current progress could not be saved");
-          pendingSyncSaveError = true;
-          requestUpdate();
-          return;
-        }
-
-        // Release Epub and Section to free ~65KB RAM for the TLS handshake.
-        LOG_DBG("KOSync", "Releasing epub for sync (heap before: %u)", (unsigned)ESP.getFreeHeap());
-        {
-          RenderLock lock(*this);
-          if (section) {
-            nextPageNumber = section->currentPage;
-          }
-          section.reset();
-          epub.reset();
-        }
-        LOG_DBG("KOSync", "Epub released (heap after: %u)", (unsigned)ESP.getFreeHeap());
-
-        activityManager.replaceActivity(std::make_unique<KOReaderSyncActivity>(
-            renderer, mappedInput, savedEpubPath, currentSpineIndex, currentPage, totalPages, std::move(localKoPos),
-            std::move(localChapterName), paragraphIndex));
-      }
-      break;
-    }
   }
 }
 
@@ -610,12 +556,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     return;
   }
 
-  const auto showPendingSyncSaveError = [this]() {
-    if (!pendingSyncSaveError) return;
-    pendingSyncSaveError = false;
-    GUI.drawPopup(renderer, tr(STR_SAVE_PROGRESS_FAILED));
-  };
-
   // edge case handling for sub-zero spine index
   if (currentSpineIndex < 0) {
     currentSpineIndex = 0;
@@ -631,7 +571,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_END_OF_BOOK), true, EpdFontFamily::BOLD);
     renderer.displayBuffer();
     automaticPageTurnActive = false;
-    showPendingSyncSaveError();
     return;
   }
 
@@ -679,7 +618,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
                                       SETTINGS.imageRendering, SETTINGS.focusReadingEnabled, popupFn)) {
         LOG_ERR("ERS", "Failed to persist page data to SD");
         section.reset();
-        showPendingSyncSaveError();
         return;
       }
     } else {
@@ -751,7 +689,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderStatusBar();
     renderer.displayBuffer();
     automaticPageTurnActive = false;
-    showPendingSyncSaveError();
     return;
   }
 
@@ -761,7 +698,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderStatusBar();
     renderer.displayBuffer();
     automaticPageTurnActive = false;
-    showPendingSyncSaveError();
     return;
   }
 
@@ -774,7 +710,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       requestUpdate();  // Try again after clearing cache
                         // TODO: prevent infinite loop if the page keeps failing to load for some reason
       automaticPageTurnActive = false;
-      showPendingSyncSaveError();
       return;
     }
 
@@ -787,8 +722,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
   }
   silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
   saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
-
-  showPendingSyncSaveError();
 
   if (pendingScreenshot) {
     pendingScreenshot = false;

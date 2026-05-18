@@ -37,11 +37,6 @@ struct PageResult {
   uint32_t page = 0;
 };
 
-struct SyncResult {
-  int spineIndex = 0;
-  int page = 0;
-};
-
 enum class NetworkMode;
 
 struct NetworkModeResult {
@@ -57,7 +52,7 @@ struct FilePathResult {
 };
 
 using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   PageResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+                                   PageResult, NetworkModeResult, FootnoteResult, FilePathResult>;
 
 struct ActivityResult {
   bool isCancelled = false;
