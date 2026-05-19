@@ -4,8 +4,6 @@
 #include <Timing.h>
 #include <WiFi.h>
 #include <esp_sntp.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <time.h>
 
 #include <cassert>
