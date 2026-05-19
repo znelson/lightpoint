@@ -429,7 +429,7 @@ void loop() {
         char header[32];
         snprintf(header, sizeof(header), "SCREENSHOT_START:%u\n", (unsigned)bufferSize);
         logSerial.write(reinterpret_cast<const uint8_t*>(header), strlen(header));
-        uint8_t* buf = display.getFrameBuffer();
+        const uint8_t* buf = display.getFrameBuffer();
         logSerial.write(buf, bufferSize);
         logSerial.write(reinterpret_cast<const uint8_t*>("SCREENSHOT_END\n"), 15);
       }
