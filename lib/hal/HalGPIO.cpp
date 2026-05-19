@@ -1,9 +1,11 @@
 #include <HalGPIO.h>
 #include <Logging.h>
-#include <Preferences.h>
 #include <SPI.h>
+#include <Timing.h>
 #include <Wire.h>
+#include <driver/gpio.h>
 #include <esp_sleep.h>
+#include <nvs.h>
 
 // Global HalGPIO instance
 HalGPIO gpio;
@@ -107,8 +109,8 @@ X3ProbeResult runX3ProbePass() {
   result.qmi8658 = probeQMI8658Signature();
 
   Wire.end();
-  pinMode(20, INPUT);
-  pinMode(0, INPUT);
+  gpio_set_direction(GPIO_NUM_20, GPIO_MODE_INPUT);
+  gpio_set_direction(GPIO_NUM_0, GPIO_MODE_INPUT);
   return result;
 }
 
@@ -122,12 +124,13 @@ constexpr char NVS_KEY_DEV_CACHED[] = "dev_det";    // 0=unknown, 1=x4, 2=x3
 enum class NvsDeviceValue : uint8_t { Unknown = 0, X4 = 1, X3 = 2 };
 
 NvsDeviceValue readNvsDeviceValue(const char* key, NvsDeviceValue defaultValue) {
-  Preferences prefs;
-  if (!prefs.begin(HW_NAMESPACE, true)) {
+  nvs_handle_t handle;
+  if (nvs_open(HW_NAMESPACE, NVS_READONLY, &handle) != ESP_OK) {
     return defaultValue;
   }
-  const uint8_t raw = prefs.getUChar(key, static_cast<uint8_t>(defaultValue));
-  prefs.end();
+  uint8_t raw = static_cast<uint8_t>(defaultValue);
+  nvs_get_u8(handle, key, &raw);
+  nvs_close(handle);
   if (raw > static_cast<uint8_t>(NvsDeviceValue::X3)) {
     return defaultValue;
   }
@@ -135,12 +138,13 @@ NvsDeviceValue readNvsDeviceValue(const char* key, NvsDeviceValue defaultValue) 
 }
 
 void writeNvsDeviceValue(const char* key, NvsDeviceValue value) {
-  Preferences prefs;
-  if (!prefs.begin(HW_NAMESPACE, false)) {
+  nvs_handle_t handle;
+  if (nvs_open(HW_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) {
     return;
   }
-  prefs.putUChar(key, static_cast<uint8_t>(value));
-  prefs.end();
+  nvs_set_u8(handle, key, static_cast<uint8_t>(value));
+  nvs_commit(handle);
+  nvs_close(handle);
 }
 
 HalGPIO::DeviceType nvsToDeviceType(NvsDeviceValue value) {
@@ -164,7 +168,7 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
 
   // No cache yet: run active X3 fingerprint probe and persist result.
   const X3GPIO::X3ProbeResult pass1 = X3GPIO::runX3ProbePass();
-  delay(2);
+  vTaskDelay(pdMS_TO_TICKS(2));
   const X3GPIO::X3ProbeResult pass2 = X3GPIO::runX3ProbePass();
 
   const uint8_t score1 = pass1.score();
@@ -197,8 +201,8 @@ void HalGPIO::begin() {
   _deviceType = detectDeviceTypeWithFingerprint();
 
   if (deviceIsX4()) {
-    pinMode(BAT_GPIO0, INPUT);
-    pinMode(UART0_RXD, INPUT);
+    gpio_set_direction((gpio_num_t)BAT_GPIO0, GPIO_MODE_INPUT);
+    gpio_set_direction((gpio_num_t)UART0_RXD, GPIO_MODE_INPUT);
   }
 }
 
@@ -228,7 +232,7 @@ unsigned long HalGPIO::getPowerButtonHeldTime() const { return inputMgr.getPower
 void HalGPIO::startDeepSleep() {
   // Ensure that the power button has been released to avoid immediately turning back on if you're holding it
   while (inputMgr.isPressed(BTN_POWER)) {
-    delay(50);
+    vTaskDelay(pdMS_TO_TICKS(50));
     inputMgr.update();
   }
   // Arm the wakeup trigger *after* the button is released
@@ -246,19 +250,19 @@ void HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPre
   // can still power on the device. Tighten wake debounce/state handling here.
 
   // Calibrate: subtract boot time already elapsed, assuming button held since boot
-  const uint16_t calibration = millis();
-  const uint16_t calibratedDuration = (calibration < requiredDurationMs) ? (requiredDurationMs - calibration) : 1;
+  const uint32_t calibration = uptime_ms();
+  const uint32_t calibratedDuration = (calibration < requiredDurationMs) ? (requiredDurationMs - calibration) : 1;
 
-  const auto start = millis();
+  const auto start = uptime_ms();
   inputMgr.update();
   // inputMgr.isPressed() may take up to ~500ms to return correct state
-  while (!inputMgr.isPressed(BTN_POWER) && millis() - start < 1000) {
-    delay(10);
+  while (!inputMgr.isPressed(BTN_POWER) && uptime_ms() - start < 1000) {
+    vTaskDelay(pdMS_TO_TICKS(10));
     inputMgr.update();
   }
   if (inputMgr.isPressed(BTN_POWER)) {
     do {
-      delay(10);
+      vTaskDelay(pdMS_TO_TICKS(10));
       inputMgr.update();
     } while (inputMgr.isPressed(BTN_POWER) && inputMgr.getPowerButtonHeldTime() < calibratedDuration);
     if (inputMgr.getPowerButtonHeldTime() < calibratedDuration) {
@@ -278,12 +282,12 @@ bool HalGPIO::isUsbConnected() const {
       if (X3GPIO::readBQ27220CurrentMA(&currentMa)) {
         return currentMa > 0;
       }
-      delay(2);
+      vTaskDelay(pdMS_TO_TICKS(2));
     }
     return false;
   }
   // U0RXD/GPIO20 reads HIGH when USB is connected
-  return digitalRead(UART0_RXD) == HIGH;
+  return gpio_get_level((gpio_num_t)UART0_RXD) == 1;
 }
 
 HalGPIO::WakeupReason HalGPIO::getWakeupReason() const {

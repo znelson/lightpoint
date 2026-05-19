@@ -1,6 +1,5 @@
 #include "FirmwareFlasher.h"
 
-#include <Arduino.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
@@ -297,7 +296,7 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
     }
     streamPos += want;
     if (onProgress) onProgress(streamPos, firmwareSize, ctx);
-    delay(1);
+    vTaskDelay(pdMS_TO_TICKS(1));
   }
   file.close();
 
