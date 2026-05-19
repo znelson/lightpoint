@@ -2,10 +2,10 @@
 
 #include <Logging.h>
 #include <Timing.h>
-#include <WiFi.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
 #include <esp_sleep.h>
+#include <esp_wifi.h>
 #include <soc/rtc.h>
 
 #include <cassert>
@@ -42,7 +42,8 @@ void HalPowerManager::setPowerSaving(bool enabled) {
     return;  // invalid state
   }
 
-  auto wifiMode = WiFi.getMode();
+  wifi_mode_t wifiMode = WIFI_MODE_NULL;
+  esp_wifi_get_mode(&wifiMode);
   if (wifiMode != WIFI_MODE_NULL) {
     // Wifi is active, force disabling power saving
     enabled = false;

@@ -2,8 +2,8 @@
 
 #include <GfxRenderer.h>
 #include <I18n.h>
-#include <WiFi.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
@@ -57,7 +57,7 @@ void OtaUpdateActivity::onEnter() {
 
   // Turn on WiFi immediately
   LOG_DBG("OTA", "Turning on WiFi...");
-  WiFi.mode(WIFI_STA);
+  esp_wifi_set_mode(WIFI_MODE_STA);
 
   // Launch WiFi selection subactivity
   LOG_DBG("OTA", "Launching WifiSelectionActivity...");
@@ -72,8 +72,10 @@ void OtaUpdateActivity::onExit() {
   // (loop() above) so the new firmware boots normally. Back-out paths land
   // here with wifi still active; silent-restart to free the LWIP/mbedTLS
   // fragmentation, same as the other wifi activities.
-  if (WiFi.getMode() != WIFI_MODE_NULL) {
-    WiFi.disconnect(false);
+  wifi_mode_t wifiMode = WIFI_MODE_NULL;
+  esp_wifi_get_mode(&wifiMode);
+  if (wifiMode != WIFI_MODE_NULL) {
+    esp_wifi_disconnect();
     vTaskDelay(pdMS_TO_TICKS(30));
     silentRestart();
   }
