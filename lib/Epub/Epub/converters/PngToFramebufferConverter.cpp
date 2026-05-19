@@ -5,6 +5,7 @@
 #include <HalStorage.h>
 #include <Logging.h>
 #include <PNGdec.h>
+#include <Timing.h>
 #include <esp_heap_caps.h>
 
 #include <cstdlib>
@@ -372,9 +373,9 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     }
   }
 
-  unsigned long decodeStart = millis();
+  const uint32_t decodeStart = uptime_ms();
   rc = png->decode(&ctx, 0);
-  unsigned long decodeTime = millis() - decodeStart;
+  const uint32_t decodeTime = uptime_ms() - decodeStart;
 
   free(ctx.grayLineBuffer);
   ctx.grayLineBuffer = nullptr;
@@ -388,7 +389,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
 
   png->close();
   delete png;
-  LOG_DBG("PNG", "PNG decoding complete - render time: %lu ms", decodeTime);
+  LOG_DBG("PNG", "PNG decoding complete - render time: %u ms", decodeTime);
 
   // Write cache file if caching was enabled and buffer was allocated
   if (ctx.caching) {

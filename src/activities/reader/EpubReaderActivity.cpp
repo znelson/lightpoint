@@ -8,6 +8,7 @@
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
+#include <Timing.h>
 #include <esp_system.h>
 
 #include <functional>
@@ -212,11 +213,11 @@ void EpubReaderActivity::loop() {
 
     // Skips page turn if renderingMutex is busy
     if (RenderLock::peek()) {
-      lastPageTurnTime = millis();
+      lastPageTurnTime = uptime_ms();
       return;
     }
 
-    if ((millis() - lastPageTurnTime) >= pageTurnDuration) {
+    if ((uptime_ms() - lastPageTurnTime) >= pageTurnDuration) {
       pageTurn(true);
       return;
     }
@@ -295,7 +296,7 @@ void EpubReaderActivity::loop() {
   // (clamped in render()); skipping backward before the first TOC entry jumps to the
   // spine before the current chapter's first spine (clamped to 0 in render()).
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP) {
-    lastPageTurnTime = millis();
+    lastPageTurnTime = uptime_ms();
     // We don't want to delete the section mid-render, so grab the semaphore
     {
       RenderLock lock(*this);
@@ -580,7 +581,7 @@ void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption
     return;
   }
 
-  lastPageTurnTime = millis();
+  lastPageTurnTime = uptime_ms();
   // calculates page turn duration by dividing by number of pages
   pageTurnDuration = (1UL * 60 * 1000) / PAGE_TURN_RATES[selectedPageTurnOption];
   automaticPageTurnActive = true;
@@ -626,7 +627,7 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn) {
       }
     }
   }
-  lastPageTurnTime = millis();
+  lastPageTurnTime = uptime_ms();
   requestUpdate();
 }
 
@@ -796,9 +797,9 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     // Collect footnotes from the loaded page
     currentPageFootnotes = std::move(p->footnotes);
 
-    const auto start = millis();
+    const auto start = uptime_ms();
     renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
-    LOG_DBG("ERS", "Rendered page in %dms", millis() - start);
+    LOG_DBG("ERS", "Rendered page in %dms", uptime_ms() - start);
   }
   silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
   saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
@@ -847,21 +848,21 @@ bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
-  const auto t0 = millis();
+  const auto t0 = uptime_ms();
 
   // Font prewarm: scan pass accumulates text, then prewarm, then real render
   auto* fcm = renderer.getFontCacheManager();
   auto scope = fcm->createPrewarmScope();
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);  // scan pass
   scope.endScanAndPrewarm();
-  const auto tPrewarm = millis();
+  const auto tPrewarm = uptime_ms();
 
   // Force special handling for pages with images when anti-aliasing is on
   bool imagePageWithAA = page->hasImages() && SETTINGS.textAntiAliasing;
 
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
   renderStatusBar();
-  const auto tBwRender = millis();
+  const auto tBwRender = uptime_ms();
 
   if (imagePageWithAA) {
     // Double FAST_REFRESH with selective image blanking (pablohc's technique):
@@ -885,11 +886,11 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   } else {
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
   }
-  const auto tDisplay = millis();
+  const auto tDisplay = uptime_ms();
 
   // Save bw buffer to reset buffer state after grayscale data sync
   renderer.storeBwBuffer();
-  const auto tBwStore = millis();
+  const auto tBwStore = uptime_ms();
 
   // grayscale rendering
   // TODO: Only do this if font supports it
@@ -898,37 +899,36 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
     renderer.copyGrayscaleLsbBuffers();
-    const auto tGrayLsb = millis();
+    const auto tGrayLsb = uptime_ms();
 
     // Render and copy to MSB buffer
     renderer.clearScreen(0x00);
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
     renderer.copyGrayscaleMsbBuffers();
-    const auto tGrayMsb = millis();
+    const auto tGrayMsb = uptime_ms();
 
     // display grayscale part
     renderer.displayGrayBuffer();
-    const auto tGrayDisplay = millis();
+    const auto tGrayDisplay = uptime_ms();
     renderer.setRenderMode(GfxRenderer::BW);
     // restore the bw data
     renderer.restoreBwBuffer();
-    const auto tBwRestore = millis();
+    const auto tBwRestore = uptime_ms();
 
-    const auto tEnd = millis();
+    const auto tEnd = uptime_ms();
     LOG_DBG("ERS",
-            "Page render: prewarm=%lums bw_render=%lums display=%lums bw_store=%lums "
-            "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
+            "Page render: prewarm=%ums bw_render=%ums display=%ums bw_store=%ums "
+            "gray_lsb=%ums gray_msb=%ums gray_display=%ums bw_restore=%ums total=%ums",
             tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tGrayLsb - tBwStore,
             tGrayMsb - tGrayLsb, tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
   } else {
     // restore the bw data
     renderer.restoreBwBuffer();
-    const auto tBwRestore = millis();
+    const auto tBwRestore = uptime_ms();
 
-    const auto tEnd = millis();
-    LOG_DBG("ERS",
-            "Page render: prewarm=%lums bw_render=%lums display=%lums bw_store=%lums bw_restore=%lums total=%lums",
+    const auto tEnd = uptime_ms();
+    LOG_DBG("ERS", "Page render: prewarm=%ums bw_render=%ums display=%ums bw_store=%ums bw_restore=%ums total=%ums",
             tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tBwRestore - tBwStore,
             tEnd - t0);
   }

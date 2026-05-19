@@ -3,6 +3,7 @@
 #include <HalStorage.h>
 #include <Logging.h>
 #include <Serialization.h>
+#include <freertos/task.h>
 
 #include "Epub/css/CssParser.h"
 #include "Page.h"
@@ -190,7 +191,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   for (int attempt = 0; attempt < 3 && !success; attempt++) {
     if (attempt > 0) {
       LOG_DBG("SCT", "Retrying stream (attempt %d)...", attempt + 1);
-      delay(50);  // Brief delay before retry
+      vTaskDelay(pdMS_TO_TICKS(50));  // Brief delay before retry
     }
 
     // Remove any incomplete file from previous attempt before retrying

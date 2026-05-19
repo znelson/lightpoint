@@ -94,7 +94,7 @@ float CrossPointSettings::getReaderLineCompression() const {
   }
 }
 
-unsigned long CrossPointSettings::getSleepTimeoutMs() const {
+uint32_t CrossPointSettings::getSleepTimeoutMs() const {
   switch (sleepTimeout) {
     case SLEEP_1_MIN:
       return 1UL * 60 * 1000;

@@ -1,5 +1,7 @@
 #include "Logging.h"
 
+#include <Timing.h>
+
 #include <string>
 
 #define MAX_ENTRY_LEN 256
@@ -40,8 +42,8 @@ void logPrintf(const char* level, const char* origin, const char* format, ...) {
   char* c = buf;
   // add timestamp, level and origin
   {
-    unsigned long ms = millis();
-    int len = snprintf(c, sizeof(buf), "[%lu] [%s] [%s] ", ms, level, origin);
+    const uint32_t ms = uptime_ms();
+    int len = snprintf(c, sizeof(buf), "[%u] [%s] [%s] ", ms, level, origin);
     // error while writing => return
     if (len < 0) {
       va_end(args);

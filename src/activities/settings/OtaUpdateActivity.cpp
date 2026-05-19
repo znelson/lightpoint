@@ -68,10 +68,10 @@ void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
   // Turn off wifi
-  WiFi.disconnect(false);  // false = don't erase credentials, send disconnect frame
-  delay(100);              // Allow disconnect frame to be sent
+  WiFi.disconnect(false);          // false = don't erase credentials, send disconnect frame
+  vTaskDelay(pdMS_TO_TICKS(100));  // Allow disconnect frame to be sent
   WiFi.mode(WIFI_OFF);
-  delay(100);  // Allow WiFi hardware to fully power down
+  vTaskDelay(pdMS_TO_TICKS(100));  // Allow WiFi hardware to fully power down
 }
 
 void OtaUpdateActivity::render(RenderLock&&) {
@@ -173,7 +173,7 @@ void OtaUpdateActivity::loop() {
       }
       requestUpdateAndWait();
       // Hold the completion screen briefly so the user sees it, then restart.
-      delay(3000);
+      vTaskDelay(pdMS_TO_TICKS(3000));
       {
         RenderLock lock(*this);
         state = SHUTTING_DOWN;

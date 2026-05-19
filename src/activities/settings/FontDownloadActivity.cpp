@@ -34,7 +34,7 @@ void FontDownloadActivity::onExit() {
 
   if (WiFi.getMode() != WIFI_MODE_NULL) {
     WiFi.disconnect(false);
-    delay(30);
+    vTaskDelay(pdMS_TO_TICKS(30));
     silentRestart();
   }
 }

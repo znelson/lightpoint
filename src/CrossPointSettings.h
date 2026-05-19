@@ -226,7 +226,7 @@ class CrossPointSettings {
 
  public:
   float getReaderLineCompression() const;
-  unsigned long getSleepTimeoutMs() const;
+  uint32_t getSleepTimeoutMs() const;
   int getRefreshFrequency() const;
 };
 

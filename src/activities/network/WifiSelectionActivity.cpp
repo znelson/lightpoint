@@ -3,6 +3,7 @@
 #include <GfxRenderer.h>
 #include <I18n.h>
 #include <Logging.h>
+#include <Timing.h>
 #include <WiFi.h>
 #include <esp_heap_caps.h>
 
@@ -96,7 +97,7 @@ void WifiSelectionActivity::startWifiScan() {
   // Set WiFi mode to station
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
-  delay(100);
+  vTaskDelay(pdMS_TO_TICKS(100));
 
   // Start async scan
   WiFi.scanNetworks(true);  // true = async scan
@@ -210,7 +211,7 @@ void WifiSelectionActivity::selectNetwork(const int index) {
 
 void WifiSelectionActivity::attemptConnection() {
   state = autoConnecting ? WifiSelectionState::AUTO_CONNECTING : WifiSelectionState::CONNECTING;
-  connectionStartTime = millis();
+  connectionStartTime = uptime_ms();
   connectedIP.clear();
   connectionError.clear();
   requestUpdate();
@@ -218,7 +219,7 @@ void WifiSelectionActivity::attemptConnection() {
   WiFi.persistent(false);  // Credentials are managed by WifiCredentialStore; suppress SDK NVS auto-connect
   WiFi.mode(WIFI_STA);
   WiFi.disconnect(true, true);  // Abort any in-progress SDK auto-connect and clear NVS-saved SSID
-  delay(100);
+  vTaskDelay(pdMS_TO_TICKS(100));
 
   // Set hostname so routers show "LightPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
   String mac = WiFi.macAddress();
@@ -282,7 +283,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
   }
 
   // Check for timeout
-  if (millis() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
+  if (uptime_ms() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
     WiFi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     state = WifiSelectionState::CONNECTION_FAILED;
