@@ -4,6 +4,7 @@
 #include <Timing.h>
 #include <WiFi.h>
 #include <driver/gpio.h>
+#include <driver/i2c_master.h>
 #include <esp_sleep.h>
 #include <soc/rtc.h>
 
@@ -15,11 +16,17 @@ HalPowerManager powerManager;  // Singleton instance
 
 void HalPowerManager::begin() {
   if (gpio.deviceIsX3()) {
-    // X3 uses an I2C fuel gauge for battery monitoring.
-    // I2C init must come AFTER gpio.begin() so early hardware detection/probes are finished.
-    Wire.begin(X3_I2C_SDA, X3_I2C_SCL, X3_I2C_FREQ);
-    Wire.setTimeOut(4);
-    _batteryUseI2C = true;
+    // I2C bus is already initialised by gpio.begin() for X3.
+    // Create a device handle for the BQ27220 fuel gauge (battery SOC monitoring).
+    i2c_device_config_t devCfg = {};
+    devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    devCfg.device_address = I2C_ADDR_BQ27220;
+    devCfg.scl_speed_hz = X3_I2C_FREQ;
+    if (i2c_master_bus_add_device(gpio.getI2CBus(), &devCfg, &bq27220Dev) != ESP_OK) {
+      LOG_ERR("PWR", "Failed to add BQ27220 I2C device");
+      bq27220Dev = nullptr;
+    }
+    _batteryUseI2C = (bq27220Dev != nullptr);
   } else {
     gpio_set_direction((gpio_num_t)BAT_GPIO0, GPIO_MODE_INPUT);
   }
@@ -107,22 +114,19 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
       return _batteryCachedPercent;
     }
 
-    // Read SOC directly from I2C fuel gauge (16-bit LE register).
+    if (!bq27220Dev) {
+      return _batteryCachedPercent;
+    }
+
+    // Read SOC from BQ27220 fuel gauge (16-bit LE register).
     // On I2C error, keep last known value to avoid UI jitter/slowdowns.
-    Wire.beginTransmission(I2C_ADDR_BQ27220);
-    Wire.write(BQ27220_SOC_REG);
-    if (Wire.endTransmission(false) != 0) {
+    const uint8_t reg = BQ27220_SOC_REG;
+    uint8_t data[2];
+    if (i2c_master_transmit_receive(bq27220Dev, &reg, 1, data, 2, 4) != ESP_OK) {
       _batteryLastPollMs = now;
       return _batteryCachedPercent;
     }
-    Wire.requestFrom(I2C_ADDR_BQ27220, (uint8_t)2);
-    if (Wire.available() < 2) {
-      _batteryLastPollMs = now;
-      return _batteryCachedPercent;
-    }
-    const uint8_t lo = Wire.read();
-    const uint8_t hi = Wire.read();
-    const uint16_t soc = (hi << 8) | lo;
+    const uint16_t soc = (static_cast<uint16_t>(data[1]) << 8) | data[0];
     _batteryCachedPercent = soc > 100 ? 100 : soc;
     _batteryLastPollMs = now;
     return _batteryCachedPercent;

@@ -274,8 +274,7 @@ void setup() {
   // bytes harmlessly if the host isn't actively draining, instead of blocking
   // for the default 250 ms per write and chaining into a firmware hang.
   vTaskDelay(pdMS_TO_TICKS(250));
-  Serial.begin(115200);
-  logSerial.setTxTimeoutMs(0);
+  logSerial.begin(115200);
 #endif
 
   HalSystem::begin();
@@ -405,7 +404,7 @@ void loop() {
 
   renderer.setFadingFix(SETTINGS.fadingFix);
 
-  if (Serial && uptime_ms() - lastMemPrint >= 10000) {
+  if (logSerial && uptime_ms() - lastMemPrint >= 10000) {
     LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", esp_get_free_heap_size(),
             heap_caps_get_total_size(MALLOC_CAP_DEFAULT), esp_get_minimum_free_heap_size(),
             heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT));
@@ -424,12 +423,15 @@ void loop() {
       while (cmdLen > 0 && (cmd[cmdLen - 1] == '\r' || cmd[cmdLen - 1] == ' ')) {
         cmd[--cmdLen] = '\0';
       }
+      // Protocol consumed by scripts/debugging_monitor.py
       if (strcmp(cmd, "SCREENSHOT") == 0) {
         const uint32_t bufferSize = display.getBufferSize();
-        logSerial.printf("SCREENSHOT_START:%d\n", bufferSize);
-        uint8_t* buf = display.getFrameBuffer();
+        char header[32];
+        snprintf(header, sizeof(header), "SCREENSHOT_START:%u\n", (unsigned)bufferSize);
+        logSerial.write(reinterpret_cast<const uint8_t*>(header), strlen(header));
+        const uint8_t* buf = display.getFrameBuffer();
         logSerial.write(buf, bufferSize);
-        logSerial.printf("SCREENSHOT_END\n");
+        logSerial.write(reinterpret_cast<const uint8_t*>("SCREENSHOT_END\n"), 15);
       }
     }
   }

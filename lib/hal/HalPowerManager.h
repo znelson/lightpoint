@@ -4,7 +4,7 @@
 #include <BatteryMonitor.h>
 #include <InputManager.h>
 #include <Logging.h>
-#include <Wire.h>
+#include <driver/i2c_master.h>
 #include <freertos/semphr.h>
 
 #include <cassert>
@@ -19,9 +19,10 @@ class HalPowerManager {
   bool isLowPower = false;
 
   // I2C fuel gauge configuration for X3 battery monitoring
-  bool _batteryUseI2C = false;              // True if using I2C fuel gauge (X3), false for ADC (X4)
-  mutable int _batteryCachedPercent = 0;    // Last read battery percentage (0-100)
-  mutable uint32_t _batteryLastPollMs = 0;  // Timestamp of last battery read in milliseconds
+  bool _batteryUseI2C = false;                   // True if using I2C fuel gauge (X3), false for ADC (X4)
+  i2c_master_dev_handle_t bq27220Dev = nullptr;  // I2C device handle for BQ27220 fuel gauge (X3 only)
+  mutable int _batteryCachedPercent = 0;         // Last read battery percentage (0-100)
+  mutable uint32_t _batteryLastPollMs = 0;       // Timestamp of last battery read in milliseconds
 
   enum LockMode { None, NormalSpeed };
   LockMode currentLockMode = None;
