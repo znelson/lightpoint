@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <InputManager.h>
+#include <driver/i2c_master.h>
 
 // Display SPI pins (custom pins for XteinkX4, not hardware SPI defaults)
 #define EPD_SCLK 8   // SPI Clock
@@ -46,6 +47,11 @@ class HalGPIO {
   bool lastUsbConnected = false;
   bool usbStateChanged = false;
 
+  i2c_master_bus_handle_t i2cBus = nullptr;
+  i2c_master_dev_handle_t bq27220Dev = nullptr;
+
+  bool initI2C();
+
  public:
   enum class DeviceType : uint8_t { X4, X3 };
 
@@ -58,6 +64,8 @@ class HalGPIO {
   // Inline device type helpers for cleaner downstream checks
   inline bool deviceIsX3() const { return _deviceType == DeviceType::X3; }
   inline bool deviceIsX4() const { return _deviceType == DeviceType::X4; }
+
+  i2c_master_bus_handle_t getI2CBus() const { return i2cBus; }
 
   // Start button GPIO and setup SPI for screen and SD card
   void begin();

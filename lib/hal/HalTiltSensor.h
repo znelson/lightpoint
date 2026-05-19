@@ -1,7 +1,6 @@
 #pragma once
 
-#include <Arduino.h>
-#include <Wire.h>
+#include <driver/i2c_master.h>
 
 #include "HalGPIO.h"
 
@@ -20,6 +19,7 @@ extern HalTiltSensor halTiltSensor;  // Singleton
 class HalTiltSensor {
   bool _available = false;
   uint8_t _i2cAddr = 0;
+  i2c_master_dev_handle_t i2cDev = nullptr;
 
   // Tilt gesture state machine
   bool _tiltForwardEvent = false;  // Consumed by wasTiltedForward()
@@ -68,7 +68,7 @@ class HalTiltSensor {
   bool readGyro(float& gx, float& gy, float& gz) const;
 
  public:
-  // Call after gpio.begin() and powerManager.begin() (I2C already initialised for X3)
+  // Call after gpio.begin() (I2C bus initialised there for X3)
   void begin();
 
   // Enables the QMI8658 internal sensor engine

@@ -1,7 +1,12 @@
 #include "Logging.h"
 
+#include <HardwareSerial.h>
+
+static HWCDC& _hwSerial = Serial;
+
 #include <Timing.h>
 
+#include <cstdarg>
 #include <string>
 
 #define MAX_ENTRY_LEN 256
@@ -103,3 +108,26 @@ void clearLastLogs() {
   logHead = 0;
   rtcLogMagic = LOG_RTC_MAGIC;
 }
+
+// --- MySerialImpl ---
+
+void MySerialImpl::begin(unsigned long baud) {
+  _hwSerial.begin(baud);
+  // Non-blocking TX: drops bytes when host is not draining instead of blocking
+  // for the default 250ms per write, which would chain into a firmware hang.
+  _hwSerial.setTxTimeoutMs(0);
+}
+
+MySerialImpl::operator bool() const { return static_cast<bool>(_hwSerial); }
+
+int MySerialImpl::available() { return _hwSerial.available(); }
+
+size_t MySerialImpl::readBytesUntil(char delim, char* buf, size_t maxLen) {
+  return _hwSerial.readBytesUntil(delim, buf, maxLen);
+}
+
+size_t MySerialImpl::write(uint8_t b) { return _hwSerial.write(b); }
+
+size_t MySerialImpl::write(const uint8_t* buffer, size_t size) { return _hwSerial.write(buffer, size); }
+
+void MySerialImpl::flush() { _hwSerial.flush(); }

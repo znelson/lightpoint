@@ -2,8 +2,8 @@
 #include <Logging.h>
 #include <SPI.h>
 #include <Timing.h>
-#include <Wire.h>
 #include <driver/gpio.h>
+#include <driver/i2c_master.h>
 #include <esp_sleep.h>
 #include <nvs.h>
 
@@ -22,78 +22,57 @@ struct X3ProbeResult {
   }
 };
 
-bool readI2CReg8(uint8_t addr, uint8_t reg, uint8_t* outValue) {
-  Wire.beginTransmission(addr);
-  Wire.write(reg);
-  if (Wire.endTransmission(false) != 0) {
-    return false;
-  }
-  if (Wire.requestFrom(addr, static_cast<uint8_t>(1), static_cast<uint8_t>(true)) < 1) {
-    return false;
-  }
-  *outValue = Wire.read();
-  return true;
+static bool readI2CReg8(i2c_master_bus_handle_t bus, uint8_t addr, uint8_t reg, uint8_t* out) {
+  i2c_device_config_t devCfg = {};
+  devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  devCfg.device_address = addr;
+  devCfg.scl_speed_hz = X3_I2C_FREQ;
+  i2c_master_dev_handle_t dev;
+  if (i2c_master_bus_add_device(bus, &devCfg, &dev) != ESP_OK) return false;
+  const esp_err_t err = i2c_master_transmit_receive(dev, &reg, 1, out, 1, 6);
+  i2c_master_bus_rm_device(dev);
+  return err == ESP_OK;
 }
 
-bool readI2CReg16LE(uint8_t addr, uint8_t reg, uint16_t* outValue) {
-  Wire.beginTransmission(addr);
-  Wire.write(reg);
-  if (Wire.endTransmission(false) != 0) {
-    return false;
-  }
-  if (Wire.requestFrom(addr, static_cast<uint8_t>(2), static_cast<uint8_t>(true)) < 2) {
-    while (Wire.available()) {
-      Wire.read();
-    }
-    return false;
-  }
-  const uint8_t lo = Wire.read();
-  const uint8_t hi = Wire.read();
-  *outValue = (static_cast<uint16_t>(hi) << 8) | lo;
-  return true;
+static bool probeBQ27220Signature(i2c_master_bus_handle_t bus) {
+  i2c_device_config_t devCfg = {};
+  devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  devCfg.device_address = I2C_ADDR_BQ27220;
+  devCfg.scl_speed_hz = X3_I2C_FREQ;
+  i2c_master_dev_handle_t dev;
+  if (i2c_master_bus_add_device(bus, &devCfg, &dev) != ESP_OK) return false;
+
+  bool ok = false;
+  do {
+    uint8_t reg = BQ27220_SOC_REG;
+    uint8_t data[2];
+    if (i2c_master_transmit_receive(dev, &reg, 1, data, 2, 6) != ESP_OK) break;
+    const uint16_t soc = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+    if (soc > 100) break;
+    reg = BQ27220_VOLT_REG;
+    if (i2c_master_transmit_receive(dev, &reg, 1, data, 2, 6) != ESP_OK) break;
+    const uint16_t voltageMv = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+    ok = (voltageMv >= 2500 && voltageMv <= 5000);
+  } while (false);
+
+  i2c_master_bus_rm_device(dev);
+  return ok;
 }
 
-bool readBQ27220CurrentMA(int16_t* outCurrent) {
-  uint16_t raw = 0;
-  if (!readI2CReg16LE(I2C_ADDR_BQ27220, BQ27220_CUR_REG, &raw)) {
-    return false;
-  }
-  *outCurrent = static_cast<int16_t>(raw);
-  return true;
-}
-
-bool probeBQ27220Signature() {
-  uint16_t soc = 0;
-  uint16_t voltageMv = 0;
-  if (!readI2CReg16LE(I2C_ADDR_BQ27220, BQ27220_SOC_REG, &soc)) {
-    return false;
-  }
-  if (soc > 100) {
-    return false;
-  }
-  if (!readI2CReg16LE(I2C_ADDR_BQ27220, BQ27220_VOLT_REG, &voltageMv)) {
-    return false;
-  }
-  return voltageMv >= 2500 && voltageMv <= 5000;
-}
-
-bool probeDS3231Signature() {
+static bool probeDS3231Signature(i2c_master_bus_handle_t bus) {
   uint8_t sec = 0;
-  if (!readI2CReg8(I2C_ADDR_DS3231, DS3231_SEC_REG, &sec)) {
-    return false;
-  }
+  if (!readI2CReg8(bus, I2C_ADDR_DS3231, DS3231_SEC_REG, &sec)) return false;
   const uint8_t tensDigit = (sec >> 4) & 0x07;
   const uint8_t onesDigit = sec & 0x0F;
-
   return tensDigit <= 5 && onesDigit <= 9;
 }
 
-bool probeQMI8658Signature() {
+static bool probeQMI8658Signature(i2c_master_bus_handle_t bus) {
   uint8_t whoami = 0;
-  if (readI2CReg8(I2C_ADDR_QMI8658, QMI8658_WHO_AM_I_REG, &whoami) && whoami == QMI8658_WHO_AM_I_VALUE) {
+  if (readI2CReg8(bus, I2C_ADDR_QMI8658, QMI8658_WHO_AM_I_REG, &whoami) && whoami == QMI8658_WHO_AM_I_VALUE) {
     return true;
   }
-  if (readI2CReg8(I2C_ADDR_QMI8658_ALT, QMI8658_WHO_AM_I_REG, &whoami) && whoami == QMI8658_WHO_AM_I_VALUE) {
+  if (readI2CReg8(bus, I2C_ADDR_QMI8658_ALT, QMI8658_WHO_AM_I_REG, &whoami) && whoami == QMI8658_WHO_AM_I_VALUE) {
     return true;
   }
   return false;
@@ -101,14 +80,27 @@ bool probeQMI8658Signature() {
 
 X3ProbeResult runX3ProbePass() {
   X3ProbeResult result;
-  Wire.begin(X3_I2C_SDA, X3_I2C_SCL, X3_I2C_FREQ);
-  Wire.setTimeOut(6);
 
-  result.bq27220 = probeBQ27220Signature();
-  result.ds3231 = probeDS3231Signature();
-  result.qmi8658 = probeQMI8658Signature();
+  i2c_master_bus_config_t busCfg = {};
+  busCfg.i2c_port = I2C_NUM_0;
+  busCfg.sda_io_num = (gpio_num_t)X3_I2C_SDA;
+  busCfg.scl_io_num = (gpio_num_t)X3_I2C_SCL;
+  busCfg.clk_source = I2C_CLK_SRC_DEFAULT;
+  busCfg.glitch_ignore_cnt = 7;
+  busCfg.flags.enable_internal_pullup = true;
 
-  Wire.end();
+  i2c_master_bus_handle_t bus;
+  if (i2c_new_master_bus(&busCfg, &bus) != ESP_OK) {
+    return result;
+  }
+
+  result.bq27220 = probeBQ27220Signature(bus);
+  result.ds3231 = probeDS3231Signature(bus);
+  result.qmi8658 = probeQMI8658Signature(bus);
+
+  i2c_del_master_bus(bus);
+  // Reset SDA/SCL pins to floating inputs in case this is an X4 device
+  // (these pins serve as UART0_RXD=20 and BAT_GPIO0=0 on X4)
   gpio_set_direction(GPIO_NUM_20, GPIO_MODE_INPUT);
   gpio_set_direction(GPIO_NUM_0, GPIO_MODE_INPUT);
   return result;
@@ -194,6 +186,22 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
 
 }  // namespace
 
+bool HalGPIO::initI2C() {
+  if (i2cBus) return true;
+  i2c_master_bus_config_t busCfg = {};
+  busCfg.i2c_port = I2C_NUM_0;
+  busCfg.sda_io_num = (gpio_num_t)X3_I2C_SDA;
+  busCfg.scl_io_num = (gpio_num_t)X3_I2C_SCL;
+  busCfg.clk_source = I2C_CLK_SRC_DEFAULT;
+  busCfg.glitch_ignore_cnt = 7;
+  busCfg.flags.enable_internal_pullup = true;
+  if (i2c_new_master_bus(&busCfg, &i2cBus) != ESP_OK) {
+    LOG_ERR("GPIO", "I2C bus init failed");
+    return false;
+  }
+  return true;
+}
+
 void HalGPIO::begin() {
   inputMgr.begin();
   SPI.begin(EPD_SCLK, SPI_MISO, EPD_MOSI, EPD_CS);
@@ -203,6 +211,19 @@ void HalGPIO::begin() {
   if (deviceIsX4()) {
     gpio_set_direction((gpio_num_t)BAT_GPIO0, GPIO_MODE_INPUT);
     gpio_set_direction((gpio_num_t)UART0_RXD, GPIO_MODE_INPUT);
+  }
+
+  if (deviceIsX3()) {
+    if (initI2C()) {
+      i2c_device_config_t devCfg = {};
+      devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+      devCfg.device_address = I2C_ADDR_BQ27220;
+      devCfg.scl_speed_hz = X3_I2C_FREQ;
+      if (i2c_master_bus_add_device(i2cBus, &devCfg, &bq27220Dev) != ESP_OK) {
+        LOG_ERR("GPIO", "Failed to add BQ27220 I2C device");
+        bq27220Dev = nullptr;
+      }
+    }
   }
 }
 
@@ -276,10 +297,13 @@ void HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPre
 bool HalGPIO::isUsbConnected() const {
   if (deviceIsX3()) {
     // X3: infer USB/charging via BQ27220 Current() register (0x0C, signed mA).
-    // Positive current means charging.
+    // Positive current means charging (USB connected).
+    if (!bq27220Dev) return false;
     for (uint8_t attempt = 0; attempt < 2; ++attempt) {
-      int16_t currentMa = 0;
-      if (X3GPIO::readBQ27220CurrentMA(&currentMa)) {
+      const uint8_t reg = BQ27220_CUR_REG;
+      uint8_t data[2];
+      if (i2c_master_transmit_receive(bq27220Dev, &reg, 1, data, 2, 4) == ESP_OK) {
+        const int16_t currentMa = static_cast<int16_t>((static_cast<uint16_t>(data[1]) << 8) | data[0]);
         return currentMa > 0;
       }
       vTaskDelay(pdMS_TO_TICKS(2));

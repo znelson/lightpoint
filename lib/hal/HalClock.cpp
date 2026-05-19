@@ -1,8 +1,11 @@
 #include "HalClock.h"
 
 #include <Logging.h>
+#include <Timing.h>
 #include <WiFi.h>
 #include <esp_sntp.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <time.h>
 
 #include <cassert>
@@ -23,21 +26,27 @@ void HalClock::begin() {
     return;
   }
 
-  // I2C is already initialised by HalPowerManager::begin() for X3.
-  // Probe the DS3231 by reading the seconds register.
-  Wire.beginTransmission(I2C_ADDR_DS3231);
-  Wire.write(DS3231_SEC_REG);
-  if (Wire.endTransmission(false) != 0) {
+  // I2C bus is already initialised by gpio.begin() for X3.
+  i2c_device_config_t devCfg = {};
+  devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+  devCfg.device_address = I2C_ADDR_DS3231;
+  devCfg.scl_speed_hz = X3_I2C_FREQ;
+  if (i2c_master_bus_add_device(gpio.getI2CBus(), &devCfg, &ds3231Dev) != ESP_OK) {
+    LOG_ERR("CLK", "Failed to add DS3231 I2C device");
+    _available = false;
+    return;
+  }
+
+  // Probe: read 1 byte from seconds register to verify connectivity
+  const uint8_t reg = DS3231_SEC_REG;
+  uint8_t dummy;
+  if (i2c_master_transmit_receive(ds3231Dev, &reg, 1, &dummy, 1, 10) != ESP_OK) {
     LOG_INF("CLK", "DS3231 RTC not found");
+    i2c_master_bus_rm_device(ds3231Dev);
+    ds3231Dev = nullptr;
     _available = false;
     return;
   }
-  Wire.requestFrom(I2C_ADDR_DS3231, (uint8_t)1);
-  if (Wire.available() < 1) {
-    _available = false;
-    return;
-  }
-  Wire.read();  // discard — just testing connectivity
 
   _available = true;
   LOG_INF("CLK", "DS3231 RTC found");
@@ -50,7 +59,7 @@ void HalClock::begin() {
 bool HalClock::getTime(uint8_t& hour, uint8_t& minute) const {
   if (!_available) return false;
 
-  const unsigned long now = millis();
+  const uint32_t now = uptime_ms();
   if (_lastPollMs != 0 && (now - _lastPollMs) < CLOCK_POLL_MS) {
     hour = _cachedHour;
     minute = _cachedMinute;
@@ -58,17 +67,9 @@ bool HalClock::getTime(uint8_t& hour, uint8_t& minute) const {
   }
 
   // Read 3 bytes starting at register 0x00: seconds, minutes, hours
-  Wire.beginTransmission(I2C_ADDR_DS3231);
-  Wire.write(DS3231_SEC_REG);
-  if (Wire.endTransmission(false) != 0) {
-    if (!_hasCachedTime) return false;
-    _lastPollMs = now;
-    hour = _cachedHour;
-    minute = _cachedMinute;
-    return true;
-  }
-  Wire.requestFrom(I2C_ADDR_DS3231, (uint8_t)3);
-  if (Wire.available() < 3) {
+  const uint8_t reg = DS3231_SEC_REG;
+  uint8_t data[3];
+  if (i2c_master_transmit_receive(ds3231Dev, &reg, 1, data, 3, 10) != ESP_OK) {
     if (!_hasCachedTime) return false;
     _lastPollMs = now;
     hour = _cachedHour;
@@ -76,9 +77,8 @@ bool HalClock::getTime(uint8_t& hour, uint8_t& minute) const {
     return true;
   }
 
-  Wire.read();  // seconds — not needed
-  const uint8_t rawMin = Wire.read();
-  const uint8_t rawHour = Wire.read();
+  const uint8_t rawMin = data[1];  // data[0] = seconds (unused)
+  const uint8_t rawHour = data[2];
 
   _cachedMinute = bcdToDec(rawMin & 0x7F);
   // Handle 12/24h mode: bit 6 high = 12h mode
@@ -131,12 +131,8 @@ bool HalClock::writeTimeToRTC(uint8_t hour, uint8_t minute, uint8_t second) {
   assert(hour < 24);
   assert(minute < 60);
   assert(second < 60);
-  Wire.beginTransmission(I2C_ADDR_DS3231);
-  Wire.write(DS3231_SEC_REG);    // Start at register 0x00
-  Wire.write(decToBcd(second));  // 0x00: Seconds
-  Wire.write(decToBcd(minute));  // 0x01: Minutes
-  Wire.write(decToBcd(hour));    // 0x02: Hours (24h mode, bit 6 = 0)
-  if (Wire.endTransmission() != 0) {
+  const uint8_t buf[4] = {DS3231_SEC_REG, decToBcd(second), decToBcd(minute), decToBcd(hour)};
+  if (i2c_master_transmit(ds3231Dev, buf, 4, 10) != ESP_OK) {
     LOG_ERR("CLK", "Failed to write time to DS3231");
     return false;
   }
@@ -174,7 +170,7 @@ bool HalClock::syncFromNTP() {
       }
       return false;
     }
-    delay(100);
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 
   LOG_ERR("CLK", "NTP sync timed out");
