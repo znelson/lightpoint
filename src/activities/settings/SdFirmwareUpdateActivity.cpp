@@ -1,6 +1,5 @@
 #include "SdFirmwareUpdateActivity.h"
 
-#include <Arduino.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
@@ -181,7 +180,7 @@ void SdFirmwareUpdateActivity::performUpdate() {
     state = State::SUCCESS;
   }
   requestUpdateAndWait();
-  delay(1500);
+  vTaskDelay(pdMS_TO_TICKS(1500));
   esp_restart();
 }
 

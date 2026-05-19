@@ -5,6 +5,7 @@
 #include <HalStorage.h>
 #include <JPEGDEC.h>
 #include <Logging.h>
+#include <Timing.h>
 #include <esp_heap_caps.h>
 
 #include <cstdlib>
@@ -485,9 +486,9 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
     }
   }
 
-  unsigned long decodeStart = millis();
+  const uint32_t decodeStart = uptime_ms();
   rc = jpeg->decode(0, 0, jpegScaleOption);
-  unsigned long decodeTime = millis() - decodeStart;
+  const uint32_t decodeTime = uptime_ms() - decodeStart;
 
   if (rc != 1) {
     LOG_ERR("JPG", "Decode failed (rc=%d, lastError=%d)", rc, jpeg->getLastError());
@@ -498,7 +499,7 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
 
   jpeg->close();
   delete jpeg;
-  LOG_DBG("JPG", "JPEG decoding complete - render time: %lu ms", decodeTime);
+  LOG_DBG("JPG", "JPEG decoding complete - render time: %u ms", decodeTime);
 
   // Write cache file if caching was enabled
   if (ctx.caching) {

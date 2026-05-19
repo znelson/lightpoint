@@ -1,6 +1,7 @@
 #include <HalGPIO.h>
 #include <Logging.h>
 #include <SPI.h>
+#include <Timing.h>
 #include <Wire.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
@@ -167,7 +168,7 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
 
   // No cache yet: run active X3 fingerprint probe and persist result.
   const X3GPIO::X3ProbeResult pass1 = X3GPIO::runX3ProbePass();
-  delay(2);
+  vTaskDelay(pdMS_TO_TICKS(2));
   const X3GPIO::X3ProbeResult pass2 = X3GPIO::runX3ProbePass();
 
   const uint8_t score1 = pass1.score();
@@ -231,7 +232,7 @@ unsigned long HalGPIO::getPowerButtonHeldTime() const { return inputMgr.getPower
 void HalGPIO::startDeepSleep() {
   // Ensure that the power button has been released to avoid immediately turning back on if you're holding it
   while (inputMgr.isPressed(BTN_POWER)) {
-    delay(50);
+    vTaskDelay(pdMS_TO_TICKS(50));
     inputMgr.update();
   }
   // Arm the wakeup trigger *after* the button is released
@@ -249,19 +250,19 @@ void HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPre
   // can still power on the device. Tighten wake debounce/state handling here.
 
   // Calibrate: subtract boot time already elapsed, assuming button held since boot
-  const uint16_t calibration = millis();
-  const uint16_t calibratedDuration = (calibration < requiredDurationMs) ? (requiredDurationMs - calibration) : 1;
+  const uint32_t calibration = uptime_ms();
+  const uint32_t calibratedDuration = (calibration < requiredDurationMs) ? (requiredDurationMs - calibration) : 1;
 
-  const auto start = millis();
+  const auto start = uptime_ms();
   inputMgr.update();
   // inputMgr.isPressed() may take up to ~500ms to return correct state
-  while (!inputMgr.isPressed(BTN_POWER) && millis() - start < 1000) {
-    delay(10);
+  while (!inputMgr.isPressed(BTN_POWER) && uptime_ms() - start < 1000) {
+    vTaskDelay(pdMS_TO_TICKS(10));
     inputMgr.update();
   }
   if (inputMgr.isPressed(BTN_POWER)) {
     do {
-      delay(10);
+      vTaskDelay(pdMS_TO_TICKS(10));
       inputMgr.update();
     } while (inputMgr.isPressed(BTN_POWER) && inputMgr.getPowerButtonHeldTime() < calibratedDuration);
     if (inputMgr.getPowerButtonHeldTime() < calibratedDuration) {
@@ -281,7 +282,7 @@ bool HalGPIO::isUsbConnected() const {
       if (X3GPIO::readBQ27220CurrentMA(&currentMa)) {
         return currentMa > 0;
       }
-      delay(2);
+      vTaskDelay(pdMS_TO_TICKS(2));
     }
     return false;
   }

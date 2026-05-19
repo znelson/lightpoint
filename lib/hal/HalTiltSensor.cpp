@@ -1,6 +1,7 @@
 #include "HalTiltSensor.h"
 
 #include <Logging.h>
+#include <Timing.h>
 
 HalTiltSensor halTiltSensor;  // Singleton instance
 
@@ -79,8 +80,8 @@ void HalTiltSensor::begin() {
   }
 
   _available = true;
-  _initMs = millis();
-  _lastPollMs = millis();
+  _initMs = uptime_ms();
+  _lastPollMs = uptime_ms();
   LOG_INF("GYR", "QMI8658 gyro initialized and put to sleep");
 }
 
@@ -90,14 +91,14 @@ bool HalTiltSensor::wake() {
   }
 
   // Wait for init to complete before waking
-  if ((millis() - _initMs) < SLEEP_STABILIZE_MS) {
+  if ((uptime_ms() - _initMs) < SLEEP_STABILIZE_MS) {
     return false;
   }
 
   if (writeReg(REG_CTRL1, CTRL1_BASE) && writeReg(REG_CTRL7, CTRL7_GYRO_ENABLE)) {
-    _lastPollMs = millis();
-    _lastTiltMs = millis();
-    _wakeMs = millis();
+    _lastPollMs = uptime_ms();
+    _lastTiltMs = uptime_ms();
+    _wakeMs = uptime_ms();
     LOG_INF("GYR", "QMI8658 woke up");
     return true;
   } else {
@@ -111,7 +112,7 @@ bool HalTiltSensor::deepSleep() {
     return false;
   }
 
-  if ((millis() - _wakeMs) < SLEEP_STABILIZE_MS) {
+  if ((uptime_ms() - _wakeMs) < SLEEP_STABILIZE_MS) {
     return false;
   }
 
@@ -146,7 +147,7 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
     return;
   }
 
-  const unsigned long now = millis();
+  const uint32_t now = uptime_ms();
   // Stabilization: discard readings during gyro startup transient
   if ((now - _wakeMs) < WAKE_STABILIZE_MS) {
     return;

@@ -1,6 +1,7 @@
 #include "HalPowerManager.h"
 
 #include <Logging.h>
+#include <Timing.h>
 #include <WiFi.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
@@ -76,7 +77,7 @@ void HalPowerManager::setPowerSaving(bool enabled) {
 void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
   // Ensure that the power button has been released to avoid immediately turning back on if you're holding it
   while (gpio.isPressed(HalGPIO::BTN_POWER)) {
-    delay(50);
+    vTaskDelay(pdMS_TO_TICKS(50));
     gpio.update();
   }
   // Pre-sleep routines from the original firmware
@@ -101,7 +102,7 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
 
 uint16_t HalPowerManager::getBatteryPercentage() const {
   if (_batteryUseI2C) {
-    const unsigned long now = millis();
+    const uint32_t now = uptime_ms();
     if (_batteryLastPollMs != 0 && (now - _batteryLastPollMs) < BATTERY_POLL_MS) {
       return _batteryCachedPercent;
     }

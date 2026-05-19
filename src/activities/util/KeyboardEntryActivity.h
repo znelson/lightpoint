@@ -69,7 +69,7 @@ class KeyboardEntryActivity : public Activity {
 
   int delPressCount = 0;
   bool hintVisible = false;
-  unsigned long hintShowTime = 0;
+  uint32_t hintShowTime = 0;
 
   void onComplete(std::string text);
   void onCancel();

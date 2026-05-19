@@ -1,5 +1,7 @@
 #include "ButtonNavigator.h"
 
+#include <Timing.h>
+
 const MappedInputManager* ButtonNavigator::mappedInput = nullptr;
 
 void ButtonNavigator::onNext(const Callback& callback) {
@@ -60,7 +62,7 @@ void ButtonNavigator::onContinuous(const Buttons& buttons, const Callback& callb
 
   if (isPressed) {
     callback();
-    lastContinuousNavTime = millis();
+    lastContinuousNavTime = uptime_ms();
   }
 }
 
@@ -68,7 +70,7 @@ bool ButtonNavigator::shouldNavigateContinuously() const {
   if (!mappedInput) return false;
 
   const bool buttonHeldLongEnough = mappedInput->getHeldTime() > continuousStartMs;
-  const bool navigationIntervalElapsed = (millis() - lastContinuousNavTime) > continuousIntervalMs;
+  const bool navigationIntervalElapsed = (uptime_ms() - lastContinuousNavTime) > continuousIntervalMs;
 
   return buttonHeldLongEnough && navigationIntervalElapsed;
 }

@@ -4,9 +4,11 @@
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <Timing.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
+#include <freertos/task.h>
 
 #include <iterator>
 
@@ -331,7 +333,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
               extractSuccess = self->epub->readItemContentsToStream(resolvedPath, cachedImageFile, 4096);
               cachedImageFile.flush();
               cachedImageFile.close();
-              delay(50);  // Give SD card time to sync
+              vTaskDelay(pdMS_TO_TICKS(50));  // Give SD card time to sync
             }
 
             if (extractSuccess) {
@@ -1092,7 +1094,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   XML_SetCharacterDataHandler(parser, characterData);
 
   // Compute the time taken to parse and build pages
-  const uint32_t chapterStartTime = millis();
+  const uint32_t chapterStartTime = uptime_ms();
   do {
     void* const buf = XML_GetBuffer(parser, PARSE_BUFFER_SIZE);
     if (!buf) {
@@ -1121,7 +1123,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
       return false;
     }
   } while (!done);
-  LOG_DBG("EHP", "Time to parse and build pages: %lu ms", millis() - chapterStartTime);
+  LOG_DBG("EHP", "Time to parse and build pages: %u ms", uptime_ms() - chapterStartTime);
 
   destroyXmlParser(parser);
   file.close();

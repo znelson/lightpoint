@@ -27,19 +27,19 @@ class HalTiltSensor {
   bool _hadActivity = false;       // Non-consuming flag for sleep timer
   bool _inTilt = false;            // Currently tilted past threshold
   bool _isAwake = false;           // Tracks power state
-  unsigned long _initMs = 0;       // Timestamp of sensor init
-  unsigned long _lastTiltMs = 0;   // Debounce / cooldown
-  unsigned long _wakeMs = 0;       // Timestamp of last wake() for stabilization
+  uint32_t _initMs = 0;            // Timestamp of sensor init
+  uint32_t _lastTiltMs = 0;        // Debounce / cooldown
+  uint32_t _wakeMs = 0;            // Timestamp of last wake() for stabilization
 
   // Tuning constants
-  static constexpr float RATE_THRESHOLD_DPS = 270.0f;      // Deg/sec speed to trigger flick
-  static constexpr float NEUTRAL_RATE_DPS = 50.0f;         // Must stop moving below this rate before next trigger
-  static constexpr unsigned long COOLDOWN_MS = 600;        // Minimum ms between triggers
-  static constexpr unsigned long POLL_INTERVAL_MS = 50;    // 20 Hz polling
-  static constexpr unsigned long WAKE_STABILIZE_MS = 300;  // Ignore readings after wake
-  static constexpr unsigned long SLEEP_STABILIZE_MS = 15;  // Sleep turn on/off delay
+  static constexpr float RATE_THRESHOLD_DPS = 270.0f;  // Deg/sec speed to trigger flick
+  static constexpr float NEUTRAL_RATE_DPS = 50.0f;     // Must stop moving below this rate before next trigger
+  static constexpr uint32_t COOLDOWN_MS = 600;         // Minimum ms between triggers
+  static constexpr uint32_t POLL_INTERVAL_MS = 50;     // 20 Hz polling
+  static constexpr uint32_t WAKE_STABILIZE_MS = 300;   // Ignore readings after wake
+  static constexpr uint32_t SLEEP_STABILIZE_MS = 15;   // Sleep turn on/off delay
 
-  mutable unsigned long _lastPollMs = 0;
+  mutable uint32_t _lastPollMs = 0;
 
   // --- QMI8658 registers ---
   static constexpr uint8_t REG_CTRL1 = 0x02;

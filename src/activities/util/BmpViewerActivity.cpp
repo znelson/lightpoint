@@ -172,7 +172,7 @@ void BmpViewerActivity::doSetSleepCover() {
     GUI.drawPopup(renderer, tr(STR_FAILED_LOWER));
   }
 
-  delay(1000);
+  vTaskDelay(pdMS_TO_TICKS(1000));
   onEnter();
 }
 

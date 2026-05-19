@@ -12,6 +12,7 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <SPI.h>
+#include <Timing.h>
 #include <builtinFonts/all.h>
 #include <esp_heap_caps.h>
 #include <esp_system.h>
@@ -128,8 +129,8 @@ EpdFont ui12BoldFont(&ubuntu_12_bold);
 EpdFontFamily ui12FontFamily(&ui12RegularFont, &ui12BoldFont);
 
 // measurement of power button press duration calibration value
-unsigned long t1 = 0;
-unsigned long t2 = 0;
+uint32_t t1 = 0;
+uint32_t t2 = 0;
 
 // Definitions for SilentRestart.h. RTC_NOINIT survives esp_restart() but not power loss.
 RTC_NOINIT_ATTR uint32_t silentRebootMagic;
@@ -142,7 +143,7 @@ void silentRestart() {
   silentRebootTarget = SILENT_REBOOT_TARGET_HOME;
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=home)");
-  delay(50);
+  vTaskDelay(pdMS_TO_TICKS(50));
   esp_restart();
 }
 
@@ -150,7 +151,7 @@ void silentRestartToReader() {
   silentRebootTarget = SILENT_REBOOT_TARGET_READER;
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=reader)");
-  delay(50);
+  vTaskDelay(pdMS_TO_TICKS(50));
   esp_restart();
 }
 
@@ -164,7 +165,7 @@ void verifyPowerButtonDuration() {
   }
 
   // Give the user up to 1000ms to start holding the power button, and must hold for SETTINGS.getPowerButtonDuration()
-  const auto start = millis();
+  const auto start = uptime_ms();
   bool abort = false;
   // Subtract the current time, because inputManager only starts counting the HeldTime from the first update()
   // This way, we remove the time we already took to reach here from the duration,
@@ -175,15 +176,16 @@ void verifyPowerButtonDuration() {
 
   gpio.update();
   // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state
-  while (!gpio.isPressed(HalGPIO::BTN_POWER) && millis() - start < 1000) {
-    delay(10);  // only wait 10ms each iteration to not delay too much in case of short configured duration.
+  while (!gpio.isPressed(HalGPIO::BTN_POWER) && uptime_ms() - start < 1000) {
+    vTaskDelay(pdMS_TO_TICKS(
+        10));  // only wait 10ms each iteration to not delay too much in case of short configured duration.
     gpio.update();
   }
 
-  t2 = millis();
+  t2 = uptime_ms();
   if (gpio.isPressed(HalGPIO::BTN_POWER)) {
     do {
-      delay(10);
+      vTaskDelay(pdMS_TO_TICKS(10));
       gpio.update();
     } while (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.getPowerButtonHeldTime() < calibratedPressDuration);
     abort = gpio.getPowerButtonHeldTime() < calibratedPressDuration;
@@ -200,7 +202,7 @@ void verifyPowerButtonDuration() {
 void waitForPowerRelease() {
   gpio.update();
   while (gpio.isPressed(HalGPIO::BTN_POWER)) {
-    delay(50);
+    vTaskDelay(pdMS_TO_TICKS(50));
     gpio.update();
   }
 }
@@ -258,7 +260,7 @@ void setupDisplayAndFonts() {
 }
 
 void setup() {
-  t1 = millis();
+  t1 = uptime_ms();
 
   HalSystem::begin();
 
@@ -277,9 +279,9 @@ void setup() {
 #ifdef ENABLE_SERIAL_LOG
   if (gpio.isUsbConnected()) {
     Serial.begin(115200);
-    const unsigned long start = millis();
-    while (!Serial && (millis() - start) < 500) {
-      delay(10);
+    const uint32_t start = uptime_ms();
+    while (!Serial && (uptime_ms() - start) < 500) {
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
 #endif
@@ -329,10 +331,10 @@ void setup() {
     // Refresh the cached button state a few times — isPressed() needs ~half a second to settle
     // after boot per the HalGPIO contract. Use a millis-based deadline so we always wait the full
     // settle window even if the loop body takes longer than expected on slow boots.
-    const unsigned long settleStart = millis();
-    while (millis() - settleStart < 500) {
+    const uint32_t settleStart = uptime_ms();
+    while (uptime_ms() - settleStart < 500) {
       gpio.update();
-      delay(10);
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
     if (gpio.isPressed(HalGPIO::BTN_UP)) {
       recoveryFirmwareMode = true;
@@ -387,20 +389,20 @@ void setup() {
 }
 
 void loop() {
-  static unsigned long maxLoopDuration = 0;
-  const unsigned long loopStartTime = millis();
-  static unsigned long lastMemPrint = 0;
+  static uint32_t maxLoopDuration = 0;
+  const uint32_t loopStartTime = uptime_ms();
+  static uint32_t lastMemPrint = 0;
 
   gpio.update();
   halTiltSensor.update(SETTINGS.tiltPageTurn, SETTINGS.orientation, activityManager.isReaderActivity());
 
   renderer.setFadingFix(SETTINGS.fadingFix);
 
-  if (Serial && millis() - lastMemPrint >= 10000) {
+  if (Serial && uptime_ms() - lastMemPrint >= 10000) {
     LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", esp_get_free_heap_size(),
             heap_caps_get_total_size(MALLOC_CAP_DEFAULT), esp_get_minimum_free_heap_size(),
             heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT));
-    lastMemPrint = millis();
+    lastMemPrint = uptime_ms();
   }
 
   // Handle incoming serial commands,
@@ -426,10 +428,10 @@ void loop() {
   }
 
   // Check for any user activity (button press or release) or active background work
-  static unsigned long lastActivityTime = millis();
+  static uint32_t lastActivityTime = uptime_ms();
   if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || halTiltSensor.hadActivity() ||
       activityManager.preventAutoSleep()) {
-    lastActivityTime = millis();         // Reset inactivity timer
+    lastActivityTime = uptime_ms();      // Reset inactivity timer
     powerManager.setPowerSaving(false);  // Restore normal CPU frequency on user activity
   }
 
@@ -457,9 +459,9 @@ void loop() {
     screenshotComboActive = false;
   }
 
-  const unsigned long sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
-  if (millis() - lastActivityTime >= sleepTimeoutMs) {
-    LOG_DBG("SLP", "Auto-sleep triggered after %lu ms of inactivity", sleepTimeoutMs);
+  const uint32_t sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
+  if (uptime_ms() - lastActivityTime >= sleepTimeoutMs) {
+    LOG_DBG("SLP", "Auto-sleep triggered after %u ms of inactivity", sleepTimeoutMs);
     enterDeepSleep();
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
@@ -489,15 +491,15 @@ void loop() {
     activityManager.requestUpdate();
   }
 
-  const unsigned long activityStartTime = millis();
+  const uint32_t activityStartTime = uptime_ms();
   activityManager.loop();
-  const unsigned long activityDuration = millis() - activityStartTime;
+  const uint32_t activityDuration = uptime_ms() - activityStartTime;
 
-  const unsigned long loopDuration = millis() - loopStartTime;
+  const uint32_t loopDuration = uptime_ms() - loopStartTime;
   if (loopDuration > maxLoopDuration) {
     maxLoopDuration = loopDuration;
     if (maxLoopDuration > 50) {
-      LOG_DBG("LOOP", "New max loop duration: %lu ms (activity: %lu ms)", maxLoopDuration, activityDuration);
+      LOG_DBG("LOOP", "New max loop duration: %u ms (activity: %u ms)", maxLoopDuration, activityDuration);
     }
   }
 
@@ -508,13 +510,13 @@ void loop() {
     powerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested
     yield();                             // Give FreeRTOS a chance to run tasks, but return immediately
   } else {
-    if (millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
+    if (uptime_ms() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
       powerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
-      delay(50);
+      vTaskDelay(pdMS_TO_TICKS(50));
     } else {
       // Short delay to prevent tight loop while still being responsive
-      delay(10);
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
 }
