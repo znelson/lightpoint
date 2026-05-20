@@ -79,7 +79,7 @@ class HalFile : public Print {
   HalFile(const HalFile&) = delete;
   HalFile& operator=(const HalFile&) = delete;
 
-  void flush();
+  void flush() override;
   size_t getName(char* name, size_t len);
   size_t size();
   size_t fileSize();
