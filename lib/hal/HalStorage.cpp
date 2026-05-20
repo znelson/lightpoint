@@ -34,21 +34,34 @@ class HalStorage::StorageLock {
   HalStorage::StorageLock lock;               \
   return SDCard.method(__VA_ARGS__);
 
-std::vector<String> HalStorage::listFiles(const char* path, int maxFiles) {
+std::vector<std::string> HalStorage::listFiles(const char* path, int maxFiles) {
   HAL_STORAGE_WRAPPED_CALL(listFiles, path, maxFiles);
 }
 
-String HalStorage::readFile(const char* path) { HAL_STORAGE_WRAPPED_CALL(readFile, path); }
+std::string HalStorage::readFile(const char* path) { HAL_STORAGE_WRAPPED_CALL(readFile, path); }
 
 bool HalStorage::readFileToStream(const char* path, Print& out, size_t chunkSize) {
-  HAL_STORAGE_WRAPPED_CALL(readFileToStream, path, out, chunkSize);
+  StorageLock lock;
+  FsFile f = SDCard.open(path, O_RDONLY);
+  if (!f) return false;
+  constexpr size_t localBufSize = 256;
+  uint8_t buf[localBufSize];
+  const size_t toRead = (chunkSize == 0 || chunkSize > localBufSize) ? localBufSize : chunkSize;
+  while (f.available()) {
+    const int r = f.read(buf, toRead);
+    if (r > 0)
+      out.write(buf, static_cast<size_t>(r));
+    else
+      break;
+  }
+  return true;
 }
 
 size_t HalStorage::readFileToBuffer(const char* path, char* buffer, size_t bufferSize, size_t maxBytes) {
   HAL_STORAGE_WRAPPED_CALL(readFileToBuffer, path, buffer, bufferSize, maxBytes);
 }
 
-bool HalStorage::writeFile(const char* path, const String& content) {
+bool HalStorage::writeFile(const char* path, const std::string& content) {
   HAL_STORAGE_WRAPPED_CALL(writeFile, path, content);
 }
 
@@ -98,10 +111,6 @@ bool HalStorage::openFileForRead(const char* moduleName, const std::string& path
   return openFileForRead(moduleName, path.c_str(), file);
 }
 
-bool HalStorage::openFileForRead(const char* moduleName, const String& path, HalFile& file) {
-  return openFileForRead(moduleName, path.c_str(), file);
-}
-
 bool HalStorage::openFileForWrite(const char* moduleName, const char* path, HalFile& file) {
   StorageLock lock;  // ensure thread safety for the duration of this function
   FsFile fsFile;
@@ -111,10 +120,6 @@ bool HalStorage::openFileForWrite(const char* moduleName, const char* path, HalF
 }
 
 bool HalStorage::openFileForWrite(const char* moduleName, const std::string& path, HalFile& file) {
-  return openFileForWrite(moduleName, path.c_str(), file);
-}
-
-bool HalStorage::openFileForWrite(const char* moduleName, const String& path, HalFile& file) {
   return openFileForWrite(moduleName, path.c_str(), file);
 }
 

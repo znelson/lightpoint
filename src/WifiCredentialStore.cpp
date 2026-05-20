@@ -19,8 +19,8 @@ bool WifiCredentialStore::saveToFile() const {
 
 bool WifiCredentialStore::loadFromFile() {
   if (Storage.exists(WIFI_FILE_JSON)) {
-    String json = Storage.readFile(WIFI_FILE_JSON);
-    if (!json.isEmpty()) {
+    std::string json = Storage.readFile(WIFI_FILE_JSON);
+    if (!json.empty()) {
       return JsonSettingsIO::loadWifi(*this, json.c_str());
     }
   }

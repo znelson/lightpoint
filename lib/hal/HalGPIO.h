@@ -3,6 +3,9 @@
 #include <Arduino.h>
 #include <InputManager.h>
 #include <driver/i2c_master.h>
+#include <esp_adc/adc_oneshot.h>
+
+#include <cstdint>
 
 // Display SPI pins (custom pins for XteinkX4, not hardware SPI defaults)
 #define EPD_SCLK 8   // SPI Clock
@@ -77,8 +80,9 @@ class HalGPIO {
   bool wasAnyPressed() const;
   bool wasReleased(uint8_t buttonIndex) const;
   bool wasAnyReleased() const;
-  unsigned long getHeldTime() const;
-  unsigned long getPowerButtonHeldTime() const;
+  uint32_t getHeldTime() const;
+  uint32_t getPowerButtonHeldTime() const;
+  adc_oneshot_unit_handle_t getAdcUnit() const;
 
   // Setup wake up GPIO and enter deep sleep
   void startDeepSleep();

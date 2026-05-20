@@ -26,7 +26,7 @@ bool JsonSettingsIO::saveState(const CrossPointState& s, const char* path) {
   doc["readerActivityLoadCount"] = s.readerActivityLoadCount;
   doc["lastSleepFromReader"] = s.lastSleepFromReader;
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
   return Storage.writeFile(path, json);
 }
@@ -94,7 +94,7 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
   doc["language"] = (s.language < getLanguageCount()) ? LANGUAGE_CODES[s.language] : "EN";
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
   return Storage.writeFile(path, json);
 }
@@ -185,7 +185,7 @@ bool JsonSettingsIO::saveWifi(const WifiCredentialStore& store, const char* path
     obj["password_obf"] = obfuscation::obfuscateToBase64(cred.password);
   }
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
   return Storage.writeFile(path, json);
 }
@@ -227,7 +227,7 @@ bool JsonSettingsIO::saveRecentBooks(const RecentBooksStore& store, const char* 
     obj["coverBmpPath"] = book.coverBmpPath;
   }
 
-  String json;
+  std::string json;
   serializeJson(doc, json);
   return Storage.writeFile(path, json);
 }

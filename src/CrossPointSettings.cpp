@@ -36,8 +36,8 @@ bool CrossPointSettings::saveToFile() const {
 
 bool CrossPointSettings::loadFromFile() {
   if (Storage.exists(SETTINGS_FILE_JSON)) {
-    String json = Storage.readFile(SETTINGS_FILE_JSON);
-    if (!json.isEmpty()) {
+    std::string json = Storage.readFile(SETTINGS_FILE_JSON);
+    if (!json.empty()) {
       return JsonSettingsIO::loadSettings(*this, json.c_str());
     }
   }
