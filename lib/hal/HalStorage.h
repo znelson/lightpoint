@@ -15,9 +15,9 @@ class HalStorage {
   HalStorage();
   bool begin();
   bool ready() const;
-  std::vector<String> listFiles(const char* path = "/", int maxFiles = 200);
-  // Read the entire file at `path` into a String. Returns empty string on failure.
-  String readFile(const char* path);
+  std::vector<std::string> listFiles(const char* path = "/", int maxFiles = 200);
+  // Read the entire file at `path` into a string. Returns empty string on failure.
+  std::string readFile(const char* path);
   // Low-memory helpers:
   // Stream the file contents to a `Print` (e.g. `Serial`, or any `Print`-derived object).
   // Returns true on success, false on failure.
@@ -26,7 +26,7 @@ class HalStorage {
   size_t readFileToBuffer(const char* path, char* buffer, size_t bufferSize, size_t maxBytes = 0);
   // Write a string to `path` on the SD card. Overwrites existing file.
   // Returns true on success.
-  bool writeFile(const char* path, const String& content);
+  bool writeFile(const char* path, const std::string& content);
   // Ensure a directory exists, creating it if necessary. Returns true on success.
   bool ensureDirectoryExists(const char* path);
 
@@ -39,10 +39,8 @@ class HalStorage {
 
   bool openFileForRead(const char* moduleName, const char* path, HalFile& file);
   bool openFileForRead(const char* moduleName, const std::string& path, HalFile& file);
-  bool openFileForRead(const char* moduleName, const String& path, HalFile& file);
   bool openFileForWrite(const char* moduleName, const char* path, HalFile& file);
   bool openFileForWrite(const char* moduleName, const std::string& path, HalFile& file);
-  bool openFileForWrite(const char* moduleName, const String& path, HalFile& file);
   bool removeDir(const char* path);
 
   static HalStorage& getInstance() { return instance; }
