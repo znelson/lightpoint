@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
@@ -12,11 +11,16 @@
 #include <HalTiltSensor.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <SPI.h>
 #include <Timing.h>
 #include <builtinFonts/all.h>
+#include <esp_attr.h>
+#include <esp_event.h>
 #include <esp_heap_caps.h>
+#include <esp_netif.h>
 #include <esp_system.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <nvs_flash.h>
 
 #include <cstring>
 
@@ -279,6 +283,15 @@ void setup() {
 
   HalSystem::begin();
 
+  // Global networking prerequisites — must run before any WiFi use.
+  esp_err_t nvsErr = nvs_flash_init();
+  if (nvsErr == ESP_ERR_NVS_NO_FREE_PAGES || nvsErr == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    nvs_flash_erase();
+    nvs_flash_init();
+  }
+  esp_netif_init();
+  esp_event_loop_create_default();
+
   // Read-and-clear so a panic later in setup() doesn't loop into silent reboot.
   // Bound the target range too — RTC_NOINIT memory is uninitialized on cold boot.
   const bool isSilentReboot = (silentRebootMagic == SILENT_REBOOT_MAGIC);
@@ -517,7 +530,7 @@ void loop() {
   // Otherwise, use longer delay to save power
   if (activityManager.skipLoopDelay()) {
     powerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested
-    yield();                             // Give FreeRTOS a chance to run tasks, but return immediately
+    taskYIELD();                         // Give FreeRTOS a chance to run tasks, but return immediately
   } else {
     if (uptime_ms() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
@@ -527,5 +540,12 @@ void loop() {
       // Short delay to prevent tight loop while still being responsive
       vTaskDelay(pdMS_TO_TICKS(10));
     }
+  }
+}
+
+extern "C" void app_main() {
+  setup();
+  while (true) {
+    loop();
   }
 }

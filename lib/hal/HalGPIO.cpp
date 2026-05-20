@@ -1,6 +1,5 @@
 #include <HalGPIO.h>
 #include <Logging.h>
-#include <SPI.h>
 #include <Timing.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
@@ -206,9 +205,8 @@ bool HalGPIO::initI2C() {
 void HalGPIO::begin() {
   inputMgr.begin();
 
-  // Register SPI2 with IDF's device management before SPI.begin(). pioarduino's
-  // SPI.begin() does not call spi_bus_initialize() through the IDF path, so
-  // EInkDisplay::begin()'s spi_bus_add_device() would fail to find the bus.
+  // Register SPI2 with IDF's device management. EInkDisplay::begin() calls
+  // spi_bus_add_device() which requires the bus to be registered first.
   spi_bus_config_t spiBusCfg = {};
   spiBusCfg.mosi_io_num = EPD_MOSI;
   spiBusCfg.miso_io_num = SPI_MISO;
@@ -217,7 +215,6 @@ void HalGPIO::begin() {
   spiBusCfg.quadhd_io_num = -1;
   spiBusCfg.max_transfer_sz = 52272;  // EInkDisplay::MAX_BUFFER_SIZE
   spi_bus_initialize(SPI2_HOST, &spiBusCfg, SPI_DMA_CH_AUTO);
-  SPI.begin(EPD_SCLK, SPI_MISO, EPD_MOSI, EPD_CS);
 
   _deviceType = detectDeviceTypeWithFingerprint();
 

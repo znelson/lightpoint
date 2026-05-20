@@ -1,5 +1,7 @@
 #include "HttpDownloader.h"
 
+#if __has_include(<HTTPClient.h>)
+
 #include <HTTPClient.h>
 #include <Logging.h>
 #include <NetworkClient.h>
@@ -202,3 +204,13 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
 
   return OK;
 }
+
+#else   // no HTTPClient.h — stubs so callers link
+bool HttpDownloader::fetchUrl(const std::string&, std::string&, const std::string&, const std::string&) {
+  return false;
+}
+HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string&, const std::string&, ProgressCallback,
+                                                             bool*, const std::string&, const std::string&) {
+  return HTTP_ERROR;
+}
+#endif  // __has_include(<HTTPClient.h>)

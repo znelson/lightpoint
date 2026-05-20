@@ -2,8 +2,8 @@
 
 #include <Logging.h>
 #include <Timing.h>
-#include <WiFi.h>
 #include <esp_sntp.h>
+#include <esp_wifi.h>
 #include <time.h>
 
 #include <cassert>
@@ -146,13 +146,23 @@ bool HalClock::writeTimeToRTC(uint8_t hour, uint8_t minute, uint8_t second) {
 bool HalClock::syncFromNTP() {
   if (!_available) return false;
 
-  if (WiFi.status() != WL_CONNECTED) {
+  wifi_ap_record_t apInfo;
+  if (esp_wifi_sta_get_ap_info(&apInfo) != ESP_OK) {
     LOG_ERR("CLK", "WiFi not connected, cannot sync NTP");
     return false;
   }
 
   LOG_INF("CLK", "Starting NTP sync...");
-  configTzTime("UTC0", "pool.ntp.org", "time.nist.gov");
+  setenv("TZ", "UTC0", 1);
+  tzset();
+  esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+  esp_sntp_setservername(0, "pool.ntp.org");
+  esp_sntp_setservername(1, "time.nist.gov");
+  if (!esp_sntp_enabled()) {
+    esp_sntp_init();
+  } else {
+    esp_sntp_restart();
+  }
 
   // Wait for SNTP sync to complete (up to 5 seconds)
   constexpr int maxAttempts = 50;

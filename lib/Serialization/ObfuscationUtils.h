@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Arduino.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -20,7 +18,7 @@ namespace obfuscation {
 void xorTransform(std::string& data);
 
 // Obfuscate a plaintext string: XOR with hardware key, then base64-encode for JSON storage
-String obfuscateToBase64(const std::string& plaintext);
+std::string obfuscateToBase64(const std::string& plaintext);
 
 // Decode base64 and de-obfuscate back to plaintext.
 // Returns empty string on invalid base64 input; sets *ok to false if decode fails.

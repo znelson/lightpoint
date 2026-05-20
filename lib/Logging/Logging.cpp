@@ -1,10 +1,9 @@
 #include "Logging.h"
 
-#include <HardwareSerial.h>
-
-static HWCDC& _hwSerial = Serial;
-
 #include <Timing.h>
+#include <driver/usb_serial_jtag.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <cstdarg>
 #include <string>
@@ -110,24 +109,50 @@ void clearLastLogs() {
 }
 
 // --- MySerialImpl ---
+// Wraps the ESP32-C3 built-in USB Serial/JTAG controller via the IDF driver.
 
-void MySerialImpl::begin(unsigned long baud) {
-  _hwSerial.begin(baud);
-  // Non-blocking TX: drops bytes when host is not draining instead of blocking
-  // for the default 250ms per write, which would chain into a firmware hang.
-  _hwSerial.setTxTimeoutMs(0);
+static bool _usbJtagInstalled = false;
+
+void MySerialImpl::begin(unsigned long /*baud*/) {
+  if (_usbJtagInstalled) return;
+  usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+  cfg.tx_buffer_size = 256;
+  cfg.rx_buffer_size = 256;
+  usb_serial_jtag_driver_install(&cfg);
+  _usbJtagInstalled = true;
 }
 
-MySerialImpl::operator bool() const { return static_cast<bool>(_hwSerial); }
+MySerialImpl::operator bool() const { return _usbJtagInstalled; }
 
-int MySerialImpl::available() { return _hwSerial.available(); }
+int MySerialImpl::available() {
+  if (!_usbJtagInstalled) return 0;
+  uint8_t buf[1];
+  return usb_serial_jtag_read_bytes(buf, 1, 0) > 0 ? 1 : 0;
+}
 
 size_t MySerialImpl::readBytesUntil(char delim, char* buf, size_t maxLen) {
-  return _hwSerial.readBytesUntil(delim, buf, maxLen);
+  if (!_usbJtagInstalled || maxLen == 0) return 0;
+  size_t count = 0;
+  while (count < maxLen - 1) {
+    uint8_t b;
+    if (usb_serial_jtag_read_bytes(&b, 1, pdMS_TO_TICKS(100)) != 1) break;
+    buf[count++] = static_cast<char>(b);
+    if (static_cast<char>(b) == delim) break;
+  }
+  buf[count] = '\0';
+  return count;
 }
 
-size_t MySerialImpl::write(uint8_t b) { return _hwSerial.write(b); }
+size_t MySerialImpl::write(uint8_t b) {
+  if (!_usbJtagInstalled) return 0;
+  return usb_serial_jtag_write_bytes(&b, 1, 0);
+}
 
-size_t MySerialImpl::write(const uint8_t* buffer, size_t size) { return _hwSerial.write(buffer, size); }
+size_t MySerialImpl::write(const uint8_t* buffer, size_t size) {
+  if (!_usbJtagInstalled) return 0;
+  return usb_serial_jtag_write_bytes(buffer, size, 0);
+}
 
-void MySerialImpl::flush() { _hwSerial.flush(); }
+void MySerialImpl::flush() {
+  // USB JTAG driver has no explicit flush; writes are non-blocking
+}

@@ -4,6 +4,8 @@
 #include <Timing.h>
 #include <driver/i2c_master.h>
 
+#include <cmath>
+
 HalTiltSensor halTiltSensor;  // Singleton instance
 
 bool HalTiltSensor::writeReg(uint8_t reg, uint8_t val) const {
