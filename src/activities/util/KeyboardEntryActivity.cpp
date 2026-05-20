@@ -200,7 +200,7 @@ void KeyboardEntryActivity::loop() {
     cursorMode = true;
     upLongHandled = true;
     hintVisible = true;
-    hintShowTime = millis();
+    hintShowTime = uptime_ms();
     requestUpdate();
   }
 

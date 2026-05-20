@@ -1,13 +1,14 @@
 #pragma once
 
-#include <Arduino.h>
 #include <BatteryMonitor.h>
 #include <InputManager.h>
 #include <Logging.h>
 #include <driver/i2c_master.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
 #include <cassert>
+#include <cstdint>
 
 #include "HalGPIO.h"
 

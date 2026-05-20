@@ -6,7 +6,6 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <Timing.h>
-#include <WiFi.h>
 #include <esp_event.h>
 #include <esp_heap_caps.h>
 #include <esp_mac.h>
@@ -23,13 +22,13 @@
 void WifiSelectionActivity::onEnter() {
   Activity::onEnter();
 
-  // One-time WiFi driver init. WiFi.mode() handles esp_wifi_init(), STA netif
-  // creation, and esp_wifi_start() in the correct order for the arduino framework.
-  // Replace with explicit IDF calls (esp_netif_init, esp_wifi_init, etc.) when
-  // switching to framework = espidf in Phase 6.
   static bool wifiDriverInited = false;
   if (!wifiDriverInited) {
-    WiFi.mode(WIFI_STA);
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_start();
     wifiDriverInited = true;
   }
 

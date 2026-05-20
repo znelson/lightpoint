@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Arduino.h>
 #include <InputManager.h>
 #include <driver/i2c_master.h>
 #include <esp_adc/adc_oneshot.h>

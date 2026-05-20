@@ -1,6 +1,7 @@
 #pragma once
-#include <Arduino.h>
 #include <EInkDisplay.h>
+
+#include <cstdint>
 
 class HalDisplay {
  public:
