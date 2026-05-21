@@ -57,6 +57,7 @@ void HalWifi::deinit() {
   intentionalDisconnect_ = true;
   esp_wifi_disconnect();
   esp_wifi_stop();
+  vTaskDelay(pdMS_TO_TICKS(100));
 
   if (wifiEventHandle_) {
     esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, wifiEventHandle_);

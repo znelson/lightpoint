@@ -6,6 +6,7 @@
 #include <esp_system.h>
 
 #include "MappedInputManager.h"
+#include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -72,11 +73,12 @@ void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
   // Success path reboots via the SHUTTING_DOWN state's esp_restart() so the
-  // new firmware boots normally. Back-out paths call deinit() to fully reclaim
-  // the WiFi heap (LWIP/mbedTLS allocations) so the firmware can continue
-  // running cleanly.
+  // new firmware boots normally. Back-out paths deinit WiFi first (frees the
+  // driver heap cleanly), then silentRestart to reclaim LWIP/mbedTLS pools
+  // that esp_wifi_deinit cannot release.
   if (halWifi.isActive()) {
     halWifi.deinit();
+    silentRestart();
   }
 }
 
