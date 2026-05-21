@@ -12,7 +12,7 @@
  *  2) On result: validate the .bin (header magic, size fits OTA partition).
  *  3) Push ConfirmationActivity ("Update firmware?").
  *  4) On confirm: stream the file into the OTA partition via the Arduino Update API,
- *     drawing a progress bar; on success ESP.restart().
+ *     drawing a progress bar; on success esp_restart().
  *
  * Used both from Settings -> System -> "SD Card Firmware Update", and as the only
  * activity launched in boot recovery mode (left side button + power on X3).

@@ -1,5 +1,5 @@
 """
-PlatformIO pre-build script: apply CrossPoint's JPEGDEC patches via `git apply`.
+PlatformIO pre-build script: apply LightPoint's JPEGDEC patches via `git apply`.
 
 The upstream JPEGDEC pin still has the wild-pointer + DC-write bugs in
 JPEGDecodeMCU_P that surface when EIGHT_BIT_GRAYSCALE decodes a 3-component

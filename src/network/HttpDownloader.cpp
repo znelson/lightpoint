@@ -1,5 +1,7 @@
 #include "HttpDownloader.h"
 
+#if __has_include(<HTTPClient.h>)
+
 #include <HTTPClient.h>
 #include <Logging.h>
 #include <NetworkClient.h>
@@ -72,7 +74,7 @@ bool HttpDownloader::fetchUrl(const std::string& url, Stream& outContent, const 
 
   http.begin(*client, url.c_str());
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  http.addHeader("User-Agent", "CrossPoint-ESP32-" CROSSPOINT_VERSION);
+  http.addHeader("User-Agent", "LightPoint-ESP32-" LIGHTPOINT_VERSION);
 
   if (!username.empty() && !password.empty()) {
     std::string credentials = username + ":" + password;
@@ -123,7 +125,7 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
 
   http.begin(*client, url.c_str());
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  http.addHeader("User-Agent", "CrossPoint-ESP32-" CROSSPOINT_VERSION);
+  http.addHeader("User-Agent", "LightPoint-ESP32-" LIGHTPOINT_VERSION);
 
   if (!username.empty() && !password.empty()) {
     std::string credentials = username + ":" + password;
@@ -202,3 +204,13 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
 
   return OK;
 }
+
+#else   // no HTTPClient.h — stubs so callers link
+bool HttpDownloader::fetchUrl(const std::string&, std::string&, const std::string&, const std::string&) {
+  return false;
+}
+HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string&, const std::string&, ProgressCallback,
+                                                             bool*, const std::string&, const std::string&) {
+  return HTTP_ERROR;
+}
+#endif  // __has_include(<HTTPClient.h>)

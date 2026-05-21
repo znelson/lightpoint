@@ -1,12 +1,21 @@
 #pragma once
 
 #include <Print.h>
-#include <common/FsApiConstants.h>  // for oflag_t
+#include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
 #include <memory>
 #include <string>
 #include <vector>
+
+// Open flags (matching SdFat values for API compatibility)
+using oflag_t = uint16_t;
+static constexpr oflag_t O_RDONLY = 0x00;
+static constexpr oflag_t O_WRONLY = 0x01;
+static constexpr oflag_t O_RDWR = 0x02;
+static constexpr oflag_t O_CREAT = 0x200;
+static constexpr oflag_t O_TRUNC = 0x400;
+static constexpr oflag_t O_WRITE = O_WRONLY | O_RDWR;  // SdFat compat alias
 
 class HalFile;
 
@@ -15,9 +24,9 @@ class HalStorage {
   HalStorage();
   bool begin();
   bool ready() const;
-  std::vector<String> listFiles(const char* path = "/", int maxFiles = 200);
-  // Read the entire file at `path` into a String. Returns empty string on failure.
-  String readFile(const char* path);
+  std::vector<std::string> listFiles(const char* path = "/", int maxFiles = 200);
+  // Read the entire file at `path` into a string. Returns empty string on failure.
+  std::string readFile(const char* path);
   // Low-memory helpers:
   // Stream the file contents to a `Print` (e.g. `Serial`, or any `Print`-derived object).
   // Returns true on success, false on failure.
@@ -26,12 +35,12 @@ class HalStorage {
   size_t readFileToBuffer(const char* path, char* buffer, size_t bufferSize, size_t maxBytes = 0);
   // Write a string to `path` on the SD card. Overwrites existing file.
   // Returns true on success.
-  bool writeFile(const char* path, const String& content);
+  bool writeFile(const char* path, const std::string& content);
   // Ensure a directory exists, creating it if necessary. Returns true on success.
   bool ensureDirectoryExists(const char* path);
 
-  HalFile open(const char* path, const oflag_t oflag = O_RDONLY);
-  bool mkdir(const char* path, const bool pFlag = true);
+  HalFile open(const char* path, oflag_t oflag = O_RDONLY);
+  bool mkdir(const char* path, bool pFlag = true);
   bool exists(const char* path);
   bool remove(const char* path);
   bool rename(const char* oldPath, const char* newPath);
@@ -39,10 +48,8 @@ class HalStorage {
 
   bool openFileForRead(const char* moduleName, const char* path, HalFile& file);
   bool openFileForRead(const char* moduleName, const std::string& path, HalFile& file);
-  bool openFileForRead(const char* moduleName, const String& path, HalFile& file);
   bool openFileForWrite(const char* moduleName, const char* path, HalFile& file);
   bool openFileForWrite(const char* moduleName, const std::string& path, HalFile& file);
-  bool openFileForWrite(const char* moduleName, const String& path, HalFile& file);
   bool removeDir(const char* path);
 
   static HalStorage& getInstance() { return instance; }
@@ -72,7 +79,7 @@ class HalFile : public Print {
   HalFile(const HalFile&) = delete;
   HalFile& operator=(const HalFile&) = delete;
 
-  void flush();
+  void flush() override;
   size_t getName(char* name, size_t len);
   size_t size();
   size_t fileSize();
@@ -96,9 +103,8 @@ class HalFile : public Print {
   operator bool() const;
 };
 
-// Only do renaming FsFile to HalFile if this header is included by downstream code
-// The renaming is to allow using the thread-safe HalFile instead of the raw FsFile, without needing to change the
-// downstream code
+// Allow downstream code to use FsFile as an alias for HalFile without changes.
+// Guard prevents the alias from clashing inside HalStorage's own implementation.
 #ifndef HAL_STORAGE_IMPL
 using FsFile = HalFile;
 #endif

@@ -4,9 +4,13 @@
 #include <HalClock.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <WiFi.h>
-
-#include <map>
+#include <Memory.h>
+#include <Timing.h>
+#include <esp_event.h>
+#include <esp_heap_caps.h>
+#include <esp_mac.h>
+#include <esp_netif.h>
+#include <esp_wifi.h>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
@@ -17,6 +21,22 @@
 
 void WifiSelectionActivity::onEnter() {
   Activity::onEnter();
+
+  static bool wifiDriverInited = false;
+  if (!wifiDriverInited) {
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_start();
+    wifiDriverInited = true;
+  }
+
+  // Register WiFi event handlers before any scan/connect operations
+  esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, onScanDoneEvent, this, &evtScan_);
+  esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, onGotIpEvent, this, &evtGotIp_);
+  esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, onDisconnectedEvent, this,
+                                      &evtDisconnect_);
 
   // Load saved WiFi credentials - SD card operations need lock as we use SPI
   // for both
@@ -40,7 +60,7 @@ void WifiSelectionActivity::onEnter() {
 
   // Cache MAC address for display
   uint8_t mac[6];
-  WiFi.macAddress(mac);
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
   char macStr[64];
   snprintf(macStr, sizeof(macStr), "%s %02x-%02x-%02x-%02x-%02x-%02x", tr(STR_MAC_ADDRESS), mac[0], mac[1], mac[2],
            mac[3], mac[4], mac[5]);
@@ -75,18 +95,30 @@ void WifiSelectionActivity::onEnter() {
 void WifiSelectionActivity::onExit() {
   Activity::onExit();
 
-  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", esp_get_free_heap_size());
+
+  if (evtScan_) {
+    esp_event_handler_instance_unregister(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, evtScan_);
+    evtScan_ = nullptr;
+  }
+  if (evtGotIp_) {
+    esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, evtGotIp_);
+    evtGotIp_ = nullptr;
+  }
+  if (evtDisconnect_) {
+    esp_event_handler_instance_unregister(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, evtDisconnect_);
+    evtDisconnect_ = nullptr;
+  }
 
   // Stop any ongoing WiFi scan
-  LOG_DBG("WIFI", "Deleting WiFi scan...");
-  WiFi.scanDelete();
-  LOG_DBG("WIFI", "Free heap after scanDelete: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Stopping WiFi scan...");
+  esp_wifi_scan_stop();
+  LOG_DBG("WIFI", "Free heap after scan stop: %d bytes", esp_get_free_heap_size());
 
   // Note: We do NOT disconnect WiFi here - the parent activity
-  // (CrossPointWebServerActivity) manages WiFi connection state. We just clean
-  // up the scan and task.
+  // manages WiFi connection state. We just clean up the scan and task.
 
-  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", esp_get_free_heap_size());
 }
 
 void WifiSelectionActivity::startWifiScan() {
@@ -95,60 +127,63 @@ void WifiSelectionActivity::startWifiScan() {
   networks.clear();
   requestUpdate();
 
-  // Set WiFi mode to station
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  delay(100);
+  esp_wifi_set_mode(WIFI_MODE_STA);
+  esp_wifi_start();
+  esp_wifi_disconnect();
+  vTaskDelay(pdMS_TO_TICKS(100));
 
-  // Start async scan
-  WiFi.scanNetworks(true);  // true = async scan
+  wifiScanDone_ = false;
+  wifiScanFailed_ = false;
+  wifi_scan_config_t scanCfg = {};
+  esp_wifi_scan_start(&scanCfg, false);  // false = async
 }
 
 void WifiSelectionActivity::processWifiScanResults() {
-  const int16_t scanResult = WiFi.scanComplete();
-
-  if (scanResult == WIFI_SCAN_RUNNING) {
-    // Scan still in progress
+  if (!wifiScanDone_) {
     return;
   }
 
-  if (scanResult == WIFI_SCAN_FAILED) {
+  if (wifiScanFailed_) {
     state = WifiSelectionState::NETWORK_LIST;
     requestUpdate();
     return;
   }
 
-  // Scan complete, process results
-  // Use a map to deduplicate networks by SSID, keeping the strongest signal
-  std::map<std::string, WifiNetworkInfo> uniqueNetworks;
+  uint16_t count = 0;
+  esp_wifi_scan_get_ap_num(&count);
 
-  for (int i = 0; i < scanResult; i++) {
-    std::string ssid = WiFi.SSID(i).c_str();
-    const int32_t rssi = WiFi.RSSI(i);
-
-    // Skip hidden networks (empty SSID)
-    if (ssid.empty()) {
-      continue;
-    }
-
-    // Check if we've already seen this SSID
-    auto it = uniqueNetworks.find(ssid);
-    if (it == uniqueNetworks.end() || rssi > it->second.rssi) {
-      // New network or stronger signal than existing entry
-      WifiNetworkInfo network;
-      network.ssid = ssid;
-      network.rssi = rssi;
-      network.isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-      network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
-      uniqueNetworks[ssid] = network;
-    }
-  }
-
-  // Convert map to vector
   networks.clear();
-  for (const auto& pair : uniqueNetworks) {
-    // cppcheck-suppress useStlAlgorithm
-    networks.push_back(pair.second);
+
+  if (count > 0) {
+    auto aps = makeUniqueNoThrow<wifi_ap_record_t[]>(count);
+    if (!aps) {
+      LOG_ERR("WIFI", "OOM: scan results (%u APs)", count);
+      state = WifiSelectionState::NETWORK_LIST;
+      requestUpdate();
+      return;
+    }
+    esp_wifi_scan_get_ap_records(&count, aps.get());
+    networks.reserve(count);
+
+    for (uint16_t i = 0; i < count; i++) {
+      const char* ssidCStr = reinterpret_cast<const char*>(aps[i].ssid);
+      if (ssidCStr[0] == '\0') continue;
+
+      const int32_t rssi = aps[i].rssi;
+      auto it = std::find_if(networks.begin(), networks.end(),
+                             [ssidCStr](const WifiNetworkInfo& n) { return n.ssid == ssidCStr; });
+      if (it == networks.end()) {
+        WifiNetworkInfo network;
+        network.ssid = ssidCStr;
+        network.rssi = rssi;
+        network.isEncrypted = (aps[i].authmode != WIFI_AUTH_OPEN);
+        network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
+        networks.push_back(std::move(network));
+      } else if (rssi > it->rssi) {
+        it->rssi = rssi;
+        it->isEncrypted = (aps[i].authmode != WIFI_AUTH_OPEN);
+      }
+    }
   }
 
   // Sort: saved-password networks first, then by signal strength (strongest first)
@@ -159,7 +194,6 @@ void WifiSelectionActivity::processWifiScanResults() {
     return a.rssi > b.rssi;
   });
 
-  WiFi.scanDelete();
   state = WifiSelectionState::NETWORK_LIST;
   selectedNetworkIndex = 0;
   requestUpdate();
@@ -212,27 +246,42 @@ void WifiSelectionActivity::selectNetwork(const int index) {
 
 void WifiSelectionActivity::attemptConnection() {
   state = autoConnecting ? WifiSelectionState::AUTO_CONNECTING : WifiSelectionState::CONNECTING;
-  connectionStartTime = millis();
+  connectionStartTime = uptime_ms();
   connectedIP.clear();
   connectionError.clear();
   requestUpdate();
 
-  WiFi.persistent(false);  // Credentials are managed by WifiCredentialStore; suppress SDK NVS auto-connect
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(true, true);  // Abort any in-progress SDK auto-connect and clear NVS-saved SSID
-  delay(100);
+  // Credentials managed by WifiCredentialStore; use RAM storage to suppress NVS auto-connect
+  esp_wifi_set_storage(WIFI_STORAGE_RAM);
+  esp_wifi_set_mode(WIFI_MODE_STA);
+  esp_wifi_start();
+  esp_wifi_disconnect();
+  vTaskDelay(pdMS_TO_TICKS(100));
 
-  // Set hostname so routers show "CrossPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
-  String mac = WiFi.macAddress();
-  mac.replace(":", "");
-  String hostname = "CrossPoint-Reader-" + mac;
-  WiFi.setHostname(hostname.c_str());
+  // Reset flags after delay so any disconnect event from the call above is flushed
+  wifiConnected_ = false;
+  wifiDisconnected_ = false;
+  wifiDisconnectReason_ = 0;
 
-  if (selectedRequiresPassword && !enteredPassword.empty()) {
-    WiFi.begin(selectedSSID.c_str(), enteredPassword.c_str());
-  } else {
-    WiFi.begin(selectedSSID.c_str());
+  // Set hostname so routers show "LightPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  char hostname[48];
+  snprintf(hostname, sizeof(hostname), "LightPoint-Reader-%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3],
+           mac[4], mac[5]);
+  esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  LOG_DBG("WIFI", "netif: %p, hostname: %s", netif, hostname);
+  if (netif) {
+    esp_netif_set_hostname(netif, hostname);
   }
+
+  wifi_config_t cfg = {};
+  snprintf(reinterpret_cast<char*>(cfg.sta.ssid), sizeof(cfg.sta.ssid), "%s", selectedSSID.c_str());
+  if (selectedRequiresPassword && !enteredPassword.empty()) {
+    snprintf(reinterpret_cast<char*>(cfg.sta.password), sizeof(cfg.sta.password), "%s", enteredPassword.c_str());
+  }
+  esp_wifi_set_config(WIFI_IF_STA, &cfg);
+  esp_wifi_connect();
 }
 
 void WifiSelectionActivity::checkConnectionStatus() {
@@ -240,13 +289,15 @@ void WifiSelectionActivity::checkConnectionStatus() {
     return;
   }
 
-  const wl_status_t status = WiFi.status();
-
-  if (status == WL_CONNECTED) {
-    // Successfully connected
-    IPAddress ip = WiFi.localIP();
+  if (wifiConnected_) {
+    esp_netif_ip_info_t ipInfo = {};
+    esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif) {
+      esp_netif_get_ip_info(netif, &ipInfo);
+    }
     char ipStr[16];
-    snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+    snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", (ipInfo.ip.addr >> 0) & 0xFF, (ipInfo.ip.addr >> 8) & 0xFF,
+             (ipInfo.ip.addr >> 16) & 0xFF, (ipInfo.ip.addr >> 24) & 0xFF);
     connectedIP = ipStr;
     autoConnecting = false;
 
@@ -268,7 +319,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
     }
 
     // If we entered a new password, ask if user wants to save it
-    // Otherwise, immediately complete so parent can start web server
+    // Otherwise, immediately complete
     if (!usedSavedPassword && !enteredPassword.empty()) {
       state = WifiSelectionState::SAVE_PROMPT;
       savePromptSelection = 0;  // Default to "Yes"
@@ -283,9 +334,9 @@ void WifiSelectionActivity::checkConnectionStatus() {
     return;
   }
 
-  if (status == WL_CONNECT_FAILED || status == WL_NO_SSID_AVAIL) {
+  if (wifiDisconnected_) {
     connectionError = tr(STR_ERROR_GENERAL_FAILURE);
-    if (status == WL_NO_SSID_AVAIL) {
+    if (wifiDisconnectReason_ == WIFI_REASON_NO_AP_FOUND) {
       connectionError = tr(STR_ERROR_NETWORK_NOT_FOUND);
     }
     state = WifiSelectionState::CONNECTION_FAILED;
@@ -294,12 +345,11 @@ void WifiSelectionActivity::checkConnectionStatus() {
   }
 
   // Check for timeout
-  if (millis() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
-    WiFi.disconnect();
+  if (uptime_ms() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
+    esp_wifi_disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     state = WifiSelectionState::CONNECTION_FAILED;
     requestUpdate();
-    return;
   }
 }
 
@@ -342,7 +392,7 @@ void WifiSelectionActivity::loop() {
         RenderLock lock(*this);
         WIFI_STORE.addCredential(selectedSSID, enteredPassword);
       }
-      // Complete - parent will start web server
+      // Complete
       onComplete(true);
     } else if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
       // Skip saving, complete anyway
@@ -694,6 +744,29 @@ void WifiSelectionActivity::renderForgetPrompt(const Rect* screen, const ThemeMe
   // Use centralized button hints
   const auto labels = mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_DIR_LEFT), tr(STR_DIR_RIGHT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
+}
+
+void WifiSelectionActivity::onScanDoneEvent(void* arg, esp_event_base_t, int32_t, void* data) {
+  auto* self = static_cast<WifiSelectionActivity*>(arg);
+  const auto* evt = static_cast<wifi_event_sta_scan_done_t*>(data);
+  if (evt->status == 0) {
+    self->wifiScanDone_ = true;
+  } else {
+    self->wifiScanFailed_ = true;
+    self->wifiScanDone_ = true;
+  }
+}
+
+void WifiSelectionActivity::onGotIpEvent(void* arg, esp_event_base_t, int32_t, void*) {
+  static_cast<WifiSelectionActivity*>(arg)->wifiConnected_ = true;
+}
+
+void WifiSelectionActivity::onDisconnectedEvent(void* arg, esp_event_base_t, int32_t, void* data) {
+  auto* self = static_cast<WifiSelectionActivity*>(arg);
+  const auto* evt = static_cast<wifi_event_sta_disconnected_t*>(data);
+  LOG_DBG("WIFI", "disconnected event, reason: %d", evt->reason);
+  self->wifiDisconnectReason_ = evt->reason;
+  self->wifiDisconnected_ = true;
 }
 
 void WifiSelectionActivity::onComplete(const bool connected) {

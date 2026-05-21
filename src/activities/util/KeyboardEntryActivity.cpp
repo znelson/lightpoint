@@ -2,6 +2,7 @@
 
 #include <HalGPIO.h>
 #include <I18n.h>
+#include <Timing.h>
 
 #include <algorithm>
 
@@ -143,7 +144,7 @@ bool KeyboardEntryActivity::handleKeyPress() {
         delPressCount++;
         if (delPressCount >= 2) {
           hintVisible = true;
-          hintShowTime = millis();
+          hintShowTime = uptime_ms();
         }
         if (cursorPos > 0 && !text.empty()) {
           text.erase(cursorPos - 1, 1);
@@ -199,7 +200,7 @@ void KeyboardEntryActivity::loop() {
     cursorMode = true;
     upLongHandled = true;
     hintVisible = true;
-    hintShowTime = millis();
+    hintShowTime = uptime_ms();
     requestUpdate();
   }
 
@@ -353,7 +354,7 @@ void KeyboardEntryActivity::loop() {
     onCancel();
   }
 
-  if (hintVisible && !cursorMode && millis() - hintShowTime > 4000) {
+  if (hintVisible && !cursorMode && uptime_ms() - hintShowTime > 4000) {
     hintVisible = false;
     requestUpdate();
   }

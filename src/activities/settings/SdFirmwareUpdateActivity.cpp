@@ -1,11 +1,11 @@
 #include "SdFirmwareUpdateActivity.h"
 
-#include <Arduino.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
+#include <esp_system.h>
 
 #include "MappedInputManager.h"
 #include "activities/home/FileBrowserActivity.h"
@@ -180,8 +180,8 @@ void SdFirmwareUpdateActivity::performUpdate() {
     state = State::SUCCESS;
   }
   requestUpdateAndWait();
-  delay(1500);
-  ESP.restart();
+  vTaskDelay(pdMS_TO_TICKS(1500));
+  esp_restart();
 }
 
 void SdFirmwareUpdateActivity::loop() {

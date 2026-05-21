@@ -15,7 +15,7 @@
 #include "fontIds.h"
 
 namespace {
-constexpr unsigned long GO_HOME_MS = 1000;
+constexpr uint32_t GO_HOME_MS = 1000;
 }  // namespace
 
 void FileBrowserActivity::loadFiles() {

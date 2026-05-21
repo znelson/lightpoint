@@ -18,13 +18,11 @@
 #include "components/icons/file24.h"
 #include "components/icons/folder.h"
 #include "components/icons/folder24.h"
-#include "components/icons/hotspot.h"
 #include "components/icons/image24.h"
 #include "components/icons/library.h"
 #include "components/icons/recent.h"
 #include "components/icons/settings2.h"
 #include "components/icons/text24.h"
-#include "components/icons/transfer.h"
 #include "components/icons/wifi.h"
 #include "fontIds.h"
 
@@ -65,14 +63,10 @@ const uint8_t* iconForName(UIIcon icon, int size) {
         return RecentIcon;
       case UIIcon::Settings:
         return Settings2Icon;
-      case UIIcon::Transfer:
-        return TransferIcon;
       case UIIcon::Library:
         return LibraryIcon;
       case UIIcon::Wifi:
         return WifiIcon;
-      case UIIcon::Hotspot:
-        return HotspotIcon;
       default:
         return nullptr;
     }

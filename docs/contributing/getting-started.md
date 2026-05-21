@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide helps you build and run CrossPoint locally.
+This guide helps you build and run LightPoint locally.
 
 ## Prerequisites
 
@@ -43,8 +43,8 @@ The reported major version must be 21 or newer.
 ## Clone and initialize
 
 ```sh
-git clone --recursive https://github.com/crosspoint-reader/crosspoint-reader
-cd crosspoint-reader
+git clone --recursive https://github.com/znelson/lightpoint
+cd lightpoint
 ```
 
 If you already cloned without submodules:
@@ -83,5 +83,4 @@ pio run
 ## What to read next
 
 - [Architecture Overview](./architecture.md)
-- [Development Workflow](./development-workflow.md)
 - [Testing and Debugging](./testing-debugging.md)

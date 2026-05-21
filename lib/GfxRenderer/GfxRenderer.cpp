@@ -4,9 +4,11 @@
 #include <HalGPIO.h>
 #include <Logging.h>
 #include <SdCardFont.h>
+#include <Timing.h>
 #include <Utf8.h>
 
 #include <algorithm>
+#include <cmath>
 
 #include "FontCacheManager.h"
 
@@ -962,10 +964,10 @@ void GfxRenderer::fillPolygon(const int* xPoints, const int* yPoints, int numPoi
 }
 
 // For performance measurement (using static to allow "const" methods)
-static unsigned long start_ms = 0;
+static uint32_t start_ms = 0;
 
 void GfxRenderer::clearScreen(const uint8_t color) const {
-  start_ms = millis();
+  start_ms = uptime_ms();
   display.clearScreen(color);
 }
 
@@ -976,8 +978,8 @@ void GfxRenderer::invertScreen() const {
 }
 
 void GfxRenderer::displayBuffer(const HalDisplay::RefreshMode refreshMode) const {
-  auto elapsed = millis() - start_ms;
-  LOG_DBG("GFX", "Time = %lu ms from clearScreen to displayBuffer", elapsed);
+  auto elapsed = uptime_ms() - start_ms;
+  LOG_DBG("GFX", "Time = %u ms from clearScreen to displayBuffer", elapsed);
   display.displayBuffer(refreshMode, fadingFix);
 }
 

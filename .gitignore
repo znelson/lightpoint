@@ -11,6 +11,8 @@ lib/I18n/I18nStrings.cpp
 build
 **/__pycache__/
 /compile_commands.json
+/sdkconfig
+/sdkconfig.default
 /.cache
 .history/
 /.venv

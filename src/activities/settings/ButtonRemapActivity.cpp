@@ -2,6 +2,7 @@
 
 #include <GfxRenderer.h>
 #include <I18n.h>
+#include <Timing.h>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
@@ -14,7 +15,7 @@ constexpr uint8_t kRoleCount = 4;
 // Marker used when a role has not been assigned yet.
 constexpr uint8_t kUnassigned = 0xFF;
 // Duration to show temporary error text when reassigning a button.
-constexpr unsigned long kErrorDisplayMs = 1500;
+constexpr uint32_t kErrorDisplayMs = 1500;
 }  // namespace
 
 void ButtonRemapActivity::onEnter() {
@@ -35,7 +36,7 @@ void ButtonRemapActivity::onExit() { Activity::onExit(); }
 
 void ButtonRemapActivity::loop() {
   // Clear any temporary warning after its timeout.
-  if (errorUntil > 0 && millis() > errorUntil) {
+  if (errorUntil > 0 && uptime_ms() > errorUntil) {
     errorMessage.clear();
     errorUntil = 0;
     requestUpdate();
@@ -162,7 +163,7 @@ bool ButtonRemapActivity::validateUnassigned(const uint8_t pressedButton) {
   for (uint8_t i = 0; i < kRoleCount; i++) {
     if (tempMapping[i] == pressedButton && i != currentStep) {
       errorMessage = tr(STR_ALREADY_ASSIGNED);
-      errorUntil = millis() + kErrorDisplayMs;
+      errorUntil = uptime_ms() + kErrorDisplayMs;
       return false;
     }
   }

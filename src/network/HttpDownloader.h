@@ -25,8 +25,10 @@ class HttpDownloader {
   static bool fetchUrl(const std::string& url, std::string& outContent, const std::string& username = "",
                        const std::string& password = "");
 
+#if __has_include(<WiFi.h>)
   static bool fetchUrl(const std::string& url, Stream& stream, const std::string& username = "",
                        const std::string& password = "");
+#endif
 
   /**
    * Download a file to the SD card with optional credentials.

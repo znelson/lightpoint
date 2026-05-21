@@ -5,6 +5,7 @@
 #include <JPEGDEC.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <esp_heap_caps.h>
 
 #include <cstdio>
 #include <cstring>
@@ -380,8 +381,8 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
                                                      bool oneBit, bool crop) {
   LOG_DBG("JPG", "Converting JPEG to %s BMP (target: %dx%d)", oneBit ? "1-bit" : "2-bit", targetWidth, targetHeight);
 
-  if (ESP.getFreeHeap() < MIN_FREE_HEAP) {
-    LOG_ERR("JPG", "Not enough heap for JPEG decoder (%u free, need %u)", ESP.getFreeHeap(), MIN_FREE_HEAP);
+  if (esp_get_free_heap_size() < MIN_FREE_HEAP) {
+    LOG_ERR("JPG", "Not enough heap for JPEG decoder (%u free, need %u)", esp_get_free_heap_size(), MIN_FREE_HEAP);
     return false;
   }
 

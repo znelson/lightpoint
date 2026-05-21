@@ -1,7 +1,10 @@
 #pragma once
 
-#include <Arduino.h>
 #include <InputManager.h>
+#include <driver/i2c_master.h>
+#include <esp_adc/adc_oneshot.h>
+
+#include <cstdint>
 
 // Display SPI pins (custom pins for XteinkX4, not hardware SPI defaults)
 #define EPD_SCLK 8   // SPI Clock
@@ -39,12 +42,17 @@
 #define QMI8658_WHO_AM_I_VALUE 0x05  // WHO_AM_I expected value
 
 class HalGPIO {
-#if CROSSPOINT_EMULATED == 0
+#if LIGHTPOINT_EMULATED == 0
   InputManager inputMgr;
 #endif
 
   bool lastUsbConnected = false;
   bool usbStateChanged = false;
+
+  i2c_master_bus_handle_t i2cBus = nullptr;
+  i2c_master_dev_handle_t bq27220Dev = nullptr;
+
+  bool initI2C();
 
  public:
   enum class DeviceType : uint8_t { X4, X3 };
@@ -59,6 +67,8 @@ class HalGPIO {
   inline bool deviceIsX3() const { return _deviceType == DeviceType::X3; }
   inline bool deviceIsX4() const { return _deviceType == DeviceType::X4; }
 
+  i2c_master_bus_handle_t getI2CBus() const { return i2cBus; }
+
   // Start button GPIO and setup SPI for screen and SD card
   void begin();
 
@@ -69,8 +79,9 @@ class HalGPIO {
   bool wasAnyPressed() const;
   bool wasReleased(uint8_t buttonIndex) const;
   bool wasAnyReleased() const;
-  unsigned long getHeldTime() const;
-  unsigned long getPowerButtonHeldTime() const;
+  uint32_t getHeldTime() const;
+  uint32_t getPowerButtonHeldTime() const;
+  adc_oneshot_unit_handle_t getAdcUnit() const;
 
   // Setup wake up GPIO and enter deep sleep
   void startDeepSleep();
