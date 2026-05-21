@@ -57,6 +57,11 @@ void OtaUpdateActivity::onEnter() {
 
   // Turn on WiFi immediately
   LOG_DBG("OTA", "Turning on WiFi...");
+  if (!halWifi.init()) {
+    LOG_ERR("OTA", "WiFi init failed");
+    finish();
+    return;
+  }
 
   // Launch WiFi selection subactivity
   LOG_DBG("OTA", "Launching WifiSelectionActivity...");
@@ -67,13 +72,12 @@ void OtaUpdateActivity::onEnter() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
-  // Success path reboots via the SHUTTING_DOWN state's plain ESP.restart()
-  // (loop() above) so the new firmware boots normally. Back-out paths land
-  // here with wifi still active; silent-restart to free the LWIP/mbedTLS
-  // fragmentation, same as the other wifi activities.
+  // Success path reboots via the SHUTTING_DOWN state's esp_restart() so the
+  // new firmware boots normally. Back-out paths deinit WiFi first (frees the
+  // driver heap cleanly), then silentRestart to reclaim LWIP/mbedTLS pools
+  // that esp_wifi_deinit cannot release.
   if (halWifi.isActive()) {
-    halWifi.stop();
-    vTaskDelay(pdMS_TO_TICKS(30));
+    halWifi.deinit();
     silentRestart();
   }
 }
