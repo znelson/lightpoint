@@ -8,6 +8,7 @@
 #include "MappedInputManager.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/BookCacheUtils.h"
 
 void ClearCacheActivity::onEnter() {
   Activity::onEnter();
@@ -94,8 +95,8 @@ void ClearCacheActivity::clearCache() {
     file.getName(name, sizeof(name));
     std::string itemName(name);
 
-    // Only delete directories starting with epub_ or xtc_
-    if (file.isDirectory() && (itemName.rfind("epub_", 0) == 0 || itemName.rfind("xtc_", 0) == 0)) {
+    // Only delete directories matching known book cache names.
+    if (file.isDirectory() && isBookCacheDirectoryName(itemName.c_str())) {
       std::string fullPath = "/.crosspoint/" + itemName;
       LOG_DBG("CLEAR_CACHE", "Removing cache: %s", fullPath.c_str());
 
