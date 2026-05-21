@@ -23,8 +23,6 @@ class EpubReaderActivity final : public Activity {
   int pagesUntilFullRefresh = 0;
   int cachedSpineIndex = 0;
   int cachedChapterTotalPageCount = 0;
-  uint32_t lastPageTurnTime = 0;
-  uint32_t pageTurnDuration = 0;
   // Signals that the next render should reposition within the newly loaded section
   // based on a cross-book percentage jump.
   bool pendingPercentJump = false;
@@ -32,7 +30,6 @@ class EpubReaderActivity final : public Activity {
   float pendingSpineProgress = 0.0f;
   bool pendingScreenshot = false;
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
-  bool automaticPageTurnActive = false;
   // Tracks whether this book is currently removed from Recent Books by the
   // removeReadBooksFromRecents feature (set at End-of-Book, cleared if paged back in).
   bool recentsEntryRemoved = false;
@@ -59,7 +56,6 @@ class EpubReaderActivity final : public Activity {
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   void applyOrientation(uint8_t orientation);
-  void toggleAutoPageTurn(uint8_t selectedPageTurnOption);
   void pageTurn(bool isForwardTurn);
 
   // Footnote navigation

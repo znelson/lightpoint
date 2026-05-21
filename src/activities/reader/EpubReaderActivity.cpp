@@ -29,10 +29,6 @@
 #include "util/ScreenshotUtil.h"
 
 namespace {
-// pagesPerRefresh now comes from SETTINGS.getRefreshFrequency()
-// pages per minute, first item is 1 to prevent division by zero if accessed
-constexpr int PAGE_TURN_RATES[] = {1, 1, 3, 6, 12};
-
 int clampPercent(int percent) {
   if (percent < 0) {
     return 0;
@@ -216,32 +212,6 @@ void EpubReaderActivity::loop() {
     pendingReadFolderMove = false;
   }
 
-  if (automaticPageTurnActive) {
-    if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
-        mappedInput.wasReleased(MappedInputManager::Button::Back)) {
-      automaticPageTurnActive = false;
-      // updates chapter title space to indicate page turn disabled
-      requestUpdate();
-      return;
-    }
-
-    if (!section) {
-      requestUpdate();
-      return;
-    }
-
-    // Skips page turn if renderingMutex is busy
-    if (RenderLock::peek()) {
-      lastPageTurnTime = uptime_ms();
-      return;
-    }
-
-    if ((uptime_ms() - lastPageTurnTime) >= pageTurnDuration) {
-      pageTurn(true);
-      return;
-    }
-  }
-
   // Enter reader menu activity.
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     const int currentPage = section ? section->currentPage + 1 : 0;
@@ -259,7 +229,6 @@ void EpubReaderActivity::loop() {
                              // Always apply orientation change even if the menu was cancelled
                              const auto& menu = std::get<MenuResult>(result.data);
                              applyOrientation(menu.orientation);
-                             toggleAutoPageTurn(menu.pageTurnOption);
                              if (!result.isCancelled) {
                                onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(menu.action));
                              }
@@ -315,7 +284,6 @@ void EpubReaderActivity::loop() {
   // (clamped in render()); skipping backward before the first TOC entry jumps to the
   // spine before the current chapter's first spine (clamped to 0 in render()).
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP) {
-    lastPageTurnTime = uptime_ms();
     // We don't want to delete the section mid-render, so grab the semaphore
     {
       RenderLock lock(*this);
@@ -566,31 +534,6 @@ void EpubReaderActivity::applyOrientation(const uint8_t orientation) {
   }
 }
 
-void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption) {
-  if (selectedPageTurnOption == 0 || selectedPageTurnOption >= std::size(PAGE_TURN_RATES)) {
-    automaticPageTurnActive = false;
-    return;
-  }
-
-  lastPageTurnTime = uptime_ms();
-  // calculates page turn duration by dividing by number of pages
-  pageTurnDuration = (1UL * 60 * 1000) / PAGE_TURN_RATES[selectedPageTurnOption];
-  automaticPageTurnActive = true;
-
-  const uint8_t statusBarHeight = UITheme::getInstance().getStatusBarHeight();
-  // resets cached section so that space is reserved for auto page turn indicator when None or progress bar only
-  if (statusBarHeight == 0 || statusBarHeight == UITheme::getInstance().getProgressBarHeight()) {
-    // Preserve current reading position so we can restore after reflow.
-    RenderLock lock(*this);
-    if (section) {
-      cachedSpineIndex = currentSpineIndex;
-      cachedChapterTotalPageCount = section->pageCount;
-      nextPageNumber = section->currentPage;
-    }
-    section.reset();
-  }
-}
-
 void EpubReaderActivity::pageTurn(bool isForwardTurn) {
   if (isForwardTurn) {
     if (section->currentPage < section->pageCount - 1) {
@@ -618,7 +561,6 @@ void EpubReaderActivity::pageTurn(bool isForwardTurn) {
       }
     }
   }
-  lastPageTurnTime = uptime_ms();
   requestUpdate();
 }
 
@@ -642,7 +584,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderer.clearScreen();
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_END_OF_BOOK), true, EpdFontFamily::BOLD);
     renderer.displayBuffer();
-    automaticPageTurnActive = false;
     return;
   }
 
@@ -656,15 +597,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 
   const uint8_t statusBarHeight = UITheme::getInstance().getStatusBarHeight();
 
-  // reserves space for automatic page turn indicator when no status bar or progress bar only
-  if (automaticPageTurnActive &&
-      (statusBarHeight == 0 || statusBarHeight == UITheme::getInstance().getProgressBarHeight())) {
-    orientedMarginBottom +=
-        std::max(SETTINGS.screenMargin,
-                 static_cast<uint8_t>(statusBarHeight + UITheme::getInstance().getMetrics().statusBarVerticalMargin));
-  } else {
-    orientedMarginBottom += std::max(SETTINGS.screenMargin, statusBarHeight);
-  }
+  orientedMarginBottom += std::max(SETTINGS.screenMargin, statusBarHeight);
 
   const uint16_t viewportWidth = renderer.getScreenWidth() - orientedMarginLeft - orientedMarginRight;
   const uint16_t viewportHeight = renderer.getScreenHeight() - orientedMarginTop - orientedMarginBottom;
@@ -760,7 +693,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_EMPTY_CHAPTER), true, EpdFontFamily::BOLD);
     renderStatusBar();
     renderer.displayBuffer();
-    automaticPageTurnActive = false;
     return;
   }
 
@@ -769,7 +701,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_OUT_OF_BOUNDS), true, EpdFontFamily::BOLD);
     renderStatusBar();
     renderer.displayBuffer();
-    automaticPageTurnActive = false;
     return;
   }
 
@@ -781,7 +712,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       section.reset();
       requestUpdate();  // Try again after clearing cache
                         // TODO: prevent infinite loop if the page keeps failing to load for some reason
-      automaticPageTurnActive = false;
       return;
     }
 
@@ -936,18 +866,7 @@ void EpubReaderActivity::renderStatusBar() const {
 
   int textYOffset = 0;
 
-  if (automaticPageTurnActive) {
-    title = tr(STR_AUTO_TURN_ENABLED) + std::to_string(60 * 1000 / pageTurnDuration);
-
-    // calculates textYOffset when rendering title in status bar
-    const uint8_t statusBarHeight = UITheme::getInstance().getStatusBarHeight();
-
-    // offsets text if no status bar or progress bar only
-    if (statusBarHeight == 0 || statusBarHeight == UITheme::getInstance().getProgressBarHeight()) {
-      textYOffset += UITheme::getInstance().getMetrics().statusBarVerticalMargin;
-    }
-
-  } else if (SETTINGS.statusBarTitle == CrossPointSettings::STATUS_BAR_TITLE::CHAPTER_TITLE) {
+  if (SETTINGS.statusBarTitle == CrossPointSettings::STATUS_BAR_TITLE::CHAPTER_TITLE) {
     const int tocIndex =
         section ? section->getTocIndexForPage(section->currentPage) : epub->getTocIndexForSpineIndex(currentSpineIndex);
     if (tocIndex == -1) {
