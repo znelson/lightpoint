@@ -9,6 +9,7 @@
 #include <HalStorage.h>
 #include <HalSystem.h>
 #include <HalTiltSensor.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <Timing.h>
@@ -18,7 +19,6 @@
 #include <esp_heap_caps.h>
 #include <esp_netif.h>
 #include <esp_system.h>
-#include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <nvs_flash.h>
@@ -264,11 +264,8 @@ void enterDeepSleep(bool fromTimeout = false) {
 
   // Tear down WiFi so the modem power domain isn't held alive across deep sleep.
   // Wake from deep sleep is effectively a chip reset, so no state needs to survive.
-  wifi_mode_t wifiMode = WIFI_MODE_NULL;
-  esp_wifi_get_mode(&wifiMode);
-  if (wifiMode != WIFI_MODE_NULL) {
-    esp_wifi_disconnect();
-    esp_wifi_stop();
+  if (halWifi.isActive()) {
+    halWifi.stop();
   }
 
   halTiltSensor.deepSleep();

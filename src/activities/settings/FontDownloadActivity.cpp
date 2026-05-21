@@ -3,10 +3,10 @@
 #include <ArduinoJson.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <esp_rom_crc.h>
-#include <esp_wifi.h>
 
 #include "MappedInputManager.h"
 #include "SdCardFontSystem.h"
@@ -24,7 +24,6 @@ FontDownloadActivity::FontDownloadActivity(GfxRenderer& renderer, MappedInputMan
 
 void FontDownloadActivity::onEnter() {
   Activity::onEnter();
-  esp_wifi_set_mode(WIFI_MODE_STA);
   startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput),
                          [this](const ActivityResult& result) { onWifiSelectionComplete(!result.isCancelled); });
 }
@@ -32,10 +31,8 @@ void FontDownloadActivity::onEnter() {
 void FontDownloadActivity::onExit() {
   Activity::onExit();
 
-  wifi_mode_t wifiMode = WIFI_MODE_NULL;
-  esp_wifi_get_mode(&wifiMode);
-  if (wifiMode != WIFI_MODE_NULL) {
-    esp_wifi_disconnect();
+  if (halWifi.isActive()) {
+    halWifi.stop();
     vTaskDelay(pdMS_TO_TICKS(30));
     silentRestart();
   }

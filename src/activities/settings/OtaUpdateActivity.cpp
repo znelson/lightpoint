@@ -1,9 +1,9 @@
 #include "OtaUpdateActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <esp_system.h>
-#include <esp_wifi.h>
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
@@ -57,7 +57,6 @@ void OtaUpdateActivity::onEnter() {
 
   // Turn on WiFi immediately
   LOG_DBG("OTA", "Turning on WiFi...");
-  esp_wifi_set_mode(WIFI_MODE_STA);
 
   // Launch WiFi selection subactivity
   LOG_DBG("OTA", "Launching WifiSelectionActivity...");
@@ -72,10 +71,8 @@ void OtaUpdateActivity::onExit() {
   // (loop() above) so the new firmware boots normally. Back-out paths land
   // here with wifi still active; silent-restart to free the LWIP/mbedTLS
   // fragmentation, same as the other wifi activities.
-  wifi_mode_t wifiMode = WIFI_MODE_NULL;
-  esp_wifi_get_mode(&wifiMode);
-  if (wifiMode != WIFI_MODE_NULL) {
-    esp_wifi_disconnect();
+  if (halWifi.isActive()) {
+    halWifi.stop();
     vTaskDelay(pdMS_TO_TICKS(30));
     silentRestart();
   }

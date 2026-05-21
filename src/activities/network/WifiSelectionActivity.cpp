@@ -2,14 +2,13 @@
 
 #include <GfxRenderer.h>
 #include <HalClock.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
 #include <Timing.h>
 #include <esp_event.h>
 #include <esp_heap_caps.h>
-#include <esp_mac.h>
-#include <esp_netif.h>
 #include <esp_wifi.h>
 
 #include <algorithm>
@@ -24,15 +23,7 @@
 void WifiSelectionActivity::onEnter() {
   Activity::onEnter();
 
-  static bool wifiDriverInited = false;
-  if (!wifiDriverInited) {
-    esp_netif_create_default_wifi_sta();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_start();
-    wifiDriverInited = true;
-  }
+  halWifi.init();
 
   // Register WiFi event handlers before any scan/connect operations
   esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_SCAN_DONE, onScanDoneEvent, this, &evtScan_);
@@ -61,8 +52,8 @@ void WifiSelectionActivity::onEnter() {
   autoConnecting = false;
 
   // Cache MAC address for display
-  uint8_t mac[6];
-  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  uint8_t mac[6] = {};
+  halWifi.getMacAddress(mac);
   char macStr[64];
   snprintf(macStr, sizeof(macStr), "%s %02x-%02x-%02x-%02x-%02x-%02x", tr(STR_MAC_ADDRESS), mac[0], mac[1], mac[2],
            mac[3], mac[4], mac[5]);
@@ -266,16 +257,12 @@ void WifiSelectionActivity::attemptConnection() {
   wifiDisconnectReason_ = 0;
 
   // Set hostname so routers show "LightPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
-  uint8_t mac[6];
-  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  uint8_t mac[6] = {};
+  halWifi.getMacAddress(mac);
   char hostname[48];
   snprintf(hostname, sizeof(hostname), "LightPoint-Reader-%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3],
            mac[4], mac[5]);
-  esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-  LOG_DBG("WIFI", "netif: %p, hostname: %s", netif, hostname);
-  if (netif) {
-    esp_netif_set_hostname(netif, hostname);
-  }
+  halWifi.setHostname(hostname);
 
   wifi_config_t cfg = {};
   snprintf(reinterpret_cast<char*>(cfg.sta.ssid), sizeof(cfg.sta.ssid), "%s", selectedSSID.c_str());
@@ -292,15 +279,8 @@ void WifiSelectionActivity::checkConnectionStatus() {
   }
 
   if (wifiConnected_) {
-    esp_netif_ip_info_t ipInfo = {};
-    esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-    if (netif) {
-      esp_netif_get_ip_info(netif, &ipInfo);
-    }
-    char ipStr[16];
-    snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", static_cast<int>((ipInfo.ip.addr >> 0) & 0xFF),
-             static_cast<int>((ipInfo.ip.addr >> 8) & 0xFF), static_cast<int>((ipInfo.ip.addr >> 16) & 0xFF),
-             static_cast<int>((ipInfo.ip.addr >> 24) & 0xFF));
+    char ipStr[16] = {};
+    halWifi.getIpAddress(ipStr, sizeof(ipStr));
     connectedIP = ipStr;
     autoConnecting = false;
 
