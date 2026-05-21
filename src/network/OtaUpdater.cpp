@@ -1,11 +1,11 @@
 #include "OtaUpdater.h"
 
+#include <HalWifi.h>
 #include <Logging.h>
 #include <ReleaseJsonParser.h>
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
 #include <esp_https_ota.h>
-#include <esp_wifi.h>
 
 namespace {
 constexpr char latestReleaseUrl[] = "https://api.github.com/repos/znelson/lightpoint/releases/latest";
@@ -172,8 +172,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
       .http_client_init_cb = http_client_set_header_cb,
   };
 
-  /* For better timing and connectivity, we disable power saving for WiFi */
-  esp_wifi_set_ps(WIFI_PS_NONE);
+  halWifi.setPowerSave(false);
 
   esp_err = esp_https_ota_begin(&ota_config, &ota_handle);
   if (esp_err != ESP_OK) {
@@ -199,8 +198,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
     vTaskDelay(pdMS_TO_TICKS(100));  // TODO: should we replace this with something better?
   } while (esp_err == ESP_ERR_HTTPS_OTA_IN_PROGRESS);
 
-  /* Return back to default power saving for WiFi in case of failing */
-  esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  halWifi.setPowerSave(true);
 
   if (esp_err != ESP_OK) {
     LOG_ERR("OTA", "esp_https_ota_perform Failed: %s", esp_err_to_name(esp_err));

@@ -3,8 +3,8 @@
 #include <GfxRenderer.h>
 #include <HalClock.h>
 #include <I18n.h>
+#include <HalWifi.h>
 #include <Logging.h>
-#include <esp_wifi.h>
 
 #include <cstdio>
 
@@ -23,8 +23,7 @@ void ClockSyncActivity::onEnter() {
 void ClockSyncActivity::onExit() { Activity::onExit(); }
 
 void ClockSyncActivity::runSync() {
-  wifi_ap_record_t apInfo;
-  if (esp_wifi_sta_get_ap_info(&apInfo) != ESP_OK) {
+  if (!halWifi.isConnected()) {
     LOG_INF("CLK", "Manual sync requested but WiFi is not connected");
     state = NO_WIFI;
     requestUpdate();

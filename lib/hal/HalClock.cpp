@@ -2,8 +2,8 @@
 
 #include <Logging.h>
 #include <Timing.h>
+#include <HalWifi.h>
 #include <esp_sntp.h>
-#include <esp_wifi.h>
 #include <time.h>
 
 #include <cassert>
@@ -146,8 +146,7 @@ bool HalClock::writeTimeToRTC(uint8_t hour, uint8_t minute, uint8_t second) {
 bool HalClock::syncFromNTP() {
   if (!_available) return false;
 
-  wifi_ap_record_t apInfo;
-  if (esp_wifi_sta_get_ap_info(&apInfo) != ESP_OK) {
+  if (!halWifi.isConnected()) {
     LOG_ERR("CLK", "WiFi not connected, cannot sync NTP");
     return false;
   }
