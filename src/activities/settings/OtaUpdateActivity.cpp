@@ -6,7 +6,6 @@
 #include <esp_system.h>
 
 #include "MappedInputManager.h"
-#include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -57,6 +56,11 @@ void OtaUpdateActivity::onEnter() {
 
   // Turn on WiFi immediately
   LOG_DBG("OTA", "Turning on WiFi...");
+  if (!halWifi.init()) {
+    LOG_ERR("OTA", "WiFi init failed");
+    finish();
+    return;
+  }
 
   // Launch WiFi selection subactivity
   LOG_DBG("OTA", "Launching WifiSelectionActivity...");
@@ -67,14 +71,12 @@ void OtaUpdateActivity::onEnter() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
-  // Success path reboots via the SHUTTING_DOWN state's plain ESP.restart()
-  // (loop() above) so the new firmware boots normally. Back-out paths land
-  // here with wifi still active; silent-restart to free the LWIP/mbedTLS
-  // fragmentation, same as the other wifi activities.
+  // Success path reboots via the SHUTTING_DOWN state's esp_restart() so the
+  // new firmware boots normally. Back-out paths call deinit() to fully reclaim
+  // the WiFi heap (LWIP/mbedTLS allocations) so the firmware can continue
+  // running cleanly.
   if (halWifi.isActive()) {
-    halWifi.stop();
-    vTaskDelay(pdMS_TO_TICKS(30));
-    silentRestart();
+    halWifi.deinit();
   }
 }
 
