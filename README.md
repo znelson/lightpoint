@@ -24,6 +24,8 @@ This is an opinionated, lightweight fork of [CrossPoint](https://github.com/cros
 ### Changed
 
 - **Courier Prime replaces Open Dyslexic** -- the third font slot is now a monospace face (Courier Prime), completing the serif / sans-serif / monospace triad
+- **Build system migrated from Arduino to ESP-IDF** -- replaced the Arduino framework with native ESP-IDF, removing the Arduino HAL layer and porting all hardware calls to ESP-IDF APIs directly
+- **ESP-IDF upgraded to 6.x** -- further upgraded to ESP-IDF 6.0.1 (GCC 15.2); no user-visible behavior change
 
 ---
 
