@@ -27,7 +27,6 @@ std::vector<EpubReaderMenuActivity::MenuItem> EpubReaderMenuActivity::buildMenuI
     items.push_back({MenuAction::FOOTNOTES, StrId::STR_FOOTNOTES});
   }
   items.push_back({MenuAction::ROTATE_SCREEN, StrId::STR_ORIENTATION});
-  items.push_back({MenuAction::AUTO_PAGE_TURN, StrId::STR_AUTO_TURN_PAGES_PER_MIN});
   items.push_back({MenuAction::GO_TO_PERCENT, StrId::STR_GO_TO_PERCENT});
   items.push_back({MenuAction::SCREENSHOT, StrId::STR_SCREENSHOT_BUTTON});
   items.push_back({MenuAction::GO_HOME, StrId::STR_GO_HOME_BUTTON});
@@ -63,19 +62,13 @@ void EpubReaderMenuActivity::loop() {
       return;
     }
 
-    if (selectedAction == MenuAction::AUTO_PAGE_TURN) {
-      selectedPageTurnOption = (selectedPageTurnOption + 1) % pageTurnLabels.size();
-      requestUpdate();
-      return;
-    }
-
-    setResult(MenuResult{static_cast<int>(selectedAction), pendingOrientation, selectedPageTurnOption});
+    setResult(MenuResult{static_cast<int>(selectedAction), pendingOrientation});
     finish();
     return;
   } else if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;
     result.isCancelled = true;
-    result.data = MenuResult{-1, pendingOrientation, selectedPageTurnOption};
+    result.data = MenuResult{-1, pendingOrientation};
     setResult(std::move(result));
     finish();
     return;
@@ -115,9 +108,6 @@ void EpubReaderMenuActivity::render(RenderLock&&) {
         if (value == MenuAction::ROTATE_SCREEN) {
           // Render current orientation value on the right edge of the content area.
           return I18N.get(orientationLabels[pendingOrientation]);
-        } else if (value == MenuAction::AUTO_PAGE_TURN) {
-          // Render current page turn value on the right edge of the content area.
-          return pageTurnLabels[selectedPageTurnOption];
         } else {
           return "";
         }
