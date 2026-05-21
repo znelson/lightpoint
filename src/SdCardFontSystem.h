@@ -29,7 +29,6 @@ class SdCardFontSystem {
   /// Access the registry (e.g. for settings UI to enumerate available fonts).
   const SdCardFontRegistry& registry() const { return registry_; }
 
-  /// Non-const access to the registry (for FontInstaller).
   SdCardFontRegistry& registry() { return registry_; }
 
   /// Mark the registry as needing re-discovery.

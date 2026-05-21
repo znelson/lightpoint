@@ -16,6 +16,7 @@ This is an opinionated, lightweight fork of [CrossPoint](https://github.com/cros
 - **Legacy settings migration** -- binary-to-JSON settings upgrade path dropped; clean installs only
 - **QR code display** -- "Show page as QR" reader menu option removed
 - **Auto page turn** -- automatic timed page-turning feature removed
+- **Font downloader** -- "Manage Fonts" settings entry and over-the-air font download removed; fonts may still be placed on the SD card manually
 
 ### Added
 
