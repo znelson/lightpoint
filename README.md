@@ -14,6 +14,7 @@ This is an opinionated, lightweight fork of [CrossPoint](https://github.com/cros
 - **OPDS** -- no OPDS browser or catalogue-based book downloading
 - **KOSync** -- no KOReader progress sync
 - **Legacy settings migration** -- binary-to-JSON settings upgrade path dropped; clean installs only
+- **QR code display** -- "Show page as QR" reader menu option removed
 
 ### Added
 
