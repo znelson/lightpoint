@@ -4,6 +4,7 @@
 #include <Timing.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
+#include <driver/usb_serial_jtag.h>
 #include <esp_sleep.h>
 #include <esp_wifi.h>
 #include <soc/rtc.h>
@@ -88,6 +89,13 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
     vTaskDelay(pdMS_TO_TICKS(50));
     gpio.update();
   }
+
+#ifdef ENABLE_SERIAL_LOG
+  // Tear down USB JTAG so the host sees a clean disconnect and the peripheral
+  // doesn't hold power domains that interfere with USB-powered GPIO wake.
+  usb_serial_jtag_driver_uninstall();
+#endif
+
   // Pre-sleep routines from the original firmware
   // GPIO13 is connected to battery latch MOSFET, we need to make sure it's low during sleep
   // Note that this means the MCU will be completely powered off during sleep, including RTC

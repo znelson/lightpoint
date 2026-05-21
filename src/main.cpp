@@ -18,6 +18,7 @@
 #include <esp_heap_caps.h>
 #include <esp_netif.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <nvs_flash.h>
@@ -34,6 +35,7 @@
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "images/LoadingIcon.h"
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
 
@@ -43,6 +45,7 @@ ActivityManager activityManager(renderer, mappedInputManager);
 FontDecompressor fontDecompressor;
 SdCardFontSystem sdFontSystem;
 FontCacheManager fontCacheManager(renderer.getFontMap(), renderer.getSdCardFonts());
+static uint32_t allowSleepAt = 0;
 
 // Fonts
 EpdFont notoserif14RegularFont(&notoserif_14_regular);
@@ -148,6 +151,11 @@ void silentRestart() {
   silentRebootTarget = SILENT_REBOOT_TARGET_HOME;
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=home)");
+  // E-ink retains the previous frame until Home's first paint lands (~2-3s).
+  // Without an overlay, users don't see the reboot and fire input through to
+  // Home. Select on the default selectorIndex=0 then opens the most-recent
+  // book, looking like a trampoline back to the reader they just exited.
+  GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   vTaskDelay(pdMS_TO_TICKS(50));
   esp_restart();
 }
@@ -156,6 +164,7 @@ void silentRestartToReader() {
   silentRebootTarget = SILENT_REBOOT_TARGET_READER;
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=reader)");
+  GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   vTaskDelay(pdMS_TO_TICKS(50));
   esp_restart();
 }
@@ -174,7 +183,7 @@ void verifyPowerButtonDuration() {
   bool abort = false;
   // Subtract the current time, because inputManager only starts counting the HeldTime from the first update()
   // This way, we remove the time we already took to reach here from the duration,
-  // assuming the button was held until now from millis()==0 (i.e. device start time).
+  // assuming the button was held until now from uptime_ms()==0 (i.e. device start time).
   const uint16_t calibration = start;
   const uint16_t calibratedPressDuration =
       (calibration < SETTINGS.getPowerButtonDuration()) ? SETTINGS.getPowerButtonDuration() - calibration : 1;
@@ -212,13 +221,55 @@ void waitForPowerRelease() {
   }
 }
 
+constexpr char SLEEP_FRAME_FILE[] = "/.crosspoint/sleep_frame.bin";
+
+static void saveSleepFrameBuffer() {
+  FsFile file;
+  if (!Storage.openFileForWrite("SLP", SLEEP_FRAME_FILE, file)) return;
+  file.write(renderer.getFrameBuffer(), renderer.getBufferSize());
+  file.close();
+}
+
+static bool loadSleepFrameBuffer() {
+  FsFile file;
+  if (!Storage.openFileForRead("SLP", SLEEP_FRAME_FILE, file)) return false;
+  const size_t bufferSize = display.getBufferSize();
+  const size_t bytesRead = file.read(display.getFrameBuffer(), bufferSize);
+  file.close();
+  if (bytesRead != bufferSize) {
+    Storage.remove(SLEEP_FRAME_FILE);
+    return false;
+  }
+  Storage.remove(SLEEP_FRAME_FILE);
+  return true;
+}
+
 // Enter deep sleep mode
-void enterDeepSleep() {
+void enterDeepSleep(bool fromTimeout = false) {
   HalPowerManager::Lock powerLock;  // Ensure we are at normal CPU frequency for sleep preparation
   APP_STATE.lastSleepFromReader = activityManager.isReaderActivity();
+
+  const bool isSeamless = SETTINGS.seamlessSleepScreen == CrossPointSettings::SEAMLESS_SLEEP_SCREEN::SEAMLESS_ALWAYS ||
+                          (fromTimeout && SETTINGS.seamlessSleepScreen ==
+                                              CrossPointSettings::SEAMLESS_SLEEP_SCREEN::SEAMLESS_AFTER_TIMEOUT);
+  APP_STATE.showBootScreen = !isSeamless;
+
   APP_STATE.saveToFile();
 
-  activityManager.goToSleep();
+  activityManager.goToSleep(fromTimeout);
+
+  if (isSeamless) {
+    saveSleepFrameBuffer();
+  }
+
+  // Tear down WiFi so the modem power domain isn't held alive across deep sleep.
+  // Wake from deep sleep is effectively a chip reset, so no state needs to survive.
+  wifi_mode_t wifiMode = WIFI_MODE_NULL;
+  esp_wifi_get_mode(&wifiMode);
+  if (wifiMode != WIFI_MODE_NULL) {
+    esp_wifi_disconnect();
+    esp_wifi_stop();
+  }
 
   halTiltSensor.deepSleep();
   display.deepSleep();
@@ -227,8 +278,8 @@ void enterDeepSleep() {
   powerManager.startDeepSleep(gpio);
 }
 
-void setupDisplayAndFonts() {
-  display.begin();
+void setupDisplayAndFonts(bool seamless = false) {
+  display.begin(seamless);
   renderer.begin();
   activityManager.begin();
   LOG_DBG("MAIN", "Display initialized");
@@ -274,7 +325,7 @@ void setup() {
   // and the host has to be physically replugged for logs to flow. Warm reboot
   // worked without the delay because USB was already enumerated.
   //
-  // setTxTimeoutMs(0) makes writes non-blocking — the HWCDC TX FIFO drops
+  // setTxTimeoutMs(0) makes writes non-blocking - the HWCDC TX FIFO drops
   // bytes harmlessly if the host isn't actively draining, instead of blocking
   // for the default 250 ms per write and chaining into a firmware hang.
   vTaskDelay(pdMS_TO_TICKS(250));
@@ -311,7 +362,7 @@ void setup() {
   // We need 6 open files concurrently when parsing a new chapter
   if (!Storage.begin()) {
     LOG_ERR("MAIN", "SD card initialization failed");
-    setupDisplayAndFonts();
+    setupDisplayAndFonts(isSilentReboot);
     activityManager.goToFullScreenMessage("SD card error", EpdFontFamily::BOLD);
     return;
   }
@@ -319,6 +370,8 @@ void setup() {
   HalSystem::checkPanic();
 
   SETTINGS.loadFromFile();
+  APP_STATE.loadFromFile();
+  RECENT_BOOKS.loadFromFile();
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
@@ -364,16 +417,28 @@ void setup() {
   // First serial output only here to avoid timing inconsistencies for power button press duration verification
   LOG_DBG("MAIN", "Starting LightPoint version " LIGHTPOINT_VERSION);
 
-  setupDisplayAndFonts();
+  setupDisplayAndFonts(isSilentReboot || /*seamless=*/!APP_STATE.showBootScreen);
 
-  // First paint after silent reboot is HALF_REFRESH (SDK forces it after begin()'s
-  // panel reset); subsequent paints FAST.
+  // Silent reboot suppresses the boot splash and the X3 initial-full-sync
+  // arming (see HalDisplay::begin), so the first Home paint is FAST_REFRESH
+  // (~500ms) and input dispatches against the visible menu.
   if (!isSilentReboot) {
-    activityManager.goToBoot();
+    if (APP_STATE.showBootScreen) {
+      activityManager.goToBoot();
+    } else if (loadSleepFrameBuffer()) {
+      // Seamless wake: buffer restored, replace moon icon with loading icon
+      const auto pageHeight = renderer.getScreenHeight();
+      renderer.drawImage(LoadingIcon, 0, pageHeight - LOADINGICON_HEIGHT, LOADINGICON_WIDTH, LOADINGICON_HEIGHT);
+      renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+      APP_STATE.showBootScreen = true;
+      APP_STATE.saveToFile();
+    } else {
+      // Frame buffer file missing — fall back to normal boot screen
+      APP_STATE.showBootScreen = true;
+      APP_STATE.saveToFile();
+      activityManager.goToBoot();
+    }
   }
-
-  APP_STATE.loadFromFile();
-  RECENT_BOOKS.loadFromFile();
 
   if (recoveryFirmwareMode) {
     // Skip normal home/reader routing: jump straight into the SD firmware picker.
@@ -403,8 +468,26 @@ void setup() {
     activityManager.goToReader(path);
   }
 
+  if (isSilentReboot) {
+    // Block until the first paint physically completes. refreshDisplay()
+    // waits on the panel BUSY pin so when this returns the user can see the
+    // new activity. Without the wait, an edge captured by gpio.update()
+    // during boot dispatches against an invisible Home and the default
+    // selectorIndex=0 opens the most-recent book.
+    activityManager.requestUpdateAndWait();
+    // Absorb any button held at this point into currentState as a non-edge:
+    // two gpio.update() calls separated by > InputManager's 5ms debounce
+    // transition the held bit through lastDebounceTime into currentState
+    // without setting pressedEvents, so the first loop()'s own gpio.update()
+    // sees state == currentState and emits nothing.
+    gpio.update();
+    vTaskDelay(pdMS_TO_TICKS(10));
+    gpio.update();
+  }
+
   // Ensure we're not still holding the power button before leaving setup
   waitForPowerRelease();
+  allowSleepAt = uptime_ms() + 2000;
 }
 
 void loop() {
@@ -484,12 +567,13 @@ void loop() {
   const uint32_t sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
   if (uptime_ms() - lastActivityTime >= sleepTimeoutMs) {
     LOG_DBG("SLP", "Auto-sleep triggered after %u ms of inactivity", sleepTimeoutMs);
-    enterDeepSleep();
+    enterDeepSleep(true);
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
   }
 
-  if (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
+  if (uptime_ms() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
+      gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
     // If the screenshot combination is potentially being pressed, don't sleep
     if (gpio.isPressed(HalGPIO::BTN_DOWN)) {
       return;

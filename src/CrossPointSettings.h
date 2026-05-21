@@ -134,6 +134,13 @@ class CrossPointSettings {
 
   enum TILT_PAGE_TURN { TILT_OFF = 0, TILT_NORMAL = 1, TILT_NVERTED = 2, TILT_PAGE_TURN_COUNT };
 
+  enum SEAMLESS_SLEEP_SCREEN {
+    SEAMLESS_NEVER = 0,
+    SEAMLESS_AFTER_TIMEOUT = 1,
+    SEAMLESS_ALWAYS = 2,
+    SEAMLESS_SLEEP_SCREEN_COUNT
+  };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Sleep screen cover mode settings
@@ -167,6 +174,7 @@ class CrossPointSettings {
   // 0 = portrait (default), 1 = landscape clockwise, 2 = inverted, 3 = landscape counter-clockwise
   uint8_t orientation = PORTRAIT;
   uint8_t sideButtonLayout = PREV_NEXT;
+  uint8_t frontButtonFollowOrientation = 0;
   // Front button remap (logical -> hardware)
   // Used by MappedInputManager to translate logical buttons into physical front buttons.
   uint8_t frontButtonBack = FRONT_HW_BACK;
@@ -212,6 +220,8 @@ class CrossPointSettings {
   uint8_t tiltPageTurn = TILT_OFF;
   // Language setting (Language enum index, default 0 = EN)
   uint8_t language = 0;
+  // Seamless sleep: keep current content visible with moon icon instead of showing sleep screen
+  uint8_t seamlessSleepScreen = SEAMLESS_NEVER;
 
   ~CrossPointSettings() = default;
 
