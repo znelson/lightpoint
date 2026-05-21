@@ -2,8 +2,8 @@
 
 #include <GfxRenderer.h>
 #include <HalClock.h>
-#include <I18n.h>
 #include <HalWifi.h>
+#include <I18n.h>
 #include <Logging.h>
 
 #include <cstdio>

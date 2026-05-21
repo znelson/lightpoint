@@ -2,11 +2,11 @@
 
 #include <GfxRenderer.h>
 #include <HalClock.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
 #include <Timing.h>
-#include <HalWifi.h>
 #include <esp_event.h>
 #include <esp_heap_caps.h>
 #include <esp_wifi.h>

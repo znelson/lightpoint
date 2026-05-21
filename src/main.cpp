@@ -7,9 +7,9 @@
 #include <HalGPIO.h>
 #include <HalPowerManager.h>
 #include <HalStorage.h>
-#include <HalWifi.h>
 #include <HalSystem.h>
 #include <HalTiltSensor.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <Timing.h>

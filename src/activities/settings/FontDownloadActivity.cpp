@@ -3,9 +3,9 @@
 #include <ArduinoJson.h>
 #include <GfxRenderer.h>
 #include <HalStorage.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <HalWifi.h>
 #include <esp_rom_crc.h>
 
 #include "MappedInputManager.h"

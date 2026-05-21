@@ -1,8 +1,8 @@
 #include "HalClock.h"
 
+#include <HalWifi.h>
 #include <Logging.h>
 #include <Timing.h>
-#include <HalWifi.h>
 #include <esp_sntp.h>
 #include <time.h>
 

@@ -1,11 +1,11 @@
 #include "HalPowerManager.h"
 
+#include <HalWifi.h>
 #include <Logging.h>
 #include <Timing.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
 #include <driver/usb_serial_jtag.h>
-#include <HalWifi.h>
 #include <esp_sleep.h>
 #include <soc/rtc.h>
 

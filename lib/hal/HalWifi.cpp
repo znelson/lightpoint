@@ -29,9 +29,7 @@ void HalWifi::stop() {
   esp_wifi_stop();
 }
 
-bool HalWifi::getMacAddress(uint8_t mac[6]) const {
-  return esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK;
-}
+bool HalWifi::getMacAddress(uint8_t mac[6]) const { return esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK; }
 
 bool HalWifi::isConnected() const {
   wifi_ap_record_t apInfo;
@@ -58,6 +56,4 @@ void HalWifi::setHostname(const char* hostname) {
   esp_netif_set_hostname(netif, hostname);
 }
 
-void HalWifi::setPowerSave(bool enable) {
-  esp_wifi_set_ps(enable ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
-}
+void HalWifi::setPowerSave(bool enable) { esp_wifi_set_ps(enable ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE); }
