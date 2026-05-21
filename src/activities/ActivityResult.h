@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -20,11 +21,11 @@ struct KeyboardResult {
 struct MenuResult {
   int action = -1;
   uint8_t orientation = 0;
-  uint8_t pageTurnOption = 0;
 };
 
 struct ChapterResult {
   int spineIndex = 0;
+  std::optional<int> tocIndex;
 };
 
 struct PercentResult {
@@ -33,17 +34,6 @@ struct PercentResult {
 
 struct PageResult {
   uint32_t page = 0;
-};
-
-struct SyncResult {
-  int spineIndex = 0;
-  int page = 0;
-};
-
-enum class NetworkMode;
-
-struct NetworkModeResult {
-  NetworkMode mode;
 };
 
 struct FootnoteResult {
@@ -55,7 +45,7 @@ struct FilePathResult {
 };
 
 using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   PageResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+                                   PageResult, FootnoteResult, FilePathResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

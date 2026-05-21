@@ -5,6 +5,8 @@
 #include <HalStorage.h>
 #include <Logging.h>
 #include <PNGdec.h>
+#include <Timing.h>
+#include <esp_heap_caps.h>
 
 #include <cstdlib>
 #include <new>
@@ -238,7 +240,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
 }  // namespace
 
 bool PngToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = esp_get_free_heap_size();
   if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
     LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
     return false;
@@ -271,7 +273,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
                                                     const RenderConfig& config) {
   LOG_DBG("PNG", "Decoding PNG: %s", imagePath.c_str());
 
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = esp_get_free_heap_size();
   if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
     LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
     return false;
@@ -371,9 +373,9 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     }
   }
 
-  unsigned long decodeStart = millis();
+  const uint32_t decodeStart = uptime_ms();
   rc = png->decode(&ctx, 0);
-  unsigned long decodeTime = millis() - decodeStart;
+  const uint32_t decodeTime = uptime_ms() - decodeStart;
 
   free(ctx.grayLineBuffer);
   ctx.grayLineBuffer = nullptr;
@@ -387,7 +389,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
 
   png->close();
   delete png;
-  LOG_DBG("PNG", "PNG decoding complete - render time: %lu ms", decodeTime);
+  LOG_DBG("PNG", "PNG decoding complete - render time: %u ms", decodeTime);
 
   // Write cache file if caching was enabled and buffer was allocated
   if (ctx.caching) {

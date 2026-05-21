@@ -1,6 +1,6 @@
 #pragma once
 
-// ESP.restart() with an RTC_NOINIT flag that survives the reboot, so setup()
+// esp_restart() with an RTC_NOINIT flag that survives the reboot, so setup()
 // skips the boot splash and routes straight to a destination. Used to clear
 // heap fragmentation accumulated during a wifi session.
 

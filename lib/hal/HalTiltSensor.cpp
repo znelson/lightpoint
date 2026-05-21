@@ -1,53 +1,37 @@
 #include "HalTiltSensor.h"
 
 #include <Logging.h>
+#include <Timing.h>
+#include <driver/i2c_master.h>
+
+#include <cmath>
 
 HalTiltSensor halTiltSensor;  // Singleton instance
 
 bool HalTiltSensor::writeReg(uint8_t reg, uint8_t val) const {
-  Wire.beginTransmission(_i2cAddr);
-  Wire.write(reg);
-  Wire.write(val);
-  return Wire.endTransmission() == 0;
+  const uint8_t buf[2] = {reg, val};
+  return i2c_master_transmit(i2cDev, buf, 2, 10) == ESP_OK;
 }
 
 bool HalTiltSensor::readReg(uint8_t reg, uint8_t* val) const {
-  Wire.beginTransmission(_i2cAddr);
-  Wire.write(reg);
-  if (Wire.endTransmission(false) != 0) {
-    return false;
-  }
-  Wire.requestFrom(_i2cAddr, (uint8_t)1);
-  if (Wire.available() < 1) {
-    return false;
-  }
-  *val = Wire.read();
-  return true;
+  return i2c_master_transmit_receive(i2cDev, &reg, 1, val, 1, 10) == ESP_OK;
 }
 
 bool HalTiltSensor::readGyro(float& gx, float& gy, float& gz) const {
-  Wire.beginTransmission(_i2cAddr);
-  Wire.write(REG_GX_L);  // Start reading at Gyro X Low
-  if (Wire.endTransmission(false) != 0) {
+  const uint8_t startReg = REG_GX_L;
+  uint8_t data[6];
+  if (i2c_master_transmit_receive(i2cDev, &startReg, 1, data, 6, 10) != ESP_OK) {
     return false;
   }
 
-  Wire.requestFrom(_i2cAddr, (uint8_t)6);
-  if (Wire.available() < 6) {
-    return false;
-  }
-
-  auto readInt16 = [&]() -> int16_t {
-    const uint8_t lo = Wire.read();
-    const uint8_t hi = Wire.read();
-    return static_cast<int16_t>((hi << 8) | lo);
-  };
-
-  // If Full Scale is ±512 dps, the scale factor is 32768 / 512 = 64 LSB/dps
+  // If Full Scale is +-512 dps, the scale factor is 32768 / 512 = 64 LSB/dps
   constexpr float SCALE = 1.0f / 64.0f;
-  gx = readInt16() * SCALE;
-  gy = readInt16() * SCALE;
-  gz = readInt16() * SCALE;
+  auto readInt16 = [&](size_t i) -> int16_t {
+    return static_cast<int16_t>((static_cast<uint16_t>(data[i + 1]) << 8) | data[i]);
+  };
+  gx = readInt16(0) * SCALE;
+  gy = readInt16(2) * SCALE;
+  gz = readInt16(4) * SCALE;
   return true;
 }
 
@@ -57,16 +41,32 @@ void HalTiltSensor::begin() {
     return;
   }
 
-  // Try primary address, then alternate
-  uint8_t whoami = 0;
-  _i2cAddr = I2C_ADDR_QMI8658;
-  if (!readReg(QMI8658_WHO_AM_I_REG, &whoami) || whoami != QMI8658_WHO_AM_I_VALUE) {
-    _i2cAddr = I2C_ADDR_QMI8658_ALT;
-    if (!readReg(QMI8658_WHO_AM_I_REG, &whoami) || whoami != QMI8658_WHO_AM_I_VALUE) {
-      LOG_ERR("GYR", "QMI8658 IMU not found");
-      _available = false;
-      return;
+  auto tryAddr = [&](uint8_t addr) -> bool {
+    if (i2cDev) {
+      i2c_master_bus_rm_device(i2cDev);
+      i2cDev = nullptr;
     }
+    i2c_device_config_t devCfg = {};
+    devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    devCfg.device_address = addr;
+    devCfg.scl_speed_hz = X3_I2C_FREQ;
+    if (i2c_master_bus_add_device(gpio.getI2CBus(), &devCfg, &i2cDev) != ESP_OK) return false;
+    uint8_t whoami = 0;
+    return readReg(QMI8658_WHO_AM_I_REG, &whoami) && whoami == QMI8658_WHO_AM_I_VALUE;
+  };
+
+  if (tryAddr(I2C_ADDR_QMI8658)) {
+    _i2cAddr = I2C_ADDR_QMI8658;
+  } else if (tryAddr(I2C_ADDR_QMI8658_ALT)) {
+    _i2cAddr = I2C_ADDR_QMI8658_ALT;
+  } else {
+    if (i2cDev) {
+      i2c_master_bus_rm_device(i2cDev);
+      i2cDev = nullptr;
+    }
+    LOG_ERR("GYR", "QMI8658 IMU not found");
+    _available = false;
+    return;
   }
 
   LOG_INF("GYR", "QMI8658 IMU found at 0x%02X", _i2cAddr);
@@ -79,8 +79,8 @@ void HalTiltSensor::begin() {
   }
 
   _available = true;
-  _initMs = millis();
-  _lastPollMs = millis();
+  _initMs = uptime_ms();
+  _lastPollMs = uptime_ms();
   LOG_INF("GYR", "QMI8658 gyro initialized and put to sleep");
 }
 
@@ -90,14 +90,14 @@ bool HalTiltSensor::wake() {
   }
 
   // Wait for init to complete before waking
-  if ((millis() - _initMs) < SLEEP_STABILIZE_MS) {
+  if ((uptime_ms() - _initMs) < SLEEP_STABILIZE_MS) {
     return false;
   }
 
   if (writeReg(REG_CTRL1, CTRL1_BASE) && writeReg(REG_CTRL7, CTRL7_GYRO_ENABLE)) {
-    _lastPollMs = millis();
-    _lastTiltMs = millis();
-    _wakeMs = millis();
+    _lastPollMs = uptime_ms();
+    _lastTiltMs = uptime_ms();
+    _wakeMs = uptime_ms();
     LOG_INF("GYR", "QMI8658 woke up");
     return true;
   } else {
@@ -111,7 +111,7 @@ bool HalTiltSensor::deepSleep() {
     return false;
   }
 
-  if ((millis() - _wakeMs) < SLEEP_STABILIZE_MS) {
+  if ((uptime_ms() - _wakeMs) < SLEEP_STABILIZE_MS) {
     return false;
   }
 
@@ -146,7 +146,7 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
     return;
   }
 
-  const unsigned long now = millis();
+  const uint32_t now = uptime_ms();
   // Stabilization: discard readings during gyro startup transient
   if ((now - _wakeMs) < WAKE_STABILIZE_MS) {
     return;

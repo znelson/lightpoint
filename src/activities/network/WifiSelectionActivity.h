@@ -1,5 +1,7 @@
 #pragma once
 
+#include <esp_event.h>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -80,8 +82,23 @@ class WifiSelectionActivity final : public Activity {
   int forgetPromptSelection = 0;
 
   // Connection timeout
-  static constexpr unsigned long CONNECTION_TIMEOUT_MS = 15000;
-  unsigned long connectionStartTime = 0;
+  static constexpr uint32_t CONNECTION_TIMEOUT_MS = 15000;
+  uint32_t connectionStartTime = 0;
+
+  // WiFi event flags (set by event loop task, read by activity loop task)
+  volatile bool wifiScanDone_ = false;
+  volatile bool wifiScanFailed_ = false;
+  volatile bool wifiConnected_ = false;
+  volatile bool wifiDisconnected_ = false;
+  volatile uint8_t wifiDisconnectReason_ = 0;
+
+  esp_event_handler_instance_t evtScan_ = nullptr;
+  esp_event_handler_instance_t evtGotIp_ = nullptr;
+  esp_event_handler_instance_t evtDisconnect_ = nullptr;
+
+  static void onScanDoneEvent(void* arg, esp_event_base_t base, int32_t id, void* data);
+  static void onGotIpEvent(void* arg, esp_event_base_t base, int32_t id, void* data);
+  static void onDisconnectedEvent(void* arg, esp_event_base_t base, int32_t id, void* data);
 
   void renderNetworkList(const Rect* screen, const ThemeMetrics* metrics) const;
   void renderPasswordEntry(const Rect* screen, const ThemeMetrics* metrics) const;

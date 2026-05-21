@@ -1,8 +1,9 @@
 #include "OtaUpdateActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalWifi.h>
 #include <I18n.h>
-#include <WiFi.h>
+#include <esp_system.h>
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
@@ -56,7 +57,6 @@ void OtaUpdateActivity::onEnter() {
 
   // Turn on WiFi immediately
   LOG_DBG("OTA", "Turning on WiFi...");
-  WiFi.mode(WIFI_STA);
 
   // Launch WiFi selection subactivity
   LOG_DBG("OTA", "Launching WifiSelectionActivity...");
@@ -71,9 +71,9 @@ void OtaUpdateActivity::onExit() {
   // (loop() above) so the new firmware boots normally. Back-out paths land
   // here with wifi still active; silent-restart to free the LWIP/mbedTLS
   // fragmentation, same as the other wifi activities.
-  if (WiFi.getMode() != WIFI_MODE_NULL) {
-    WiFi.disconnect(false);
-    delay(30);
+  if (halWifi.isActive()) {
+    halWifi.stop();
+    vTaskDelay(pdMS_TO_TICKS(30));
     silentRestart();
   }
 }
@@ -105,7 +105,7 @@ void OtaUpdateActivity::render(RenderLock&&) {
   } else if (state == WAITING_CONFIRMATION) {
     renderer.drawCenteredText(UI_10_FONT_ID, top, tr(STR_NEW_UPDATE), true, EpdFontFamily::BOLD);
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, top + height + metrics.verticalSpacing,
-                      (std::string(tr(STR_CURRENT_VERSION)) + CROSSPOINT_VERSION).c_str());
+                      (std::string(tr(STR_CURRENT_VERSION)) + LIGHTPOINT_VERSION).c_str());
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, top + height * 2 + metrics.verticalSpacing * 2,
                       (std::string(tr(STR_NEW_VERSION)) + updater.getLatestVersion()).c_str());
 
@@ -177,7 +177,7 @@ void OtaUpdateActivity::loop() {
       }
       requestUpdateAndWait();
       // Hold the completion screen briefly so the user sees it, then restart.
-      delay(3000);
+      vTaskDelay(pdMS_TO_TICKS(3000));
       {
         RenderLock lock(*this);
         state = SHUTTING_DOWN;
@@ -206,6 +206,6 @@ void OtaUpdateActivity::loop() {
   }
 
   if (state == SHUTTING_DOWN) {
-    ESP.restart();
+    esp_restart();
   }
 }
