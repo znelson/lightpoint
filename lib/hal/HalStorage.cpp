@@ -443,7 +443,10 @@ HalFile HalFile::openNextFile() {
   if (!entry) return HalFile();
 
   char childPath[512];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
   snprintf(childPath, sizeof(childPath), "%s/%s", impl->fullPath, entry->d_name);
+#pragma GCC diagnostic pop
 
   auto newImpl = std::make_unique<Impl>();
   strncpy(newImpl->name, entry->d_name, sizeof(newImpl->name) - 1);

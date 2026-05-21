@@ -12,7 +12,7 @@ build
 **/__pycache__/
 /compile_commands.json
 /sdkconfig
-/sdkconfig.default
+/sdkconfig.*
 /.cache
 .history/
 /.venv

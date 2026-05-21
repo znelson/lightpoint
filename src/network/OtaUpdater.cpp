@@ -134,7 +134,10 @@ bool OtaUpdater::isUpdateNewer() const {
   // If we reach here, it means all segments are equal.
   // One final check, if we're on an RC build (contains "-rc"), we should consider the latest version as newer even if
   // the segments are equal, since RC builds are pre-release versions.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress"
   if (strstr(currentVersion, "-rc") != nullptr) {
+#pragma GCC diagnostic pop
     return true;
   }
 

@@ -141,8 +141,8 @@ XtcError XtcParser::readHeader() {
   // Check version
   // Currently, version 1.0 is the only valid version, however some generators are swapping the bytes around, so we
   // accept both 1.0 and 0.1 for compatibility
-  const bool validVersion = m_header.versionMajor == 1 && m_header.versionMinor == 0 ||
-                            m_header.versionMajor == 0 && m_header.versionMinor == 1;
+  const bool validVersion = (m_header.versionMajor == 1 && m_header.versionMinor == 0) ||
+                            (m_header.versionMajor == 0 && m_header.versionMinor == 1);
   if (!validVersion) {
     LOG_DBG("XTC", "Unsupported version: %u.%u", m_header.versionMajor, m_header.versionMinor);
     return XtcError::INVALID_VERSION;

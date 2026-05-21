@@ -47,7 +47,7 @@ void logPrintf(const char* level, const char* origin, const char* format, ...) {
   // add timestamp, level and origin
   {
     const uint32_t ms = uptime_ms();
-    int len = snprintf(c, sizeof(buf), "[%u] [%s] [%s] ", ms, level, origin);
+    int len = snprintf(c, sizeof(buf), "[%u] [%s] [%s] ", static_cast<unsigned int>(ms), level, origin);
     // error while writing => return
     if (len < 0) {
       va_end(args);

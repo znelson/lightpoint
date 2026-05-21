@@ -122,7 +122,7 @@ std::string getPanicInfo(bool full) {
 
     auto toHex = [](uint32_t value) {
       char buffer[9];
-      snprintf(buffer, sizeof(buffer), "%08X", value);
+      snprintf(buffer, sizeof(buffer), "%08X", static_cast<unsigned int>(value));
       return std::string(buffer);
     };
     for (size_t i = 0; i < MAX_PANIC_STACK_DEPTH; i++) {

@@ -599,7 +599,7 @@ void loop() {
 
   const uint32_t activityStartTime = uptime_ms();
   activityManager.loop();
-  const uint32_t activityDuration = uptime_ms() - activityStartTime;
+  [[maybe_unused]] const uint32_t activityDuration = uptime_ms() - activityStartTime;
 
   const uint32_t loopDuration = uptime_ms() - loopStartTime;
   if (loopDuration > maxLoopDuration) {

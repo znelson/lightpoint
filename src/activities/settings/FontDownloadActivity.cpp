@@ -122,12 +122,14 @@ bool FontDownloadActivity::fetchAndParseManifest() {
     family.name = fObj["name"] | "";
     family.description = fObj["description"] | "";
 
-    for (JsonVariant s : fObj["styles"].as<JsonArray>()) {
+    JsonArray stylesArr = fObj["styles"].as<JsonArray>();
+    for (JsonVariant s : stylesArr) {
       family.styles.push_back(s.as<std::string>());
     }
 
     family.totalSize = 0;
-    for (JsonObject fileObj : fObj["files"].as<JsonArray>()) {
+    JsonArray filesArr = fObj["files"].as<JsonArray>();
+    for (JsonObject fileObj : filesArr) {
       ManifestFile file;
       file.name = fileObj["name"] | "";
       file.size = fileObj["size"] | 0;

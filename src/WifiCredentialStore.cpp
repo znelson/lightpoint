@@ -5,6 +5,8 @@
 #include <Logging.h>
 #include <ObfuscationUtils.h>
 
+#include <algorithm>
+
 // Initialize the static instance
 WifiCredentialStore WifiCredentialStore::instance;
 

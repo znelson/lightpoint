@@ -93,6 +93,7 @@ class HalFile : public Print {
   int read(void* buf, size_t count);
   int read();  // read a single byte
   size_t write(const void* buf, size_t count);
+  size_t write(const uint8_t* buf, size_t count) override { return write(static_cast<const void*>(buf), count); }
   size_t write(uint8_t b) override;
   bool rename(const char* newPath);
   bool isDirectory() const;
