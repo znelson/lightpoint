@@ -5,6 +5,9 @@
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
 #include <esp_sleep.h>
+#include <esp_system.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <nvs.h>
 
 // Global HalGPIO instance
@@ -269,7 +272,7 @@ void HalGPIO::startDeepSleep() {
     inputMgr.update();
   }
   // Arm the wakeup trigger *after* the button is released
-  esp_deep_sleep_enable_gpio_wakeup(1ULL << InputManager::POWER_BUTTON_PIN, ESP_GPIO_WAKEUP_GPIO_LOW);
+  esp_sleep_enable_gpio_wakeup_on_hp_periph_powerdown(1ULL << InputManager::POWER_BUTTON_PIN, ESP_GPIO_WAKEUP_GPIO_LOW);
   // Enter Deep Sleep
   esp_deep_sleep_start();
 }
@@ -327,19 +330,21 @@ bool HalGPIO::isUsbConnected() const {
 }
 
 HalGPIO::WakeupReason HalGPIO::getWakeupReason() const {
-  const auto wakeupCause = esp_sleep_get_wakeup_cause();
+  const uint32_t wakeupCauses = esp_sleep_get_wakeup_causes();
   const auto resetReason = esp_reset_reason();
 
   const bool usbConnected = isUsbConnected();
+  const bool noWakeupCause = (wakeupCauses == 0);
+  const bool gpioWakeup = (wakeupCauses & (1U << ESP_SLEEP_WAKEUP_GPIO)) != 0;
 
-  if ((wakeupCause == ESP_SLEEP_WAKEUP_UNDEFINED && resetReason == ESP_RST_POWERON && !usbConnected) ||
-      (wakeupCause == ESP_SLEEP_WAKEUP_GPIO && resetReason == ESP_RST_DEEPSLEEP && usbConnected)) {
+  if ((noWakeupCause && resetReason == ESP_RST_POWERON && !usbConnected) ||
+      (gpioWakeup && resetReason == ESP_RST_DEEPSLEEP && usbConnected)) {
     return WakeupReason::PowerButton;
   }
-  if (wakeupCause == ESP_SLEEP_WAKEUP_UNDEFINED && resetReason == ESP_RST_UNKNOWN && usbConnected) {
+  if (noWakeupCause && resetReason == ESP_RST_UNKNOWN && usbConnected) {
     return WakeupReason::AfterFlash;
   }
-  if (wakeupCause == ESP_SLEEP_WAKEUP_UNDEFINED && resetReason == ESP_RST_POWERON && usbConnected) {
+  if (noWakeupCause && resetReason == ESP_RST_POWERON && usbConnected) {
     return WakeupReason::AfterUSBPower;
   }
   return WakeupReason::Other;

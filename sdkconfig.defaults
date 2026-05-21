@@ -1,6 +1,9 @@
 # USB Serial/JTAG - used by MySerialImpl for logSerial
-CONFIG_USB_SERIAL_JTAG_ENABLED=y
-CONFIG_USB_SERIAL_JTAG_CONSOLE_ENABLE_OVERRIDE=n
+# IDF 6.x: USB-JTAG is now a console choice rather than a standalone enable flag
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# Flash size
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
 # FAT filesystem + long filename support (replaces SdFat USE_UTF8_LONG_NAMES)
 CONFIG_FATFS_LFN_HEAP=y

@@ -12,6 +12,8 @@
 #include <esp_netif.h>
 #include <esp_wifi.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "WifiCredentialStore.h"
@@ -296,8 +298,9 @@ void WifiSelectionActivity::checkConnectionStatus() {
       esp_netif_get_ip_info(netif, &ipInfo);
     }
     char ipStr[16];
-    snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", (ipInfo.ip.addr >> 0) & 0xFF, (ipInfo.ip.addr >> 8) & 0xFF,
-             (ipInfo.ip.addr >> 16) & 0xFF, (ipInfo.ip.addr >> 24) & 0xFF);
+    snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", static_cast<int>((ipInfo.ip.addr >> 0) & 0xFF),
+             static_cast<int>((ipInfo.ip.addr >> 8) & 0xFF), static_cast<int>((ipInfo.ip.addr >> 16) & 0xFF),
+             static_cast<int>((ipInfo.ip.addr >> 24) & 0xFF));
     connectedIP = ipStr;
     autoConnecting = false;
 
@@ -421,8 +424,8 @@ void WifiSelectionActivity::loop() {
         // User chose "Forget network" - forget the network
         WIFI_STORE.removeCredential(selectedSSID);
         // Update the network list to reflect the change
-        const auto network = find_if(networks.begin(), networks.end(),
-                                     [this](const WifiNetworkInfo& net) { return net.ssid == selectedSSID; });
+        const auto network = std::find_if(networks.begin(), networks.end(),
+                                          [this](const WifiNetworkInfo& net) { return net.ssid == selectedSSID; });
         if (network != networks.end()) {
           network->hasSavedPassword = false;
         }
@@ -572,6 +575,8 @@ void WifiSelectionActivity::render(RenderLock&&) {
       break;
     case WifiSelectionState::FORGET_PROMPT:
       renderForgetPrompt(&screen, &metrics);
+      break;
+    case WifiSelectionState::PASSWORD_ENTRY:
       break;
   }
 
