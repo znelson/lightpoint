@@ -41,10 +41,10 @@ void SdCardFontSystem::begin(GfxRenderer& renderer) {
 }
 
 void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
-  // If the web server (or another task) installed/deleted fonts, re-discover.
+  // If another task installed/deleted fonts, re-discover.
   // Track whether we just re-discovered so we can force a reload below even
-  // when the wanted family/size still maps to the same point size — the file
-  // contents on disk may have changed (e.g. user re-uploaded a new build).
+  // when the wanted family/size still maps to the same point size -- the file
+  // contents on disk may have changed.
   const bool registryWasDirty = registryDirty_.exchange(false, std::memory_order_acquire);
   if (registryWasDirty) {
     LOG_DBG("SDFS", "Registry dirty — re-discovering fonts");

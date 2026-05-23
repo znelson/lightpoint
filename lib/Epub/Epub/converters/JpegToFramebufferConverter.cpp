@@ -2,6 +2,7 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <JPEGDEC.h>
 #include <Logging.h>
@@ -19,7 +20,7 @@ namespace {
 
 // Context struct passed through JPEGDEC callbacks to avoid global mutable state.
 // The draw callback receives this via pDraw->pUser (set by setUserPointer()).
-// The file I/O callbacks receive the FsFile* via pFile->fHandle (set by jpegOpen()).
+// The file I/O callbacks receive the HalFile* via pFile->fHandle (set by jpegOpen()).
 struct JpegContext {
   GfxRenderer* renderer{nullptr};
   const RenderConfig* config{nullptr};
@@ -48,10 +49,10 @@ struct JpegContext {
   bool caching{false};
 };
 
-// File I/O callbacks use pFile->fHandle to access the FsFile*,
+// File I/O callbacks use pFile->fHandle to access the HalFile*,
 // avoiding the need for global file state.
 void* jpegOpen(const char* filename, int32_t* size) {
-  FsFile* f = new FsFile();
+  HalFile* f = new HalFile();
   if (!Storage.openFileForRead("JPG", std::string(filename), *f)) {
     delete f;
     return nullptr;
@@ -61,7 +62,7 @@ void* jpegOpen(const char* filename, int32_t* size) {
 }
 
 void jpegClose(void* handle) {
-  FsFile* f = reinterpret_cast<FsFile*>(handle);
+  HalFile* f = reinterpret_cast<HalFile*>(handle);
   if (f) {
     f->close();
     delete f;
@@ -73,7 +74,7 @@ void jpegClose(void* handle) {
 // MUST maintain iPos to match the actual file position, otherwise progressive
 // JPEGs with large headers fail during parsing.
 int32_t jpegRead(JPEGFILE* pFile, uint8_t* pBuf, int32_t len) {
-  FsFile* f = reinterpret_cast<FsFile*>(pFile->fHandle);
+  HalFile* f = reinterpret_cast<HalFile*>(pFile->fHandle);
   if (!f) return 0;
   int32_t bytesRead = f->read(pBuf, len);
   if (bytesRead < 0) return 0;
@@ -82,7 +83,7 @@ int32_t jpegRead(JPEGFILE* pFile, uint8_t* pBuf, int32_t len) {
 }
 
 int32_t jpegSeek(JPEGFILE* pFile, int32_t pos) {
-  FsFile* f = reinterpret_cast<FsFile*>(pFile->fHandle);
+  HalFile* f = reinterpret_cast<HalFile*>(pFile->fHandle);
   if (!f) return -1;
   if (!f->seek(pos)) return -1;
   pFile->iPos = pos;
@@ -343,7 +344,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
 }  // namespace
 
 bool JpegToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = halPlatform.freeHeap();
   if (freeHeap < MIN_FREE_HEAP_FOR_JPEG) {
     LOG_ERR("JPG", "Not enough heap for JPEG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_JPEG);
     return false;
@@ -373,7 +374,7 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
                                                      const RenderConfig& config) {
   LOG_DBG("JPG", "Decoding JPEG: %s", imagePath.c_str());
 
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = halPlatform.freeHeap();
   if (freeHeap < MIN_FREE_HEAP_FOR_JPEG) {
     LOG_ERR("JPG", "Not enough heap for JPEG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_JPEG);
     return false;
@@ -478,16 +479,16 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
     }
   }
 
-  unsigned long decodeStart = millis();
+  const uint32_t decodeStart = halPlatform.millis();
   rc = jpeg->decode(0, 0, jpegScaleOption);
-  unsigned long decodeTime = millis() - decodeStart;
+  const uint32_t decodeTime = halPlatform.millis() - decodeStart;
 
   if (rc != 1) {
     LOG_ERR("JPG", "Decode failed (rc=%d, lastError=%d)", rc, jpeg->getLastError());
     return false;
   }
 
-  LOG_DBG("JPG", "JPEG decoding complete - render time: %lu ms", decodeTime);
+  LOG_DBG("JPG", "JPEG decoding complete - render time: %u ms", decodeTime);
 
   // Write cache file if caching was enabled
   if (ctx.caching) {

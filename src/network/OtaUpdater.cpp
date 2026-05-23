@@ -1,17 +1,17 @@
 #include "OtaUpdater.h"
 
+#include <HalWifi.h>
 #include <Logging.h>
 #include <ReleaseJsonParser.h>
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
 #include <esp_https_ota.h>
-#include <esp_wifi.h>
 
 namespace {
-constexpr char latestReleaseUrl[] = "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/latest";
+constexpr char latestReleaseUrl[] = "https://api.github.com/repos/znelson/lightpoint/releases/latest";
 
 esp_err_t http_client_set_header_cb(esp_http_client_handle_t http_client) {
-  return esp_http_client_set_header(http_client, "User-Agent", "CrossPoint-ESP32-" CROSSPOINT_VERSION);
+  return esp_http_client_set_header(http_client, "User-Agent", "LightPoint-ESP32-" LIGHTPOINT_VERSION);
 }
 
 size_t totalBytesReceived = 0;
@@ -45,7 +45,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
   };
 
   totalBytesReceived = 0;
-  LOG_DBG("OTA", "Checking for update (current: %s)", CROSSPOINT_VERSION);
+  LOG_DBG("OTA", "Checking for update (current: %s)", LIGHTPOINT_VERSION);
 
   esp_http_client_handle_t client_handle = esp_http_client_init(&client_config);
   if (!client_handle) {
@@ -53,7 +53,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
     return INTERNAL_UPDATE_ERROR;
   }
 
-  esp_err = esp_http_client_set_header(client_handle, "User-Agent", "CrossPoint-ESP32-" CROSSPOINT_VERSION);
+  esp_err = esp_http_client_set_header(client_handle, "User-Agent", "LightPoint-ESP32-" LIGHTPOINT_VERSION);
   if (esp_err != ESP_OK) {
     LOG_ERR("OTA", "esp_http_client_set_header Failed : %s", esp_err_to_name(esp_err));
     esp_http_client_cleanup(client_handle);
@@ -99,14 +99,14 @@ OtaUpdater::OtaUpdaterError OtaUpdater::checkForUpdate() {
 }
 
 bool OtaUpdater::isUpdateNewer() const {
-  if (!updateAvailable || latestVersion.empty() || latestVersion == CROSSPOINT_VERSION) {
+  if (!updateAvailable || latestVersion.empty() || latestVersion == LIGHTPOINT_VERSION) {
     return false;
   }
 
   int currentMajor, currentMinor, currentPatch;
   int latestMajor, latestMinor, latestPatch;
 
-  const auto currentVersion = CROSSPOINT_VERSION;
+  const auto currentVersion = LIGHTPOINT_VERSION;
 
   // semantic version check (only match on 3 segments)
   sscanf(latestVersion.c_str(), "%d.%d.%d", &latestMajor, &latestMinor, &latestPatch);
@@ -134,7 +134,10 @@ bool OtaUpdater::isUpdateNewer() const {
   // If we reach here, it means all segments are equal.
   // One final check, if we're on an RC build (contains "-rc"), we should consider the latest version as newer even if
   // the segments are equal, since RC builds are pre-release versions.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress"
   if (strstr(currentVersion, "-rc") != nullptr) {
+#pragma GCC diagnostic pop
     return true;
   }
 
@@ -169,8 +172,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
       .http_client_init_cb = http_client_set_header_cb,
   };
 
-  /* For better timing and connectivity, we disable power saving for WiFi */
-  esp_wifi_set_ps(WIFI_PS_NONE);
+  halWifi.setPowerSave(false);
 
   esp_err = esp_https_ota_begin(&ota_config, &ota_handle);
   if (esp_err != ESP_OK) {
@@ -193,11 +195,10 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
         onProgress(ctx);
       }
     }
-    delay(100);  // TODO: should we replace this with something better?
+    vTaskDelay(pdMS_TO_TICKS(100));  // TODO: should we replace this with something better?
   } while (esp_err == ESP_ERR_HTTPS_OTA_IN_PROGRESS);
 
-  /* Return back to default power saving for WiFi in case of failing */
-  esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  halWifi.setPowerSave(true);
 
   if (esp_err != ESP_OK) {
     LOG_ERR("OTA", "esp_https_ota_perform Failed: %s", esp_err_to_name(esp_err));
