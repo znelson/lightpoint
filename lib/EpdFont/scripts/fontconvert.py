@@ -88,6 +88,14 @@ intervals = [
     (0x2200, 0x22FF),
     # Arrows
     (0x2190, 0x21FF),
+    # Supplemental Arrows-B + Misc Math Symbols-B
+    (0x2900, 0x29FF),
+    ### Supplemental Punctuation ###
+    # Uncommon dialogue punctuation used in literary fiction
+    (0x2E00, 0x2E7F),
+    ### CJK Symbols and Punctuation ###
+    # CJK-style quote marks used in dialogue
+    (0x3000, 0x303F),
     ### CJK ###
     # Core Unified Ideographs
     # (0x4E00, 0x9FFF),
@@ -121,8 +129,6 @@ intervals = [
     # (0x2E80, 0x2EFF),
     # # Kangxi Radicals
     # (0x2F00, 0x2FDF),
-    # # CJK Symbols and Punctuation
-    # (0x3000, 0x303F),
     # # CJK Compatibility Forms
     # (0xFE30, 0xFE4F),
     # # CJK Compatibility Ideographs
@@ -821,6 +827,9 @@ if compress:
         (0x20A0, 0x20CF),   # Currency Symbols
         (0x2190, 0x21FF),   # Arrows
         (0x2200, 0x22FF),   # Math Operators
+        (0x2900, 0x29FF),   # Supplemental Arrows-B + Misc Math Symbols-B
+        (0x2E00, 0x2E7F),   # Supplemental Punctuation
+        (0x3000, 0x303F),   # CJK Symbols and Punctuation
         (0xFB00, 0xFB06),   # Alphabetic Presentation Forms (ligatures)
         (0xFFFD, 0xFFFD),   # Replacement Character
     ]
