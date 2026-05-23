@@ -11,7 +11,7 @@
 #include "parsers/ChapterHtmlSlimParser.h"
 
 namespace {
-constexpr uint8_t SECTION_FILE_VERSION = 24;
+constexpr uint8_t SECTION_FILE_VERSION = 25;
 
 namespace header {
 constexpr uint32_t kVersion = 0;

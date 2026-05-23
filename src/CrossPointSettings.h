@@ -246,7 +246,6 @@ class CrossPointSettings {
   bool loadFromFile();
 
   static void validateFrontButtonMapping(CrossPointSettings& settings);
-  static void normalizeDependentSettings(CrossPointSettings& settings);
 
  public:
   float getReaderLineCompression() const;
