@@ -348,6 +348,7 @@ void setup() {
   // for the default 250 ms per write and chaining into a firmware hang.
   vTaskDelay(pdMS_TO_TICKS(250));
   logSerial.begin(115200);
+  installRomPrintfHook();
 #endif
 
   HalSystem::begin();

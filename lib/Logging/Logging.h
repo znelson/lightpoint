@@ -53,6 +53,17 @@ void logPrintf(const char* level, const char* origin, const char* format, ...);
 
 std::string getLastLogs();
 void clearLastLogs();
+
+// Public so the esp_rom_printf hook can push CORRUPT HEAP messages from
+// inside ESP-IDF into the crash-report ring buffer.
+void addToLogRingBuffer(const char* message);
+
+// Installs a putc on esp_rom_printf channel 2 that pushes complete lines into
+// the crash-report ring buffer. Call once during setup. No-op in slim builds.
+#ifdef ENABLE_SERIAL_LOG
+void installRomPrintfHook();
+#endif
+
 // Validates the RTC log state (magic word + logHead range). Returns true if
 // corruption was detected (magic mismatch or logHead out of range), meaning
 // logMessages is untrusted garbage. Callers should call clearLastLogs() when
