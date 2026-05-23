@@ -1,13 +1,13 @@
 #include "Section.h"
 
 #include <HalStorage.h>
+#include <Hyphenator.h>
 #include <Logging.h>
 #include <Serialization.h>
 #include <freertos/task.h>
 
 #include "Epub/css/CssParser.h"
 #include "Page.h"
-#include "hyphenation/Hyphenator.h"
 #include "parsers/ChapterHtmlSlimParser.h"
 
 namespace {
