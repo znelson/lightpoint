@@ -2,7 +2,7 @@
  * XtcParser.h
  *
  * XTC file parsing and page data extraction
- * XTC ebook support for CrossPoint Reader
+ * XTC ebook support for LightPoint Reader
  */
 
 #pragma once
@@ -84,7 +84,7 @@ class XtcParser {
   XtcError getLastError() const { return m_lastError; }
 
  private:
-  FsFile m_file;
+  HalFile m_file;
   std::string m_filepath;
   bool m_isOpen;
   XtcHeader m_header;

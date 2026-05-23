@@ -93,11 +93,11 @@ void ClearCacheActivity::clearCache() {
   // Iterate through all entries in the directory
   for (auto file = root.openNextFile(); file; file = root.openNextFile()) {
     file.getName(name, sizeof(name));
-    String itemName(name);
+    std::string itemName(name);
 
     // Only delete directories matching known book cache names.
     if (file.isDirectory() && isBookCacheDirectoryName(itemName.c_str())) {
-      String fullPath = "/.crosspoint/" + itemName;
+      std::string fullPath = "/.crosspoint/" + itemName;
       LOG_DBG("CLEAR_CACHE", "Removing cache: %s", fullPath.c_str());
 
       file.close();  // Close before attempting to delete

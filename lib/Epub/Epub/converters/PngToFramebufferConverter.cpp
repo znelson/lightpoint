@@ -2,6 +2,7 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -19,7 +20,7 @@ namespace {
 
 // Context struct passed through PNGdec callbacks to avoid global mutable state.
 // The draw callback receives this via pDraw->pUser (set by png.decode()).
-// The file I/O callbacks receive the FsFile* via pFile->fHandle (set by pngOpen()).
+// The file I/O callbacks receive the HalFile* via pFile->fHandle (set by pngOpen()).
 struct PngContext {
   GfxRenderer* renderer{nullptr};
   const RenderConfig* config{nullptr};
@@ -40,10 +41,10 @@ struct PngContext {
   uint8_t* grayLineBuffer{nullptr};
 };
 
-// File I/O callbacks use pFile->fHandle to access the FsFile*,
+// File I/O callbacks use pFile->fHandle to access the HalFile*,
 // avoiding the need for global file state.
 void* pngOpenWithHandle(const char* filename, int32_t* size) {
-  FsFile* f = new FsFile();
+  HalFile* f = new HalFile();
   if (!Storage.openFileForRead("PNG", std::string(filename), *f)) {
     delete f;
     return nullptr;
@@ -53,7 +54,7 @@ void* pngOpenWithHandle(const char* filename, int32_t* size) {
 }
 
 void pngCloseWithHandle(void* handle) {
-  FsFile* f = reinterpret_cast<FsFile*>(handle);
+  HalFile* f = reinterpret_cast<HalFile*>(handle);
   if (f) {
     f->close();
     delete f;
@@ -61,13 +62,13 @@ void pngCloseWithHandle(void* handle) {
 }
 
 int32_t pngReadWithHandle(PNGFILE* pFile, uint8_t* pBuf, int32_t len) {
-  FsFile* f = reinterpret_cast<FsFile*>(pFile->fHandle);
+  HalFile* f = reinterpret_cast<HalFile*>(pFile->fHandle);
   if (!f) return 0;
   return f->read(pBuf, len);
 }
 
 int32_t pngSeekWithHandle(PNGFILE* pFile, int32_t pos) {
-  FsFile* f = reinterpret_cast<FsFile*>(pFile->fHandle);
+  HalFile* f = reinterpret_cast<HalFile*>(pFile->fHandle);
   if (!f) return -1;
   return f->seek(pos);
 }
@@ -240,7 +241,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
 }  // namespace
 
 bool PngToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = halPlatform.freeHeap();
   if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
     LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
     return false;
@@ -271,7 +272,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
                                                     const RenderConfig& config) {
   LOG_DBG("PNG", "Decoding PNG: %s", imagePath.c_str());
 
-  size_t freeHeap = ESP.getFreeHeap();
+  size_t freeHeap = halPlatform.freeHeap();
   if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
     LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
     return false;
@@ -365,9 +366,9 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     }
   }
 
-  unsigned long decodeStart = millis();
+  const uint32_t decodeStart = halPlatform.millis();
   rc = png->decode(&ctx, 0);
-  unsigned long decodeTime = millis() - decodeStart;
+  const uint32_t decodeTime = halPlatform.millis() - decodeStart;
 
   free(ctx.grayLineBuffer);
   ctx.grayLineBuffer = nullptr;
@@ -377,7 +378,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     return false;
   }
 
-  LOG_DBG("PNG", "PNG decoding complete - render time: %lu ms", decodeTime);
+  LOG_DBG("PNG", "PNG decoding complete - render time: %u ms", decodeTime);
 
   // Write cache file if caching was enabled and buffer was allocated
   if (ctx.caching) {

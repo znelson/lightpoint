@@ -2,11 +2,13 @@
 
 #include <GfxRenderer.h>
 #include <HalClock.h>
+#include <HalPlatform.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <WiFi.h>
+#include <Memory.h>
 
-#include <map>
+#include <algorithm>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
@@ -17,6 +19,8 @@
 
 void WifiSelectionActivity::onEnter() {
   Activity::onEnter();
+
+  halWifi.init();
 
   // Load saved WiFi credentials - SD card operations need lock as we use SPI
   // for both
@@ -39,8 +43,8 @@ void WifiSelectionActivity::onEnter() {
   autoConnecting = false;
 
   // Cache MAC address for display
-  uint8_t mac[6];
-  WiFi.macAddress(mac);
+  uint8_t mac[6] = {};
+  halWifi.getMacAddress(mac);
   char macStr[64];
   snprintf(macStr, sizeof(macStr), "%s %02x-%02x-%02x-%02x-%02x-%02x", tr(STR_MAC_ADDRESS), mac[0], mac[1], mac[2],
            mac[3], mac[4], mac[5]);
@@ -75,18 +79,12 @@ void WifiSelectionActivity::onEnter() {
 void WifiSelectionActivity::onExit() {
   Activity::onExit();
 
-  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", halPlatform.freeHeap());
 
-  // Stop any ongoing WiFi scan
-  LOG_DBG("WIFI", "Deleting WiFi scan...");
-  WiFi.scanDelete();
-  LOG_DBG("WIFI", "Free heap after scanDelete: %d bytes", ESP.getFreeHeap());
+  // Stop any ongoing scan. Parent activity owns WiFi lifecycle.
+  halWifi.stopScan();
 
-  // Note: We do NOT disconnect WiFi here - the parent activity
-  // (CrossPointWebServerActivity) manages WiFi connection state. We just clean
-  // up the scan and task.
-
-  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", ESP.getFreeHeap());
+  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", halPlatform.freeHeap());
 }
 
 void WifiSelectionActivity::startWifiScan() {
@@ -94,61 +92,53 @@ void WifiSelectionActivity::startWifiScan() {
   state = WifiSelectionState::SCANNING;
   networks.clear();
   requestUpdate();
-
-  // Set WiFi mode to station
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  delay(100);
-
-  // Start async scan
-  WiFi.scanNetworks(true);  // true = async scan
+  halWifi.startScan();
 }
 
 void WifiSelectionActivity::processWifiScanResults() {
-  const int16_t scanResult = WiFi.scanComplete();
+  const int16_t status = halWifi.scanStatus();
+  if (status == HalWifi::SCAN_RUNNING) return;
 
-  if (scanResult == WIFI_SCAN_RUNNING) {
-    // Scan still in progress
-    return;
-  }
-
-  if (scanResult == WIFI_SCAN_FAILED) {
+  if (status == HalWifi::SCAN_FAILED) {
     state = WifiSelectionState::NETWORK_LIST;
     requestUpdate();
     return;
   }
 
-  // Scan complete, process results
-  // Use a map to deduplicate networks by SSID, keeping the strongest signal
-  std::map<std::string, WifiNetworkInfo> uniqueNetworks;
-
-  for (int i = 0; i < scanResult; i++) {
-    std::string ssid = WiFi.SSID(i).c_str();
-    const int32_t rssi = WiFi.RSSI(i);
-
-    // Skip hidden networks (empty SSID)
-    if (ssid.empty()) {
-      continue;
-    }
-
-    // Check if we've already seen this SSID
-    auto it = uniqueNetworks.find(ssid);
-    if (it == uniqueNetworks.end() || rssi > it->second.rssi) {
-      // New network or stronger signal than existing entry
-      WifiNetworkInfo network;
-      network.ssid = ssid;
-      network.rssi = rssi;
-      network.isEncrypted = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-      network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
-      uniqueNetworks[ssid] = network;
-    }
-  }
-
-  // Convert map to vector
+  const uint16_t count = static_cast<uint16_t>(status);
   networks.clear();
-  for (const auto& pair : uniqueNetworks) {
-    // cppcheck-suppress useStlAlgorithm
-    networks.push_back(pair.second);
+
+  if (count > 0) {
+    auto aps = makeUniqueNoThrow<wifi_ap_record_t[]>(count);
+    if (!aps) {
+      LOG_ERR("WIFI", "OOM: scan results (%u APs)", count);
+      state = WifiSelectionState::NETWORK_LIST;
+      requestUpdate();
+      return;
+    }
+    uint16_t actualCount = count;
+    halWifi.getScanResults(aps.get(), actualCount);
+    networks.reserve(actualCount);
+
+    for (uint16_t i = 0; i < actualCount; i++) {
+      const char* ssidCStr = reinterpret_cast<const char*>(aps[i].ssid);
+      if (ssidCStr[0] == '\0') continue;
+
+      const int32_t rssi = aps[i].rssi;
+      auto it = std::find_if(networks.begin(), networks.end(),
+                             [ssidCStr](const WifiNetworkInfo& n) { return n.ssid == ssidCStr; });
+      if (it == networks.end()) {
+        WifiNetworkInfo network;
+        network.ssid = ssidCStr;
+        network.rssi = rssi;
+        network.isEncrypted = (aps[i].authmode != WIFI_AUTH_OPEN);
+        network.hasSavedPassword = WIFI_STORE.hasSavedCredential(network.ssid);
+        networks.push_back(std::move(network));
+      } else if (rssi > it->rssi) {
+        it->rssi = rssi;
+        it->isEncrypted = (aps[i].authmode != WIFI_AUTH_OPEN);
+      }
+    }
   }
 
   // Sort: saved-password networks first, then by signal strength (strongest first)
@@ -159,7 +149,6 @@ void WifiSelectionActivity::processWifiScanResults() {
     return a.rssi > b.rssi;
   });
 
-  WiFi.scanDelete();
   state = WifiSelectionState::NETWORK_LIST;
   selectedNetworkIndex = 0;
   requestUpdate();
@@ -212,27 +201,21 @@ void WifiSelectionActivity::selectNetwork(const int index) {
 
 void WifiSelectionActivity::attemptConnection() {
   state = autoConnecting ? WifiSelectionState::AUTO_CONNECTING : WifiSelectionState::CONNECTING;
-  connectionStartTime = millis();
+  connectionStartTime = halPlatform.millis();
   connectedIP.clear();
   connectionError.clear();
   requestUpdate();
 
-  WiFi.persistent(false);  // Credentials are managed by WifiCredentialStore; suppress SDK NVS auto-connect
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(true, true);  // Abort any in-progress SDK auto-connect and clear NVS-saved SSID
-  delay(100);
+  // Set hostname so routers show "LightPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
+  uint8_t mac[6] = {};
+  halWifi.getMacAddress(mac);
+  char hostname[48];
+  snprintf(hostname, sizeof(hostname), "LightPoint-Reader-%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3],
+           mac[4], mac[5]);
+  halWifi.setHostname(hostname);
 
-  // Set hostname so routers show "CrossPoint-Reader-AABBCCDDEEFF" instead of "esp32-XXXXXXXXXXXX"
-  String mac = WiFi.macAddress();
-  mac.replace(":", "");
-  String hostname = "CrossPoint-Reader-" + mac;
-  WiFi.setHostname(hostname.c_str());
-
-  if (selectedRequiresPassword && !enteredPassword.empty()) {
-    WiFi.begin(selectedSSID.c_str(), enteredPassword.c_str());
-  } else {
-    WiFi.begin(selectedSSID.c_str());
-  }
+  halWifi.connect(selectedSSID.c_str(),
+                  (selectedRequiresPassword && !enteredPassword.empty()) ? enteredPassword.c_str() : nullptr);
 }
 
 void WifiSelectionActivity::checkConnectionStatus() {
@@ -240,13 +223,11 @@ void WifiSelectionActivity::checkConnectionStatus() {
     return;
   }
 
-  const wl_status_t status = WiFi.status();
+  const auto connState = halWifi.getConnectionState();
 
-  if (status == WL_CONNECTED) {
-    // Successfully connected
-    IPAddress ip = WiFi.localIP();
-    char ipStr[16];
-    snprintf(ipStr, sizeof(ipStr), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+  if (connState == HalWifi::ConnectionState::Connected) {
+    char ipStr[16] = {};
+    halWifi.getIpAddress(ipStr, sizeof(ipStr));
     connectedIP = ipStr;
     autoConnecting = false;
 
@@ -268,24 +249,22 @@ void WifiSelectionActivity::checkConnectionStatus() {
     }
 
     // If we entered a new password, ask if user wants to save it
-    // Otherwise, immediately complete so parent can start web server
+    // Otherwise, immediately complete
     if (!usedSavedPassword && !enteredPassword.empty()) {
       state = WifiSelectionState::SAVE_PROMPT;
       savePromptSelection = 0;  // Default to "Yes"
       requestUpdate();
     } else {
       // Using saved password or open network - complete immediately
-      LOG_DBG("WIFI",
-              "Connected with saved/open credentials, "
-              "completing immediately");
+      LOG_DBG("WIFI", "Connected with saved/open credentials, completing immediately");
       onComplete(true);
     }
     return;
   }
 
-  if (status == WL_CONNECT_FAILED || status == WL_NO_SSID_AVAIL) {
+  if (connState == HalWifi::ConnectionState::Failed) {
     connectionError = tr(STR_ERROR_GENERAL_FAILURE);
-    if (status == WL_NO_SSID_AVAIL) {
+    if (halWifi.getLastDisconnectReason() == WIFI_REASON_NO_AP_FOUND) {
       connectionError = tr(STR_ERROR_NETWORK_NOT_FOUND);
     }
     state = WifiSelectionState::CONNECTION_FAILED;
@@ -294,12 +273,11 @@ void WifiSelectionActivity::checkConnectionStatus() {
   }
 
   // Check for timeout
-  if (millis() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
-    WiFi.disconnect();
+  if (halPlatform.millis() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
+    halWifi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     state = WifiSelectionState::CONNECTION_FAILED;
     requestUpdate();
-    return;
   }
 }
 
@@ -342,7 +320,7 @@ void WifiSelectionActivity::loop() {
         RenderLock lock(*this);
         WIFI_STORE.addCredential(selectedSSID, enteredPassword);
       }
-      // Complete - parent will start web server
+      // Complete
       onComplete(true);
     } else if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
       // Skip saving, complete anyway
@@ -371,8 +349,8 @@ void WifiSelectionActivity::loop() {
         // User chose "Forget network" - forget the network
         WIFI_STORE.removeCredential(selectedSSID);
         // Update the network list to reflect the change
-        const auto network = find_if(networks.begin(), networks.end(),
-                                     [this](const WifiNetworkInfo& net) { return net.ssid == selectedSSID; });
+        const auto network = std::find_if(networks.begin(), networks.end(),
+                                          [this](const WifiNetworkInfo& net) { return net.ssid == selectedSSID; });
         if (network != networks.end()) {
           network->hasSavedPassword = false;
         }
@@ -522,6 +500,8 @@ void WifiSelectionActivity::render(RenderLock&&) {
       break;
     case WifiSelectionState::FORGET_PROMPT:
       renderForgetPrompt(&screen, &metrics);
+      break;
+    case WifiSelectionState::PASSWORD_ENTRY:
       break;
   }
 
