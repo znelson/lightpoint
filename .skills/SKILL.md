@@ -1,4 +1,4 @@
-# CrossPoint Reader Development Guide
+# LightPoint Reader Development Guide
 
 Project: Open-source e-reader firmware for Xteink X4 (ESP32-C3)
 Mission: Provide a lightweight, high-performance reading experience focused on EPUB rendering on constrained hardware.
@@ -603,8 +603,8 @@ git status --short
 
 **Example Output** (forked repository):
 ```text
-origin      https://github.com/<your-username>/crosspoint-reader.git (fetch/push)
-upstream    https://github.com/crosspoint-reader/crosspoint-reader.git (fetch/push)
+origin      https://github.com/<your-username>/lightpoint.git (fetch/push)
+upstream    https://github.com/znelson/lightpoint.git (fetch/push)
 ```
 
 ### Git Operation Rules

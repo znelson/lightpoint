@@ -46,10 +46,10 @@ static int testsFailed = 0;
 // ============================================================================
 
 static const char* kRealisticPretty = R"({
-  "url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345",
-  "assets_url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345/assets",
-  "upload_url": "https://uploads.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345/assets{?name,label}",
-  "html_url": "https://github.com/crosspoint-reader/crosspoint-reader/releases/tag/v2.4.1",
+  "url": "https://api.github.com/repos/znelson/lightpoint/releases/12345",
+  "assets_url": "https://api.github.com/repos/znelson/lightpoint/releases/12345/assets",
+  "upload_url": "https://uploads.github.com/repos/znelson/lightpoint/releases/12345/assets{?name,label}",
+  "html_url": "https://github.com/znelson/lightpoint/releases/tag/v2.4.1",
   "id": 12345,
   "author": {
     "login": "releasebot",
@@ -63,17 +63,17 @@ static const char* kRealisticPretty = R"({
   "node_id": "RE_kwDOAbCdEf4AADBN",
   "tag_name": "v2.4.1",
   "target_commitish": "main",
-  "name": "CrossPoint Reader v2.4.1",
+  "name": "LightPoint Reader v2.4.1",
   "draft": false,
   "prerelease": false,
   "created_at": "2026-04-28T10:00:00Z",
   "published_at": "2026-04-28T10:30:00Z",
   "assets": [
     {
-      "url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/assets/100001",
+      "url": "https://api.github.com/repos/znelson/lightpoint/releases/assets/100001",
       "id": 100001,
       "node_id": "RA_kwDOAbCdEf4AAGHR",
-      "name": "crosspoint-reader-v2.4.1-source.zip",
+      "name": "lightpoint-v2.4.1-source.zip",
       "label": null,
       "uploader": {
         "login": "releasebot",
@@ -87,10 +87,10 @@ static const char* kRealisticPretty = R"({
       "download_count": 42,
       "created_at": "2026-04-28T10:15:00Z",
       "updated_at": "2026-04-28T10:15:30Z",
-      "browser_download_url": "https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/crosspoint-reader-v2.4.1-source.zip"
+      "browser_download_url": "https://github.com/znelson/lightpoint/releases/download/v2.4.1/lightpoint-v2.4.1-source.zip"
     },
     {
-      "url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/assets/100002",
+      "url": "https://api.github.com/repos/znelson/lightpoint/releases/assets/100002",
       "id": 100002,
       "node_id": "RA_kwDOAbCdEf4AAGHS",
       "name": "firmware.bin",
@@ -107,10 +107,10 @@ static const char* kRealisticPretty = R"({
       "download_count": 187,
       "created_at": "2026-04-28T10:16:00Z",
       "updated_at": "2026-04-28T10:16:45Z",
-      "browser_download_url": "https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/firmware.bin"
+      "browser_download_url": "https://github.com/znelson/lightpoint/releases/download/v2.4.1/firmware.bin"
     },
     {
-      "url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/assets/100003",
+      "url": "https://api.github.com/repos/znelson/lightpoint/releases/assets/100003",
       "id": 100003,
       "node_id": "RA_kwDOAbCdEf4AAGHR",
       "name": "checksums.sha256",
@@ -127,14 +127,14 @@ static const char* kRealisticPretty = R"({
       "download_count": 15,
       "created_at": "2026-04-28T10:17:00Z",
       "updated_at": "2026-04-28T10:17:10Z",
-      "browser_download_url": "https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/checksums.sha256"
+      "browser_download_url": "https://github.com/znelson/lightpoint/releases/download/v2.4.1/checksums.sha256"
     }
   ],
-  "tarball_url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/tarball/v2.4.1",
-  "zipball_url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/zipball/v2.4.1",
-  "body": "## What's Changed\n\n* Fixed orientation crash (#123)\n* Improved EPUB rendering performance\n* Added Serbian translation\n\n**Full Changelog**: https://github.com/crosspoint-reader/crosspoint-reader/compare/v2.4.0...v2.4.1",
+  "tarball_url": "https://api.github.com/repos/znelson/lightpoint/tarball/v2.4.1",
+  "zipball_url": "https://api.github.com/repos/znelson/lightpoint/zipball/v2.4.1",
+  "body": "## What's Changed\n\n* Fixed orientation crash (#123)\n* Improved EPUB rendering performance\n* Added Serbian translation\n\n**Full Changelog**: https://github.com/znelson/lightpoint/compare/v2.4.0...v2.4.1",
   "reactions": {
-    "url": "https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345/reactions",
+    "url": "https://api.github.com/repos/znelson/lightpoint/releases/12345/reactions",
     "total_count": 5,
     "+1": 3,
     "-1": 0,
@@ -148,7 +148,7 @@ static const char* kRealisticPretty = R"({
 })";
 
 static const char* kRealisticMinified =
-    R"({"url":"https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345","assets_url":"https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345/assets","id":12345,"author":{"login":"releasebot","id":99887766,"node_id":"MDQ6VXNlcjk5ODg3NzY2","type":"User","site_admin":false},"tag_name":"v2.4.1","target_commitish":"main","name":"CrossPoint Reader v2.4.1","draft":false,"prerelease":false,"assets":[{"url":"https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/assets/100001","id":100001,"name":"crosspoint-reader-v2.4.1-source.zip","uploader":{"login":"releasebot","id":99887766},"content_type":"application/zip","state":"uploaded","size":2048576,"download_count":42,"browser_download_url":"https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/crosspoint-reader-v2.4.1-source.zip"},{"url":"https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/assets/100002","id":100002,"name":"firmware.bin","uploader":{"login":"releasebot","id":99887766},"content_type":"application/octet-stream","state":"uploaded","size":1572864,"download_count":187,"browser_download_url":"https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/firmware.bin"},{"url":"https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/assets/100003","id":100003,"name":"checksums.sha256","uploader":{"login":"releasebot","id":99887766},"content_type":"text/plain","state":"uploaded","size":192,"download_count":15,"browser_download_url":"https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/checksums.sha256"}],"body":"## What's Changed\n\n* Fixed orientation crash","reactions":{"url":"https://api.github.com/repos/crosspoint-reader/crosspoint-reader/releases/12345/reactions","total_count":5,"+1":3}})";
+    R"({"url":"https://api.github.com/repos/znelson/lightpoint/releases/12345","assets_url":"https://api.github.com/repos/znelson/lightpoint/releases/12345/assets","id":12345,"author":{"login":"releasebot","id":99887766,"node_id":"MDQ6VXNlcjk5ODg3NzY2","type":"User","site_admin":false},"tag_name":"v2.4.1","target_commitish":"main","name":"LightPoint Reader v2.4.1","draft":false,"prerelease":false,"assets":[{"url":"https://api.github.com/repos/znelson/lightpoint/releases/assets/100001","id":100001,"name":"lightpoint-v2.4.1-source.zip","uploader":{"login":"releasebot","id":99887766},"content_type":"application/zip","state":"uploaded","size":2048576,"download_count":42,"browser_download_url":"https://github.com/znelson/lightpoint/releases/download/v2.4.1/lightpoint-v2.4.1-source.zip"},{"url":"https://api.github.com/repos/znelson/lightpoint/releases/assets/100002","id":100002,"name":"firmware.bin","uploader":{"login":"releasebot","id":99887766},"content_type":"application/octet-stream","state":"uploaded","size":1572864,"download_count":187,"browser_download_url":"https://github.com/znelson/lightpoint/releases/download/v2.4.1/firmware.bin"},{"url":"https://api.github.com/repos/znelson/lightpoint/releases/assets/100003","id":100003,"name":"checksums.sha256","uploader":{"login":"releasebot","id":99887766},"content_type":"text/plain","state":"uploaded","size":192,"download_count":15,"browser_download_url":"https://github.com/znelson/lightpoint/releases/download/v2.4.1/checksums.sha256"}],"body":"## What's Changed\n\n* Fixed orientation crash","reactions":{"url":"https://api.github.com/repos/znelson/lightpoint/releases/12345/reactions","total_count":5,"+1":3}})";
 
 // Helper: feed JSON in fixed-size chunks
 static void feedChunked(ReleaseJsonParser& p, const char* json, size_t chunkSize) {
@@ -172,8 +172,7 @@ void testRealisticPrettyPrinted() {
   ASSERT_TRUE(p.foundTag());
   ASSERT_TRUE(p.foundFirmware());
   ASSERT_STREQ(p.getTagName(), "v2.4.1");
-  ASSERT_STREQ(p.getFirmwareUrl(),
-               "https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/firmware.bin");
+  ASSERT_STREQ(p.getFirmwareUrl(), "https://github.com/znelson/lightpoint/releases/download/v2.4.1/firmware.bin");
   ASSERT_EQ(p.getFirmwareSize(), 1572864u);
 
   printf("  passed\n");
@@ -189,8 +188,7 @@ void testRealisticMinified() {
   ASSERT_TRUE(p.foundTag());
   ASSERT_TRUE(p.foundFirmware());
   ASSERT_STREQ(p.getTagName(), "v2.4.1");
-  ASSERT_STREQ(p.getFirmwareUrl(),
-               "https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/firmware.bin");
+  ASSERT_STREQ(p.getFirmwareUrl(), "https://github.com/znelson/lightpoint/releases/download/v2.4.1/firmware.bin");
   ASSERT_EQ(p.getFirmwareSize(), 1572864u);
 
   printf("  passed\n");
@@ -347,8 +345,7 @@ void testChunkedFeedingRealisticSmallChunks() {
   ASSERT_TRUE(p.foundTag());
   ASSERT_TRUE(p.foundFirmware());
   ASSERT_STREQ(p.getTagName(), "v2.4.1");
-  ASSERT_STREQ(p.getFirmwareUrl(),
-               "https://github.com/crosspoint-reader/crosspoint-reader/releases/download/v2.4.1/firmware.bin");
+  ASSERT_STREQ(p.getFirmwareUrl(), "https://github.com/znelson/lightpoint/releases/download/v2.4.1/firmware.bin");
   ASSERT_EQ(p.getFirmwareSize(), 1572864u);
 
   printf("  passed\n");

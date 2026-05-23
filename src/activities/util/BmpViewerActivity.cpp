@@ -7,6 +7,7 @@
 #include <I18n.h>
 
 #include <algorithm>
+#include <cmath>
 
 #include "CrossPointSettings.h"
 #include "components/UITheme.h"
@@ -63,7 +64,7 @@ void BmpViewerActivity::onEnter() {
     loadSiblingImages();
   }
 
-  FsFile file;
+  HalFile file;
 
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
@@ -147,7 +148,7 @@ void BmpViewerActivity::doSetSleepCover() {
   GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
 
   bool success = false;
-  FsFile inFile, outFile;
+  HalFile inFile, outFile;
   if (Storage.openFileForRead("BMP", filePath, inFile)) {
     if (Storage.openFileForWrite("BMP", "/sleep.bmp", outFile)) {
       char buffer[2048];
@@ -172,7 +173,7 @@ void BmpViewerActivity::doSetSleepCover() {
     GUI.drawPopup(renderer, tr(STR_FAILED_LOWER));
   }
 
-  delay(1000);
+  vTaskDelay(pdMS_TO_TICKS(1000));
   onEnter();
 }
 

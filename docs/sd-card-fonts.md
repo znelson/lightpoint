@@ -1,27 +1,13 @@
 # SD Card Fonts
 
-CrossPoint supports loading additional fonts from the SD card, including fonts
+LightPoint supports loading additional fonts from the SD card, including fonts
 with extended Unicode coverage (CJK, Cyrillic, Greek, etc.).
 
 ## Installing Fonts
 
-There are three ways to install fonts:
+Fonts are installed by copying them to the SD card directly:
 
-### Option 1: Download from device (recommended)
-
-1. Connect your CrossPoint reader to WiFi
-2. Go to **Settings > System > Manage Fonts**
-3. Browse available font families and tap to download
-4. Downloaded fonts appear immediately in **Settings > Reader > Font Family**
-
-### Option 2: Upload via web browser
-
-1. Connect your CrossPoint reader to WiFi
-2. Open the web interface in your browser (shown on the WiFi screen)
-3. Navigate to the **Fonts** tab
-4. Upload `.cpfont` files using the upload form
-
-### Option 3: Manual SD card copy
+### Manual SD card copy
 
 1. Download font files from the
    [crosspoint-fonts repository](https://github.com/crosspoint-reader/crosspoint-fonts)
@@ -50,7 +36,7 @@ There are three ways to install fonts:
                ├── Merriweather_12.cpfont
                └── ...
 
-3. Insert the SD card and power on your CrossPoint reader
+3. Insert the SD card and power on your LightPoint reader
 
 ## Available Pre-Built Fonts
 
@@ -101,4 +87,4 @@ To convert your own TrueType/OpenType fonts:
 
 Combine presets with commas: `--intervals latin-ext,greek,cyrillic`
 
-Install custom fonts via WiFi upload or manual SD card copy.
+Install custom fonts by copying them to the SD card as described above.
