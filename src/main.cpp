@@ -241,14 +241,14 @@ void waitForPowerRelease() {
 constexpr char SLEEP_FRAME_FILE[] = "/.crosspoint/sleep_frame.bin";
 
 static void saveSleepFrameBuffer() {
-  FsFile file;
+  HalFile file;
   if (!Storage.openFileForWrite("SLP", SLEEP_FRAME_FILE, file)) return;
   file.write(renderer.getFrameBuffer(), renderer.getBufferSize());
   file.close();
 }
 
 static bool loadSleepFrameBuffer() {
-  FsFile file;
+  HalFile file;
   if (!Storage.openFileForRead("SLP", SLEEP_FRAME_FILE, file)) return false;
   const size_t bufferSize = halDisplay.getBufferSize();
   const size_t bytesRead = file.read(halDisplay.getFrameBuffer(), bufferSize);

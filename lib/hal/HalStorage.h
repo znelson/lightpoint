@@ -103,14 +103,3 @@ class HalFile : public Print {
   bool isOpen() const;
   operator bool() const;
 };
-
-// Allow downstream code to use FsFile as an alias for HalFile without changes.
-// Guard prevents the alias from clashing inside HalStorage's own implementation.
-#ifndef HAL_STORAGE_IMPL
-using FsFile = HalFile;
-#endif
-
-// Downstream code must use Storage instead of SdMan
-#ifdef SdMan
-#undef SdMan
-#endif

@@ -305,7 +305,7 @@ bool BookMetadataCache::cleanupTmpFiles() const {
   return true;
 }
 
-uint32_t BookMetadataCache::writeSpineEntry(FsFile& file, const SpineEntry& entry) const {
+uint32_t BookMetadataCache::writeSpineEntry(HalFile& file, const SpineEntry& entry) const {
   const uint32_t pos = file.position();
   serialization::writeString(file, entry.href);
   serialization::writePod(file, entry.cumulativeSize);
@@ -313,7 +313,7 @@ uint32_t BookMetadataCache::writeSpineEntry(FsFile& file, const SpineEntry& entr
   return pos;
 }
 
-uint32_t BookMetadataCache::writeTocEntry(FsFile& file, const TocEntry& entry) const {
+uint32_t BookMetadataCache::writeTocEntry(HalFile& file, const TocEntry& entry) const {
   const uint32_t pos = file.position();
   serialization::writeString(file, entry.title);
   serialization::writeString(file, entry.href);
@@ -451,7 +451,7 @@ BookMetadataCache::TocEntry BookMetadataCache::getTocEntry(const int index) {
   return readTocEntry(bookFile);
 }
 
-BookMetadataCache::SpineEntry BookMetadataCache::readSpineEntry(FsFile& file) const {
+BookMetadataCache::SpineEntry BookMetadataCache::readSpineEntry(HalFile& file) const {
   SpineEntry entry;
   serialization::readString(file, entry.href);
   serialization::readPod(file, entry.cumulativeSize);
@@ -459,7 +459,7 @@ BookMetadataCache::SpineEntry BookMetadataCache::readSpineEntry(FsFile& file) co
   return entry;
 }
 
-BookMetadataCache::TocEntry BookMetadataCache::readTocEntry(FsFile& file) const {
+BookMetadataCache::TocEntry BookMetadataCache::readTocEntry(HalFile& file) const {
   TocEntry entry;
   serialization::readString(file, entry.title);
   serialization::readString(file, entry.href);
@@ -469,13 +469,13 @@ BookMetadataCache::TocEntry BookMetadataCache::readTocEntry(FsFile& file) const 
   return entry;
 }
 
-void BookMetadataCache::skipSpineEntry(FsFile& file) const {
+void BookMetadataCache::skipSpineEntry(HalFile& file) const {
   uint32_t len;
   serialization::readPod(file, len);
   file.seek(file.position() + len + sizeof(SpineEntry::cumulativeSize) + sizeof(SpineEntry::tocIndex));
 }
 
-void BookMetadataCache::skipTocEntry(FsFile& file) const {
+void BookMetadataCache::skipTocEntry(HalFile& file) const {
   // 3: title, href, anchor
   for (int i = 0; i < 3; i++) {
     uint32_t len;

@@ -15,7 +15,7 @@ class Section {
   const int spineIndex;
   GfxRenderer& renderer;
   std::string filePath;
-  FsFile file;
+  HalFile file;
 
   void writeSectionFileHeader(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
                               uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled,
@@ -30,7 +30,7 @@ class Section {
 
   void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, int startTocIndex,
                           uint16_t totalEntries, uint16_t unresolvedCount);
-  void buildTocBoundariesFromFile(FsFile& f);
+  void buildTocBoundariesFromFile(HalFile& f);
 
  public:
   uint16_t pageCount = 0;
