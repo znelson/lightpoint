@@ -253,6 +253,19 @@ struct Callback { void* ctx; void (*fn)(void*); };
 
 When a template is necessary, limit instantiations: use explicit template instantiation in a `.cpp` file to prevent the compiler from generating duplicates across translation units.
 
+#### `fputc`/`putc`/`putchar` are unsafe — use `fwrite`
+Picolibc 1.8.6 (bundled with the toolchain; still unfixed at HEAD 1.8.11-324) has an off-by-one in `__bufio_put`: it writes `buf[bf->len++]` before bounds-checking. If `fwrite` exits with `bf->len == bf->size` (data exactly fills the 128-byte buffer), the next `fputc` writes one byte past the buffer and corrupts the heap poison tail canary — observed as a deterministic crash at the file's `fclose()`. The bug also inserts a stray byte into the file on disk.
+
+```cpp
+// AVOID: hits the picolibc __bufio_put off-by-one
+fputc(b, fp);
+
+// PREFER: fwrite bounds-checks at loop entry and flushes first when buffer is full
+fwrite(&b, 1, 1, fp);
+```
+
+`HalFile::write(uint8_t)` was fixed to route through `fwrite`. Don't introduce new direct `fputc`/`putc`/`putchar` calls; reach for `fwrite(&b, 1, 1, fp)` or use `HalFile`. See [docs/picolibc-bufio-bug.md](../docs/picolibc-bufio-bug.md) for the upstream bug report, and [docs/debugging-heap-corruption.md](../docs/debugging-heap-corruption.md) for the debugging history.
+
 ---
 
 ### Error Handling Philosophy
