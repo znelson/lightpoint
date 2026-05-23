@@ -68,7 +68,7 @@ class HalTiltSensor {
   bool readGyro(float& gx, float& gy, float& gz) const;
 
  public:
-  // Call after gpio.begin() (I2C bus initialised there for X3)
+  // Call after halGPIO.begin() (I2C bus initialised there for X3)
   void begin();
 
   // Enables the QMI8658 internal sensor engine

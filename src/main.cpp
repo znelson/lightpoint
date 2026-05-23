@@ -37,8 +37,8 @@
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
 
-MappedInputManager mappedInputManager(gpio);
-GfxRenderer renderer(display);
+MappedInputManager mappedInputManager(halGPIO);
+GfxRenderer renderer(halDisplay);
 ActivityManager activityManager(renderer, mappedInputManager);
 FontDecompressor fontDecompressor;
 SdCardFontSystem sdFontSystem;
@@ -205,21 +205,21 @@ void verifyPowerButtonDuration() {
   const uint16_t calibratedPressDuration =
       (calibration < SETTINGS.getPowerButtonDuration()) ? SETTINGS.getPowerButtonDuration() - calibration : 1;
 
-  gpio.update();
+  halGPIO.update();
   // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state
-  while (!gpio.isPressed(HalGPIO::BTN_POWER) && halPlatform.millis() - start < 1000) {
+  while (!halGPIO.isPressed(HalGPIO::BTN_POWER) && halPlatform.millis() - start < 1000) {
     vTaskDelay(pdMS_TO_TICKS(
         10));  // only wait 10ms each iteration to not delay too much in case of short configured duration.
-    gpio.update();
+    halGPIO.update();
   }
 
   t2 = halPlatform.millis();
-  if (gpio.isPressed(HalGPIO::BTN_POWER)) {
+  if (halGPIO.isPressed(HalGPIO::BTN_POWER)) {
     do {
       vTaskDelay(pdMS_TO_TICKS(10));
-      gpio.update();
-    } while (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.getPowerButtonHeldTime() < calibratedPressDuration);
-    abort = gpio.getPowerButtonHeldTime() < calibratedPressDuration;
+      halGPIO.update();
+    } while (halGPIO.isPressed(HalGPIO::BTN_POWER) && halGPIO.getPowerButtonHeldTime() < calibratedPressDuration);
+    abort = halGPIO.getPowerButtonHeldTime() < calibratedPressDuration;
   } else {
     abort = true;
   }
@@ -227,14 +227,14 @@ void verifyPowerButtonDuration() {
   if (abort) {
     // Button released too early. Returning to sleep.
     // IMPORTANT: Re-arm the wakeup trigger before sleeping again
-    powerManager.startDeepSleep(gpio);
+    halPowerManager.startDeepSleep(halGPIO);
   }
 }
 void waitForPowerRelease() {
-  gpio.update();
-  while (gpio.isPressed(HalGPIO::BTN_POWER)) {
+  halGPIO.update();
+  while (halGPIO.isPressed(HalGPIO::BTN_POWER)) {
     vTaskDelay(pdMS_TO_TICKS(50));
-    gpio.update();
+    halGPIO.update();
   }
 }
 
@@ -250,8 +250,8 @@ static void saveSleepFrameBuffer() {
 static bool loadSleepFrameBuffer() {
   FsFile file;
   if (!Storage.openFileForRead("SLP", SLEEP_FRAME_FILE, file)) return false;
-  const size_t bufferSize = display.getBufferSize();
-  const size_t bytesRead = file.read(display.getFrameBuffer(), bufferSize);
+  const size_t bufferSize = halDisplay.getBufferSize();
+  const size_t bytesRead = file.read(halDisplay.getFrameBuffer(), bufferSize);
   file.close();
   if (bytesRead != bufferSize) {
     Storage.remove(SLEEP_FRAME_FILE);
@@ -290,14 +290,14 @@ void enterDeepSleep(bool fromTimeout = false) {
   }
 
   halTiltSensor.deepSleep();
-  display.deepSleep();
+  halDisplay.deepSleep();
   LOG_DBG("MAIN", "Entering deep sleep");
 
-  powerManager.startDeepSleep(gpio);
+  halPowerManager.startDeepSleep(halGPIO);
 }
 
 void setupDisplayAndFonts(bool seamless = false) {
-  display.begin(seamless);
+  halDisplay.begin(seamless);
   renderer.begin();
   activityManager.begin();
   LOG_DBG("MAIN", "Display initialized");
@@ -369,12 +369,12 @@ void setup() {
   silentRebootMagic = 0;
   silentRebootTarget = 0;
 
-  gpio.begin();
-  powerManager.begin();
+  halGPIO.begin();
+  halPowerManager.begin();
   halTiltSensor.begin();
   halClock.begin();
 
-  LOG_INF("MAIN", "Hardware detect: %s", gpio.deviceIsX3() ? "X3" : "X4");
+  LOG_INF("MAIN", "Hardware detect: %s", halGPIO.deviceIsX3() ? "X3" : "X4");
 
   // SD Card Initialization
   // We need 6 open files concurrently when parsing a new chapter
@@ -394,17 +394,17 @@ void setup() {
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 
-  const auto wakeupReason = gpio.getWakeupReason();
+  const auto wakeupReason = halGPIO.getWakeupReason();
   switch (wakeupReason) {
     case HalGPIO::WakeupReason::PowerButton:
       LOG_DBG("MAIN", "Verifying power button press duration");
-      gpio.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
-                                   SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP);
+      halGPIO.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
+                                      SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP);
       break;
     case HalGPIO::WakeupReason::AfterUSBPower:
       // If USB power caused a cold boot, go back to sleep
       LOG_DBG("MAIN", "Wakeup reason: After USB Power");
-      powerManager.startDeepSleep(gpio);
+      halPowerManager.startDeepSleep(halGPIO);
       break;
     case HalGPIO::WakeupReason::AfterFlash:
       // After flashing, just proceed to boot
@@ -423,10 +423,10 @@ void setup() {
     // settle window even if the loop body takes longer than expected on slow boots.
     const uint32_t settleStart = halPlatform.millis();
     while (halPlatform.millis() - settleStart < 500) {
-      gpio.update();
+      halGPIO.update();
       vTaskDelay(pdMS_TO_TICKS(10));
     }
-    if (gpio.isPressed(HalGPIO::BTN_UP)) {
+    if (halGPIO.isPressed(HalGPIO::BTN_UP)) {
       recoveryFirmwareMode = true;
       LOG_INF("MAIN", "Recovery firmware mode (UP + POWER held at boot)");
     }
@@ -502,18 +502,18 @@ void setup() {
   if (resume == BootResume::Silent) {
     // Block until the first paint physically completes. refreshDisplay()
     // waits on the panel BUSY pin so when this returns the user can see the
-    // new activity. Without the wait, an edge captured by gpio.update()
+    // new activity. Without the wait, an edge captured by halGPIO.update()
     // during boot dispatches against an invisible Home and the default
     // selectorIndex=0 opens the most-recent book.
     activityManager.requestUpdateAndWait();
     // Absorb any button held at this point into currentState as a non-edge:
-    // two gpio.update() calls separated by > InputManager's 5ms debounce
+    // two halGPIO.update() calls separated by > InputManager's 5ms debounce
     // transition the held bit through lastDebounceTime into currentState
-    // without setting pressedEvents, so the first loop()'s own gpio.update()
+    // without setting pressedEvents, so the first loop()'s own halGPIO.update()
     // sees state == currentState and emits nothing.
-    gpio.update();
+    halGPIO.update();
     vTaskDelay(pdMS_TO_TICKS(10));
-    gpio.update();
+    halGPIO.update();
   }
 
   // Ensure we're not still holding the power button before leaving setup
@@ -526,7 +526,7 @@ void loop() {
   const uint32_t loopStartTime = halPlatform.millis();
   static uint32_t lastMemPrint = 0;
 
-  gpio.update();
+  halGPIO.update();
   halTiltSensor.update(SETTINGS.tiltPageTurn, SETTINGS.orientation, activityManager.isReaderActivity());
 
   renderer.setFadingFix(SETTINGS.fadingFix);
@@ -551,11 +551,11 @@ void loop() {
       }
       // Protocol consumed by scripts/debugging_monitor.py
       if (strcmp(cmd, "SCREENSHOT") == 0) {
-        const uint32_t bufferSize = display.getBufferSize();
+        const uint32_t bufferSize = halDisplay.getBufferSize();
         char header[32];
         snprintf(header, sizeof(header), "SCREENSHOT_START:%u\n", (unsigned)bufferSize);
         logSerial.write(reinterpret_cast<const uint8_t*>(header), strlen(header));
-        const uint8_t* buf = display.getFrameBuffer();
+        const uint8_t* buf = halDisplay.getFrameBuffer();
         logSerial.write(buf, bufferSize);
         logSerial.write(reinterpret_cast<const uint8_t*>("SCREENSHOT_END\n"), 15);
       }
@@ -564,15 +564,15 @@ void loop() {
 
   // Check for any user activity (button press or release) or active background work
   static uint32_t lastActivityTime = halPlatform.millis();
-  if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || halTiltSensor.hadActivity() ||
+  if (halGPIO.wasAnyPressed() || halGPIO.wasAnyReleased() || halTiltSensor.hadActivity() ||
       activityManager.preventAutoSleep()) {
     lastActivityTime = halPlatform.millis();  // Reset inactivity timer
-    powerManager.setPowerSaving(false);       // Restore normal CPU frequency on user activity
+    halPowerManager.setPowerSaving(false);    // Restore normal CPU frequency on user activity
   }
 
   static bool screenshotButtonsReleased = true;
   static bool screenshotComboActive = false;
-  if (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.isPressed(HalGPIO::BTN_DOWN)) {
+  if (halGPIO.isPressed(HalGPIO::BTN_POWER) && halGPIO.isPressed(HalGPIO::BTN_DOWN)) {
     screenshotComboActive = true;
     if (screenshotButtonsReleased) {
       screenshotButtonsReleased = false;
@@ -584,8 +584,8 @@ void loop() {
     return;
   }
   if (screenshotComboActive) {
-    if (gpio.isPressed(HalGPIO::BTN_POWER)) return;
-    if (gpio.wasReleased(HalGPIO::BTN_POWER)) {
+    if (halGPIO.isPressed(HalGPIO::BTN_POWER)) return;
+    if (halGPIO.wasReleased(HalGPIO::BTN_POWER)) {
       screenshotButtonsReleased = true;
       screenshotComboActive = false;
       return;
@@ -602,10 +602,10 @@ void loop() {
     return;
   }
 
-  if (halPlatform.millis() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
-      gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
+  if (halPlatform.millis() >= allowSleepAt && halGPIO.isPressed(HalGPIO::BTN_POWER) &&
+      halGPIO.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
     // If the screenshot combination is potentially being pressed, don't sleep
-    if (gpio.isPressed(HalGPIO::BTN_DOWN)) {
+    if (halGPIO.isPressed(HalGPIO::BTN_DOWN)) {
       return;
     }
     enterDeepSleep();
@@ -623,7 +623,7 @@ void loop() {
 
   // Refresh the battery icon when USB is plugged or unplugged.
   // Placed after sleep guards so we never queue a render that won't be processed.
-  if (gpio.wasUsbStateChanged()) {
+  if (halGPIO.wasUsbStateChanged()) {
     activityManager.requestUpdate();
   }
 
@@ -643,12 +643,12 @@ void loop() {
   // When an activity requests skip loop delay (e.g., active download), use yield() for faster response
   // Otherwise, use longer delay to save power
   if (activityManager.skipLoopDelay()) {
-    powerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested
-    taskYIELD();                         // Give FreeRTOS a chance to run tasks, but return immediately
+    halPowerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested
+    taskYIELD();                            // Give FreeRTOS a chance to run tasks, but return immediately
   } else {
     if (halPlatform.millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
-      powerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
+      halPowerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
       vTaskDelay(pdMS_TO_TICKS(50));
     } else {
       // Short delay to prevent tight loop while still being responsive

@@ -111,4 +111,4 @@ class HalGPIO {
   static constexpr uint8_t BTN_POWER = 6;
 };
 
-extern HalGPIO gpio;
+extern HalGPIO halGPIO;

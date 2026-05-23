@@ -821,9 +821,9 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(FsFile& pngFile, Print& bmpOu
 }
 
 bool PngToBmpConverter::pngFileToBmpStream(FsFile& pngFile, Print& bmpOut, bool crop) {
-  // Use runtime display dimensions (swapped for portrait cover sizing)
-  const int targetWidth = display.getDisplayHeight();
-  const int targetHeight = display.getDisplayWidth();
+  // Use runtime halDisplay dimensions (swapped for portrait cover sizing)
+  const int targetWidth = halDisplay.getDisplayHeight();
+  const int targetHeight = halDisplay.getDisplayWidth();
   return pngFileToBmpStreamInternal(pngFile, bmpOut, targetWidth, targetHeight, false, crop);
 }
 

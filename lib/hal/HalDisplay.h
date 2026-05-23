@@ -65,4 +65,4 @@ class HalDisplay {
   EInkDisplay einkDisplay;
 };
 
-extern HalDisplay display;
+extern HalDisplay halDisplay;

@@ -11,7 +11,7 @@
 #include <nvs.h>
 
 // Global HalGPIO instance
-HalGPIO gpio;
+HalGPIO halGPIO;
 
 namespace X3GPIO {
 

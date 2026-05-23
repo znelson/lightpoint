@@ -19,17 +19,17 @@ static uint8_t bcdToDec(uint8_t bcd) { return ((bcd >> 4) * 10) + (bcd & 0x0F); 
 static uint8_t decToBcd(uint8_t dec) { return ((dec / 10) << 4) | (dec % 10); }
 
 void HalClock::begin() {
-  if (!gpio.deviceIsX3()) {
+  if (!halGPIO.deviceIsX3()) {
     _available = false;
     return;
   }
 
-  // I2C bus is already initialised by gpio.begin() for X3.
+  // I2C bus is already initialised by halGPIO.begin() for X3.
   i2c_device_config_t devCfg = {};
   devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
   devCfg.device_address = I2C_ADDR_DS3231;
   devCfg.scl_speed_hz = X3_I2C_FREQ;
-  if (i2c_master_bus_add_device(gpio.getI2CBus(), &devCfg, &ds3231Dev) != ESP_OK) {
+  if (i2c_master_bus_add_device(halGPIO.getI2CBus(), &devCfg, &ds3231Dev) != ESP_OK) {
     LOG_ERR("CLK", "Failed to add DS3231 I2C device");
     _available = false;
     return;

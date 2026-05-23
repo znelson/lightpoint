@@ -20,7 +20,7 @@ constexpr bool USE_8BIT_OUTPUT = false;  // true: 8-bit grayscale (no quantizati
 constexpr bool USE_ATKINSON = true;          // Atkinson dithering (cleaner than F-S, less error diffusion)
 constexpr bool USE_FLOYD_STEINBERG = false;  // Floyd-Steinberg error diffusion (can cause "worm" artifacts)
 constexpr bool USE_NOISE_DITHERING = false;  // Hash-based noise dithering (good for downsampling)
-// Pre-resize to target display size (CRITICAL: avoids dithering artifacts from post-downsampling)
+// Pre-resize to target halDisplay size (CRITICAL: avoids dithering artifacts from post-downsampling)
 constexpr bool USE_PRESCALE = true;  // true: scale image to target size before dithering
 // ============================================================================
 
@@ -416,7 +416,7 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
     return false;
   }
 
-  // Calculate output dimensions (pre-scale to fit display exactly)
+  // Calculate output dimensions (pre-scale to fit halDisplay exactly)
   int outWidth = srcWidth;
   int outHeight = srcHeight;
   uint32_t scaleX_fp = 65536;  // 1.0 in 16.16 fixed point
@@ -534,9 +534,9 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(FsFile& jpegFile, Print& bm
 
 // Core function: Convert JPEG file to 2-bit BMP (uses default target size)
 bool JpegToBmpConverter::jpegFileToBmpStream(FsFile& jpegFile, Print& bmpOut, bool crop) {
-  // Use runtime display dimensions (swapped for portrait cover sizing)
-  const int targetWidth = display.getDisplayHeight();
-  const int targetHeight = display.getDisplayWidth();
+  // Use runtime halDisplay dimensions (swapped for portrait cover sizing)
+  const int targetWidth = halDisplay.getDisplayHeight();
+  const int targetHeight = halDisplay.getDisplayWidth();
   return jpegFileToBmpStreamInternal(jpegFile, bmpOut, targetWidth, targetHeight, false, crop);
 }
 
