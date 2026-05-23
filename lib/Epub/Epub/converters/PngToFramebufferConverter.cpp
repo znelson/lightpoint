@@ -2,11 +2,10 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <PNGdec.h>
-#include <Timing.h>
-#include <esp_heap_caps.h>
 
 #include <cstdlib>
 #include <new>
@@ -240,7 +239,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
 }  // namespace
 
 bool PngToFramebufferConverter::getDimensionsStatic(const std::string& imagePath, ImageDimensions& out) {
-  size_t freeHeap = esp_get_free_heap_size();
+  size_t freeHeap = halPlatform.freeHeap();
   if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
     LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
     return false;
@@ -273,7 +272,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
                                                     const RenderConfig& config) {
   LOG_DBG("PNG", "Decoding PNG: %s", imagePath.c_str());
 
-  size_t freeHeap = esp_get_free_heap_size();
+  size_t freeHeap = halPlatform.freeHeap();
   if (freeHeap < MIN_FREE_HEAP_FOR_PNG) {
     LOG_ERR("PNG", "Not enough heap for PNG decoder (%u free, need %u)", freeHeap, MIN_FREE_HEAP_FOR_PNG);
     return false;
@@ -373,9 +372,9 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     }
   }
 
-  const uint32_t decodeStart = uptime_ms();
+  const uint32_t decodeStart = halPlatform.millis();
   rc = png->decode(&ctx, 0);
-  const uint32_t decodeTime = uptime_ms() - decodeStart;
+  const uint32_t decodeTime = halPlatform.millis() - decodeStart;
 
   free(ctx.grayLineBuffer);
   ctx.grayLineBuffer = nullptr;

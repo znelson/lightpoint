@@ -1,8 +1,8 @@
 #include "KeyboardEntryActivity.h"
 
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <I18n.h>
-#include <Timing.h>
 
 #include <algorithm>
 
@@ -144,7 +144,7 @@ bool KeyboardEntryActivity::handleKeyPress() {
         delPressCount++;
         if (delPressCount >= 2) {
           hintVisible = true;
-          hintShowTime = uptime_ms();
+          hintShowTime = halPlatform.millis();
         }
         if (cursorPos > 0 && !text.empty()) {
           text.erase(cursorPos - 1, 1);
@@ -200,7 +200,7 @@ void KeyboardEntryActivity::loop() {
     cursorMode = true;
     upLongHandled = true;
     hintVisible = true;
-    hintShowTime = uptime_ms();
+    hintShowTime = halPlatform.millis();
     requestUpdate();
   }
 
@@ -354,7 +354,7 @@ void KeyboardEntryActivity::loop() {
     onCancel();
   }
 
-  if (hintVisible && !cursorMode && uptime_ms() - hintShowTime > 4000) {
+  if (hintVisible && !cursorMode && halPlatform.millis() - hintShowTime > 4000) {
     hintVisible = false;
     requestUpdate();
   }

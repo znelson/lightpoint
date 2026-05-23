@@ -1,8 +1,8 @@
 #include "ButtonRemapActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <I18n.h>
-#include <Timing.h>
 
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
@@ -36,7 +36,7 @@ void ButtonRemapActivity::onExit() { Activity::onExit(); }
 
 void ButtonRemapActivity::loop() {
   // Clear any temporary warning after its timeout.
-  if (errorUntil > 0 && uptime_ms() > errorUntil) {
+  if (errorUntil > 0 && halPlatform.millis() > errorUntil) {
     errorMessage.clear();
     errorUntil = 0;
     requestUpdate();
@@ -163,7 +163,7 @@ bool ButtonRemapActivity::validateUnassigned(const uint8_t pressedButton) {
   for (uint8_t i = 0; i < kRoleCount; i++) {
     if (tempMapping[i] == pressedButton && i != currentStep) {
       errorMessage = tr(STR_ALREADY_ASSIGNED);
-      errorUntil = uptime_ms() + kErrorDisplayMs;
+      errorUntil = halPlatform.millis() + kErrorDisplayMs;
       return false;
     }
   }

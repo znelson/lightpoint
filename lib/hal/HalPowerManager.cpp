@@ -1,8 +1,8 @@
 #include "HalPowerManager.h"
 
+#include <HalPlatform.h>
 #include <HalWifi.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
 #include <driver/usb_serial_jtag.h>
@@ -115,7 +115,7 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
 
 uint16_t HalPowerManager::getBatteryPercentage() const {
   if (_batteryUseI2C) {
-    const uint32_t now = uptime_ms();
+    const uint32_t now = halPlatform.millis();
     if (_batteryLastPollMs != 0 && (now - _batteryLastPollMs) < BATTERY_POLL_MS) {
       return _batteryCachedPercent;
     }

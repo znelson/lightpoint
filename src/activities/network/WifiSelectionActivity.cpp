@@ -2,12 +2,11 @@
 
 #include <GfxRenderer.h>
 #include <HalClock.h>
+#include <HalPlatform.h>
 #include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
-#include <Timing.h>
-#include <esp_heap_caps.h>
 
 #include <algorithm>
 
@@ -80,12 +79,12 @@ void WifiSelectionActivity::onEnter() {
 void WifiSelectionActivity::onExit() {
   Activity::onExit();
 
-  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", esp_get_free_heap_size());
+  LOG_DBG("WIFI", "Free heap at onExit start: %d bytes", halPlatform.freeHeap());
 
   // Stop any ongoing scan. Parent activity owns WiFi lifecycle.
   halWifi.stopScan();
 
-  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", esp_get_free_heap_size());
+  LOG_DBG("WIFI", "Free heap at onExit end: %d bytes", halPlatform.freeHeap());
 }
 
 void WifiSelectionActivity::startWifiScan() {
@@ -202,7 +201,7 @@ void WifiSelectionActivity::selectNetwork(const int index) {
 
 void WifiSelectionActivity::attemptConnection() {
   state = autoConnecting ? WifiSelectionState::AUTO_CONNECTING : WifiSelectionState::CONNECTING;
-  connectionStartTime = uptime_ms();
+  connectionStartTime = halPlatform.millis();
   connectedIP.clear();
   connectionError.clear();
   requestUpdate();
@@ -274,7 +273,7 @@ void WifiSelectionActivity::checkConnectionStatus() {
   }
 
   // Check for timeout
-  if (uptime_ms() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
+  if (halPlatform.millis() - connectionStartTime > CONNECTION_TIMEOUT_MS) {
     halWifi.disconnect();
     connectionError = tr(STR_ERROR_CONNECTION_TIMEOUT);
     state = WifiSelectionState::CONNECTION_FAILED;

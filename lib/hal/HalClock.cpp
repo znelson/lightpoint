@@ -1,8 +1,8 @@
 #include "HalClock.h"
 
+#include <HalPlatform.h>
 #include <HalWifi.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <esp_sntp.h>
 #include <time.h>
 
@@ -57,7 +57,7 @@ void HalClock::begin() {
 bool HalClock::getTime(uint8_t& hour, uint8_t& minute) const {
   if (!_available) return false;
 
-  const uint32_t now = uptime_ms();
+  const uint32_t now = halPlatform.millis();
   if (_lastPollMs != 0 && (now - _lastPollMs) < CLOCK_POLL_MS) {
     hour = _cachedHour;
     minute = _cachedMinute;

@@ -1,9 +1,9 @@
 #include "OtaUpdateActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalWifi.h>
 #include <I18n.h>
-#include <esp_system.h>
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
@@ -72,7 +72,7 @@ void OtaUpdateActivity::onEnter() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
-  // Success path reboots via the SHUTTING_DOWN state's esp_restart() so the
+  // Success path reboots via the SHUTTING_DOWN state's halPlatform.hardRestart() so the
   // new firmware boots normally. Back-out paths deinit WiFi first (frees the
   // driver heap cleanly), then silentRestart to reclaim LWIP/mbedTLS pools
   // that esp_wifi_deinit cannot release.
@@ -210,6 +210,6 @@ void OtaUpdateActivity::loop() {
   }
 
   if (state == SHUTTING_DOWN) {
-    esp_restart();
+    halPlatform.hardRestart();
   }
 }

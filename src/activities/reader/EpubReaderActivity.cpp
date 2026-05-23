@@ -5,11 +5,10 @@
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <Timing.h>
-#include <esp_system.h>
 
 #include <functional>
 #include <iterator>
@@ -720,9 +719,9 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     // Collect footnotes from the loaded page
     currentPageFootnotes = std::move(p->footnotes);
 
-    const auto start = uptime_ms();
+    const auto start = halPlatform.millis();
     renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
-    LOG_DBG("ERS", "Rendered page in %dms", uptime_ms() - start);
+    LOG_DBG("ERS", "Rendered page in %dms", halPlatform.millis() - start);
   }
   silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
   saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
@@ -771,21 +770,21 @@ bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
-  const auto t0 = uptime_ms();
+  const auto t0 = halPlatform.millis();
 
   // Font prewarm: scan pass accumulates text, then prewarm, then real render
   auto* fcm = renderer.getFontCacheManager();
   auto scope = fcm->createPrewarmScope();
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);  // scan pass
   scope.endScanAndPrewarm();
-  const auto tPrewarm = uptime_ms();
+  const auto tPrewarm = halPlatform.millis();
 
   // Force special handling for pages with images when anti-aliasing is on
   bool imagePageWithAA = page->hasImages() && SETTINGS.textAntiAliasing;
 
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
   renderStatusBar();
-  const auto tBwRender = uptime_ms();
+  const auto tBwRender = halPlatform.millis();
 
   if (imagePageWithAA) {
     // Double FAST_REFRESH with selective image blanking (pablohc's technique):
@@ -809,11 +808,11 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   } else {
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
   }
-  const auto tDisplay = uptime_ms();
+  const auto tDisplay = halPlatform.millis();
 
   // Save bw buffer to reset buffer state after grayscale data sync
   renderer.storeBwBuffer();
-  const auto tBwStore = uptime_ms();
+  const auto tBwStore = halPlatform.millis();
 
   // grayscale rendering
   // TODO: Only do this if font supports it
@@ -822,24 +821,24 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
     renderer.copyGrayscaleLsbBuffers();
-    const auto tGrayLsb = uptime_ms();
+    const auto tGrayLsb = halPlatform.millis();
 
     // Render and copy to MSB buffer
     renderer.clearScreen(0x00);
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
     page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
     renderer.copyGrayscaleMsbBuffers();
-    const auto tGrayMsb = uptime_ms();
+    const auto tGrayMsb = halPlatform.millis();
 
     // display grayscale part
     renderer.displayGrayBuffer();
-    const auto tGrayDisplay = uptime_ms();
+    const auto tGrayDisplay = halPlatform.millis();
     renderer.setRenderMode(GfxRenderer::BW);
     // restore the bw data
     renderer.restoreBwBuffer();
-    const auto tBwRestore = uptime_ms();
+    const auto tBwRestore = halPlatform.millis();
 
-    const auto tEnd = uptime_ms();
+    const auto tEnd = halPlatform.millis();
     LOG_DBG("ERS",
             "Page render: prewarm=%ums bw_render=%ums display=%ums bw_store=%ums "
             "gray_lsb=%ums gray_msb=%ums gray_display=%ums bw_restore=%ums total=%ums",
@@ -848,9 +847,9 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   } else {
     // restore the bw data
     renderer.restoreBwBuffer();
-    const auto tBwRestore = uptime_ms();
+    const auto tBwRestore = halPlatform.millis();
 
-    const auto tEnd = uptime_ms();
+    const auto tEnd = halPlatform.millis();
     LOG_DBG("ERS", "Page render: prewarm=%ums bw_render=%ums display=%ums bw_store=%ums bw_restore=%ums total=%ums",
             tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tBwRestore - tBwStore,
             tEnd - t0);

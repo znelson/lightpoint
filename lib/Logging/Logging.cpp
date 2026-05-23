@@ -1,6 +1,6 @@
 #include "Logging.h"
 
-#include <Timing.h>
+#include <HalPlatform.h>
 #include <driver/usb_serial_jtag.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -46,7 +46,7 @@ void logPrintf(const char* level, const char* origin, const char* format, ...) {
   char* c = buf;
   // add timestamp, level and origin
   {
-    const uint32_t ms = uptime_ms();
+    const uint32_t ms = halPlatform.millis();
     int len = snprintf(c, sizeof(buf), "[%u] [%s] [%s] ", static_cast<unsigned int>(ms), level, origin);
     // error while writing => return
     if (len < 0) {

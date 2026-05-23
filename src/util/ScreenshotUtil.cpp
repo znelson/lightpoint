@@ -3,9 +3,9 @@
 #include <BitmapHelpers.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
-#include <Timing.h>
 
 #include <cstring>
 #include <string>
@@ -14,7 +14,7 @@
 #include "activities/Activity.h"
 
 void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t bufSize) {
-  const unsigned int ts = static_cast<unsigned int>(uptime_ms());
+  const unsigned int ts = static_cast<unsigned int>(halPlatform.millis());
 
   if (info.readerType == ScreenshotInfo::ReaderType::None || info.title[0] == '\0') {
     snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);

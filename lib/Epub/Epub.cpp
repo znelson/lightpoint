@@ -1,13 +1,12 @@
 #include "Epub.h"
 
 #include <FsHelpers.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
 #include <PngToBmpConverter.h>
-#include <Timing.h>
 #include <ZipFile.h>
-#include <esp_heap_caps.h>
 
 #include "Epub/parsers/ContainerParser.h"
 #include "Epub/parsers/ContentOpfParser.h"
@@ -280,7 +279,7 @@ void Epub::parseCssFiles() const {
     LOG_DBG("EBP", "Parsing CSS file: %s", cssPath.c_str());
 
     // Check heap before parsing - CSS parsing allocates heavily
-    const uint32_t freeHeap = esp_get_free_heap_size();
+    const uint32_t freeHeap = halPlatform.freeHeap();
     if (freeHeap < MIN_HEAP_FOR_CSS_PARSING) {
       LOG_ERR("EBP", "Insufficient heap for CSS parsing (%u bytes free, need %zu), skipping: %s", freeHeap,
               MIN_HEAP_FOR_CSS_PARSING, cssPath.c_str());
@@ -374,7 +373,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   LOG_DBG("EBP", "Cache not found, building spine/TOC cache");
   setupCacheDir();
 
-  const uint32_t indexingStart = uptime_ms();
+  const uint32_t indexingStart = halPlatform.millis();
 
   // Begin building cache - stream entries to disk immediately
   if (!bookMetadataCache->beginWrite()) {
@@ -383,7 +382,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   }
 
   // OPF Pass
-  const uint32_t opfStart = uptime_ms();
+  const uint32_t opfStart = halPlatform.millis();
   BookMetadataCache::BookMetadata bookMetadata;
   if (!bookMetadataCache->beginContentOpfPass()) {
     LOG_ERR("EBP", "Could not begin writing content.opf pass");
@@ -397,10 +396,10 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     LOG_ERR("EBP", "Could not end writing content.opf pass");
     return false;
   }
-  LOG_DBG("EBP", "OPF pass completed in %u ms", uptime_ms() - opfStart);
+  LOG_DBG("EBP", "OPF pass completed in %u ms", halPlatform.millis() - opfStart);
 
   // TOC Pass - try EPUB 3 nav first, fall back to NCX
-  const uint32_t tocStart = uptime_ms();
+  const uint32_t tocStart = halPlatform.millis();
   if (!bookMetadataCache->beginTocPass()) {
     LOG_ERR("EBP", "Could not begin writing toc pass");
     return false;
@@ -429,7 +428,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     LOG_ERR("EBP", "Could not end writing toc pass");
     return false;
   }
-  LOG_DBG("EBP", "TOC pass completed in %u ms", uptime_ms() - tocStart);
+  LOG_DBG("EBP", "TOC pass completed in %u ms", halPlatform.millis() - tocStart);
 
   // Close the cache files
   if (!bookMetadataCache->endWrite()) {
@@ -438,13 +437,13 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   }
 
   // Build final book.bin
-  const uint32_t buildStart = uptime_ms();
+  const uint32_t buildStart = halPlatform.millis();
   if (!bookMetadataCache->buildBookBin(filepath, bookMetadata)) {
     LOG_ERR("EBP", "Could not update mappings and sizes");
     return false;
   }
-  LOG_DBG("EBP", "buildBookBin completed in %u ms", uptime_ms() - buildStart);
-  LOG_DBG("EBP", "Total indexing completed in %u ms", uptime_ms() - indexingStart);
+  LOG_DBG("EBP", "buildBookBin completed in %u ms", halPlatform.millis() - buildStart);
+  LOG_DBG("EBP", "Total indexing completed in %u ms", halPlatform.millis() - indexingStart);
 
   if (!bookMetadataCache->cleanupTmpFiles()) {
     LOG_DBG("EBP", "Could not cleanup tmp files - ignoring");
