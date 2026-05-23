@@ -3,11 +3,11 @@
 #include <Epub.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Txt.h>
 #include <Xtc.h>
-#include <esp_random.h>
 
 #include <cmath>
 
@@ -125,9 +125,9 @@ void SleepActivity::renderCustomSleepScreen() const {
       const uint16_t fileCount = static_cast<uint16_t>(std::min(numFiles, static_cast<size_t>(UINT16_MAX)));
       const uint8_t window =
           static_cast<uint8_t>(std::min(static_cast<size_t>(APP_STATE.recentSleepFill), numFiles - 1));
-      auto randomFileIndex = static_cast<uint16_t>(esp_random() % fileCount);
+      auto randomFileIndex = static_cast<uint16_t>(halPlatform.randomU32() % fileCount);
       for (uint8_t attempt = 0; attempt < 20 && APP_STATE.isRecentSleep(randomFileIndex, window); attempt++) {
-        randomFileIndex = static_cast<uint16_t>(esp_random() % fileCount);
+        randomFileIndex = static_cast<uint16_t>(halPlatform.randomU32() % fileCount);
       }
       APP_STATE.pushRecentSleep(randomFileIndex);
       APP_STATE.saveToFile();

@@ -1,6 +1,6 @@
 #include "ButtonNavigator.h"
 
-#include <Timing.h>
+#include <HalPlatform.h>
 
 #include <algorithm>
 
@@ -64,7 +64,7 @@ void ButtonNavigator::onContinuous(const Buttons& buttons, const Callback& callb
 
   if (isPressed) {
     callback();
-    lastContinuousNavTime = uptime_ms();
+    lastContinuousNavTime = halPlatform.millis();
   }
 }
 
@@ -72,7 +72,7 @@ bool ButtonNavigator::shouldNavigateContinuously() const {
   if (!mappedInput) return false;
 
   const bool buttonHeldLongEnough = mappedInput->getHeldTime() > continuousStartMs;
-  const bool navigationIntervalElapsed = (uptime_ms() - lastContinuousNavTime) > continuousIntervalMs;
+  const bool navigationIntervalElapsed = (halPlatform.millis() - lastContinuousNavTime) > continuousIntervalMs;
 
   return buttonHeldLongEnough && navigationIntervalElapsed;
 }

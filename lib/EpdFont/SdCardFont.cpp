@@ -1,8 +1,8 @@
 #include "SdCardFont.h"
 
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <Utf8.h>
 
 #include <algorithm>
@@ -623,7 +623,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
 
-  const uint32_t startMs = uptime_ms();
+  const uint32_t startMs = halPlatform.millis();
 
   // Step 1: Extract unique codepoints from UTF-8 text (shared across all styles).
   // Dedup uses O(n^2) linear scan — worst case is MAX_PAGE_GLYPHS (512) unique codepoints
@@ -718,7 +718,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
     totalMissed += prewarmStyle(si, codepoints.get(), cpCount, metadataOnly);
   }
 
-  stats_.prewarmTotalMs = uptime_ms() - startMs;
+  stats_.prewarmTotalMs = halPlatform.millis() - startMs;
   return totalMissed;
 }
 
@@ -808,7 +808,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     return static_cast<int>(cpCount);
   }
 
-  const uint32_t sdStart = uptime_ms();
+  const uint32_t sdStart = halPlatform.millis();
   uint32_t seekCount = 0;
 
   // Read glyph metadata. lastReadIndex tracks sequential reads to skip redundant
@@ -902,7 +902,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     }
   }
 
-  uint32_t sdTime = uptime_ms() - sdStart;
+  uint32_t sdTime = halPlatform.millis() - sdStart;
   delete[] readOrder;
   delete[] mappings;
 
@@ -1161,7 +1161,7 @@ int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, 
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
 
-  const uint32_t startMs = uptime_ms();
+  const uint32_t startMs = halPlatform.millis();
 
   // +2 reserved slots for space and hyphen injected after the main scan.
   static constexpr uint32_t MAX_UNIQUE_CODEPOINTS = 4096;
@@ -1189,7 +1189,7 @@ int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, 
   std::sort(codepoints, codepoints + cpCount);
   int totalMissed = fetchAdvancesForCodepoints(codepoints, cpCount, styleMask);
   delete[] codepoints;
-  stats_.prewarmTotalMs = uptime_ms() - startMs;
+  stats_.prewarmTotalMs = halPlatform.millis() - startMs;
   return totalMissed;
 }
 

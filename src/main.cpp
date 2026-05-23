@@ -5,6 +5,7 @@
 #include <HalClock.h>
 #include <HalDisplay.h>
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <HalSystem.h>
@@ -12,13 +13,10 @@
 #include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <builtinFonts/all.h>
 #include <esp_attr.h>
 #include <esp_event.h>
-#include <esp_heap_caps.h>
 #include <esp_netif.h>
-#include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <nvs_flash.h>
@@ -175,7 +173,7 @@ void silentRestart() {
   // book, looking like a trampoline back to the reader they just exited.
   GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   vTaskDelay(pdMS_TO_TICKS(50));
-  esp_restart();
+  halPlatform.hardRestart();
 }
 
 void silentRestartToReader() {
@@ -185,7 +183,7 @@ void silentRestartToReader() {
   LOG_DBG("MAIN", "Silent restart (target=reader)");
   GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   vTaskDelay(pdMS_TO_TICKS(50));
-  esp_restart();
+  halPlatform.hardRestart();
 }
 
 // Verify power button press duration on wake-up from deep sleep
@@ -198,24 +196,24 @@ void verifyPowerButtonDuration() {
   }
 
   // Give the user up to 1000ms to start holding the power button, and must hold for SETTINGS.getPowerButtonDuration()
-  const auto start = uptime_ms();
+  const auto start = halPlatform.millis();
   bool abort = false;
   // Subtract the current time, because inputManager only starts counting the HeldTime from the first update()
   // This way, we remove the time we already took to reach here from the duration,
-  // assuming the button was held until now from uptime_ms()==0 (i.e. device start time).
+  // assuming the button was held until now from halPlatform.millis()==0 (i.e. device start time).
   const uint16_t calibration = start;
   const uint16_t calibratedPressDuration =
       (calibration < SETTINGS.getPowerButtonDuration()) ? SETTINGS.getPowerButtonDuration() - calibration : 1;
 
   gpio.update();
   // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state
-  while (!gpio.isPressed(HalGPIO::BTN_POWER) && uptime_ms() - start < 1000) {
+  while (!gpio.isPressed(HalGPIO::BTN_POWER) && halPlatform.millis() - start < 1000) {
     vTaskDelay(pdMS_TO_TICKS(
         10));  // only wait 10ms each iteration to not delay too much in case of short configured duration.
     gpio.update();
   }
 
-  t2 = uptime_ms();
+  t2 = halPlatform.millis();
   if (gpio.isPressed(HalGPIO::BTN_POWER)) {
     do {
       vTaskDelay(pdMS_TO_TICKS(10));
@@ -336,7 +334,7 @@ void setupDisplayAndFonts(bool seamless = false) {
 }
 
 void setup() {
-  t1 = uptime_ms();
+  t1 = halPlatform.millis();
 
 #ifdef ENABLE_SERIAL_LOG
   // Earliest possible Serial setup. The 250 ms stall before begin() lets the
@@ -423,8 +421,8 @@ void setup() {
     // Refresh the cached button state a few times — isPressed() needs ~half a second to settle
     // after boot per the HalGPIO contract. Use a millis-based deadline so we always wait the full
     // settle window even if the loop body takes longer than expected on slow boots.
-    const uint32_t settleStart = uptime_ms();
-    while (uptime_ms() - settleStart < 500) {
+    const uint32_t settleStart = halPlatform.millis();
+    while (halPlatform.millis() - settleStart < 500) {
       gpio.update();
       vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -520,12 +518,12 @@ void setup() {
 
   // Ensure we're not still holding the power button before leaving setup
   waitForPowerRelease();
-  allowSleepAt = uptime_ms() + 2000;
+  allowSleepAt = halPlatform.millis() + 2000;
 }
 
 void loop() {
   static uint32_t maxLoopDuration = 0;
-  const uint32_t loopStartTime = uptime_ms();
+  const uint32_t loopStartTime = halPlatform.millis();
   static uint32_t lastMemPrint = 0;
 
   gpio.update();
@@ -533,11 +531,10 @@ void loop() {
 
   renderer.setFadingFix(SETTINGS.fadingFix);
 
-  if (logSerial && uptime_ms() - lastMemPrint >= 10000) {
-    LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", esp_get_free_heap_size(),
-            heap_caps_get_total_size(MALLOC_CAP_DEFAULT), esp_get_minimum_free_heap_size(),
-            heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT));
-    lastMemPrint = uptime_ms();
+  if (logSerial && halPlatform.millis() - lastMemPrint >= 10000) {
+    LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", halPlatform.freeHeap(),
+            halPlatform.totalHeap(), halPlatform.minFreeHeap(), halPlatform.largestFreeBlock());
+    lastMemPrint = halPlatform.millis();
   }
 
   // Handle incoming serial commands,
@@ -566,11 +563,11 @@ void loop() {
   }
 
   // Check for any user activity (button press or release) or active background work
-  static uint32_t lastActivityTime = uptime_ms();
+  static uint32_t lastActivityTime = halPlatform.millis();
   if (gpio.wasAnyPressed() || gpio.wasAnyReleased() || halTiltSensor.hadActivity() ||
       activityManager.preventAutoSleep()) {
-    lastActivityTime = uptime_ms();      // Reset inactivity timer
-    powerManager.setPowerSaving(false);  // Restore normal CPU frequency on user activity
+    lastActivityTime = halPlatform.millis();  // Reset inactivity timer
+    powerManager.setPowerSaving(false);       // Restore normal CPU frequency on user activity
   }
 
   static bool screenshotButtonsReleased = true;
@@ -598,14 +595,14 @@ void loop() {
   }
 
   const uint32_t sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
-  if (uptime_ms() - lastActivityTime >= sleepTimeoutMs) {
+  if (halPlatform.millis() - lastActivityTime >= sleepTimeoutMs) {
     LOG_DBG("SLP", "Auto-sleep triggered after %u ms of inactivity", sleepTimeoutMs);
     enterDeepSleep(true);
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
   }
 
-  if (uptime_ms() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
+  if (halPlatform.millis() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
       gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
     // If the screenshot combination is potentially being pressed, don't sleep
     if (gpio.isPressed(HalGPIO::BTN_DOWN)) {
@@ -630,11 +627,11 @@ void loop() {
     activityManager.requestUpdate();
   }
 
-  const uint32_t activityStartTime = uptime_ms();
+  const uint32_t activityStartTime = halPlatform.millis();
   activityManager.loop();
-  [[maybe_unused]] const uint32_t activityDuration = uptime_ms() - activityStartTime;
+  [[maybe_unused]] const uint32_t activityDuration = halPlatform.millis() - activityStartTime;
 
-  const uint32_t loopDuration = uptime_ms() - loopStartTime;
+  const uint32_t loopDuration = halPlatform.millis() - loopStartTime;
   if (loopDuration > maxLoopDuration) {
     maxLoopDuration = loopDuration;
     if (maxLoopDuration > 50) {
@@ -649,7 +646,7 @@ void loop() {
     powerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested
     taskYIELD();                         // Give FreeRTOS a chance to run tasks, but return immediately
   } else {
-    if (uptime_ms() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
+    if (halPlatform.millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
       powerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
       vTaskDelay(pdMS_TO_TICKS(50));

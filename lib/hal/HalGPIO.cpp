@@ -1,6 +1,6 @@
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <driver/gpio.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
@@ -286,13 +286,13 @@ void HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPre
   // can still power on the device. Tighten wake debounce/state handling here.
 
   // Calibrate: subtract boot time already elapsed, assuming button held since boot
-  const uint32_t calibration = uptime_ms();
+  const uint32_t calibration = halPlatform.millis();
   const uint32_t calibratedDuration = (calibration < requiredDurationMs) ? (requiredDurationMs - calibration) : 1;
 
-  const auto start = uptime_ms();
+  const auto start = halPlatform.millis();
   inputMgr.update();
   // inputMgr.isPressed() may take up to ~500ms to return correct state
-  while (!inputMgr.isPressed(BTN_POWER) && uptime_ms() - start < 1000) {
+  while (!inputMgr.isPressed(BTN_POWER) && halPlatform.millis() - start < 1000) {
     vTaskDelay(pdMS_TO_TICKS(10));
     inputMgr.update();
   }

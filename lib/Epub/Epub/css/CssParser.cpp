@@ -1,7 +1,7 @@
 #include "CssParser.h"
 
+#include <HalPlatform.h>
 #include <Logging.h>
-#include <esp_heap_caps.h>
 
 #include <algorithm>
 #include <array>
@@ -610,11 +610,11 @@ bool CssParser::loadFromStream(FsFile& source) {
 
 CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& classAttr) const {
   static bool lowHeapWarningLogged = false;
-  if (esp_get_free_heap_size() < MIN_FREE_HEAP_FOR_CSS) {
+  if (halPlatform.freeHeap() < MIN_FREE_HEAP_FOR_CSS) {
     if (!lowHeapWarningLogged) {
       lowHeapWarningLogged = true;
       LOG_DBG("CSS", "Warning: low heap (%u bytes) below MIN_FREE_HEAP_FOR_CSS (%u), returning empty style",
-              esp_get_free_heap_size(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
+              halPlatform.freeHeap(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
     }
     return CssStyle{};
   }

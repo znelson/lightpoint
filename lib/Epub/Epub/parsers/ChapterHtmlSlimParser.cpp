@@ -2,9 +2,9 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
@@ -1094,7 +1094,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   XML_SetCharacterDataHandler(parser, characterData);
 
   // Compute the time taken to parse and build pages
-  const uint32_t chapterStartTime = uptime_ms();
+  const uint32_t chapterStartTime = halPlatform.millis();
   do {
     void* const buf = XML_GetBuffer(parser, PARSE_BUFFER_SIZE);
     if (!buf) {
@@ -1123,7 +1123,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
       return false;
     }
   } while (!done);
-  LOG_DBG("EHP", "Time to parse and build pages: %u ms", uptime_ms() - chapterStartTime);
+  LOG_DBG("EHP", "Time to parse and build pages: %u ms", halPlatform.millis() - chapterStartTime);
 
   destroyXmlParser(parser);
   file.close();

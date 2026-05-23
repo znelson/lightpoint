@@ -1,7 +1,7 @@
 #include "ObfuscationUtils.h"
 
+#include <HalPlatform.h>
 #include <Logging.h>
-#include <esp_mac.h>
 #include <mbedtls/base64.h>
 
 #include <cstring>
@@ -16,7 +16,10 @@ const uint8_t* getHwKey() {
   static uint8_t key[HW_KEY_LEN] = {};
   static bool initialized = false;
   if (!initialized) {
-    esp_efuse_mac_get_default(key);
+    const uint64_t id = halPlatform.deviceId();
+    for (size_t i = 0; i < HW_KEY_LEN; i++) {
+      key[i] = static_cast<uint8_t>(id >> (40 - i * 8));
+    }
     initialized = true;
   }
   return key;

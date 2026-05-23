@@ -1,11 +1,11 @@
 #include "SdFirmwareUpdateActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
-#include <esp_system.h>
 
 #include "MappedInputManager.h"
 #include "activities/home/FileBrowserActivity.h"
@@ -181,7 +181,7 @@ void SdFirmwareUpdateActivity::performUpdate() {
   }
   requestUpdateAndWait();
   vTaskDelay(pdMS_TO_TICKS(1500));
-  esp_restart();
+  halPlatform.hardRestart();
 }
 
 void SdFirmwareUpdateActivity::loop() {

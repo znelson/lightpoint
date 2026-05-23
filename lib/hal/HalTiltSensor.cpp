@@ -1,7 +1,7 @@
 #include "HalTiltSensor.h"
 
+#include <HalPlatform.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <driver/i2c_master.h>
 
 #include <cmath>
@@ -79,8 +79,8 @@ void HalTiltSensor::begin() {
   }
 
   _available = true;
-  _initMs = uptime_ms();
-  _lastPollMs = uptime_ms();
+  _initMs = halPlatform.millis();
+  _lastPollMs = halPlatform.millis();
   LOG_INF("GYR", "QMI8658 gyro initialized and put to sleep");
 }
 
@@ -90,14 +90,14 @@ bool HalTiltSensor::wake() {
   }
 
   // Wait for init to complete before waking
-  if ((uptime_ms() - _initMs) < SLEEP_STABILIZE_MS) {
+  if ((halPlatform.millis() - _initMs) < SLEEP_STABILIZE_MS) {
     return false;
   }
 
   if (writeReg(REG_CTRL1, CTRL1_BASE) && writeReg(REG_CTRL7, CTRL7_GYRO_ENABLE)) {
-    _lastPollMs = uptime_ms();
-    _lastTiltMs = uptime_ms();
-    _wakeMs = uptime_ms();
+    _lastPollMs = halPlatform.millis();
+    _lastTiltMs = halPlatform.millis();
+    _wakeMs = halPlatform.millis();
     LOG_INF("GYR", "QMI8658 woke up");
     return true;
   } else {
@@ -111,7 +111,7 @@ bool HalTiltSensor::deepSleep() {
     return false;
   }
 
-  if ((uptime_ms() - _wakeMs) < SLEEP_STABILIZE_MS) {
+  if ((halPlatform.millis() - _wakeMs) < SLEEP_STABILIZE_MS) {
     return false;
   }
 
@@ -146,7 +146,7 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
     return;
   }
 
-  const uint32_t now = uptime_ms();
+  const uint32_t now = halPlatform.millis();
   // Stabilization: discard readings during gyro startup transient
   if ((now - _wakeMs) < WAKE_STABILIZE_MS) {
     return;

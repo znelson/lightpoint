@@ -1,7 +1,7 @@
 #include "FontDecompressor.h"
 
+#include <HalPlatform.h>
 #include <Logging.h>
-#include <Timing.h>
 #include <Utf8.h>
 
 #include <cstdlib>
@@ -61,15 +61,15 @@ bool FontDecompressor::decompressGroup(const EpdFontData* fontData, uint16_t gro
                                        uint32_t outSize) {
   const EpdFontGroup& group = fontData->groups[groupIndex];
 
-  const uint32_t tDecomp = uptime_ms();
+  const uint32_t tDecomp = halPlatform.millis();
   inflateReader.init(false);
   inflateReader.setSource(&fontData->bitmap[group.compressedOffset], group.compressedSize);
   if (!inflateReader.read(outBuf, outSize)) {
-    stats.decompressTimeMs += uptime_ms() - tDecomp;
+    stats.decompressTimeMs += halPlatform.millis() - tDecomp;
     LOG_ERR("FDC", "Decompression failed for group %u", groupIndex);
     return false;
   }
-  stats.decompressTimeMs += uptime_ms() - tDecomp;
+  stats.decompressTimeMs += halPlatform.millis() - tDecomp;
   return true;
 }
 
@@ -129,11 +129,11 @@ void FontDecompressor::compactSingleGlyph(const uint8_t* alignedSrc, uint8_t* pa
 // --- getBitmap: page buffer → hot group → decompress ---
 
 const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const EpdGlyph* glyph, uint32_t glyphIndex) {
-  const uint32_t tStart = uptime_us();
+  const uint32_t tStart = halPlatform.micros();
   stats.getBitmapCalls++;
 
   if (!fontData->groups || fontData->groupCount == 0) {
-    stats.getBitmapTimeUs += uptime_us() - tStart;
+    stats.getBitmapTimeUs += halPlatform.micros() - tStart;
     return &fontData->bitmap[glyph->dataOffset];
   }
 
@@ -148,7 +148,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
       if (slot.glyphs[mid].glyphIndex == glyphIndex) {
         if (slot.glyphs[mid].bufferOffset != UINT32_MAX) {
           stats.cacheHits++;
-          stats.getBitmapTimeUs += uptime_us() - tStart;
+          stats.getBitmapTimeUs += halPlatform.micros() - tStart;
           return &slot.buffer[slot.glyphs[mid].bufferOffset];
         }
         break;  // Not extracted during prewarm; fall through to hot-group path
@@ -165,7 +165,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
   uint16_t groupIndex = getGroupIndex(fontData, glyphIndex);
   if (groupIndex >= fontData->groupCount) {
     LOG_ERR("FDC", "Glyph %u not found in any group", glyphIndex);
-    stats.getBitmapTimeUs += uptime_us() - tStart;
+    stats.getBitmapTimeUs += halPlatform.micros() - tStart;
     return nullptr;
   }
 
@@ -179,7 +179,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
       LOG_ERR("FDC", "Failed to allocate %u bytes for hot group %u", group.uncompressedSize, groupIndex);
       hotGroupFont = nullptr;
       hotGroupIndex = UINT16_MAX;
-      stats.getBitmapTimeUs += uptime_us() - tStart;
+      stats.getBitmapTimeUs += halPlatform.micros() - tStart;
       return nullptr;
     }
 
@@ -188,7 +188,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
       hotGroup.shrink_to_fit();
       hotGroupFont = nullptr;
       hotGroupIndex = UINT16_MAX;
-      stats.getBitmapTimeUs += uptime_us() - tStart;
+      stats.getBitmapTimeUs += halPlatform.micros() - tStart;
       return nullptr;
     }
 
@@ -204,13 +204,13 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
     hotGlyphBuf.resize(glyph->dataLength);
   }
   if (hotGlyphBuf.empty()) {
-    stats.getBitmapTimeUs += uptime_us() - tStart;
+    stats.getBitmapTimeUs += halPlatform.micros() - tStart;
     return nullptr;
   }
 
   uint32_t alignedOff = getAlignedOffset(fontData, groupIndex, glyphIndex);
   compactSingleGlyph(&hotGroup[alignedOff], hotGlyphBuf.data(), glyph->width, glyph->height);
-  stats.getBitmapTimeUs += uptime_us() - tStart;
+  stats.getBitmapTimeUs += halPlatform.micros() - tStart;
   return hotGlyphBuf.data();
 }
 
