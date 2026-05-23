@@ -103,9 +103,3 @@ class HalFile : public Print {
   bool isOpen() const;
   operator bool() const;
 };
-
-
-// Downstream code must use Storage instead of SdMan
-#ifdef SdMan
-#undef SdMan
-#endif
