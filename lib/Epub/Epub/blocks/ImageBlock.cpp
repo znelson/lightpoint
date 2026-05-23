@@ -1,11 +1,10 @@
 #include "ImageBlock.h"
 
+#include <DirectPixelWriter.h>
 #include <GfxRenderer.h>
+#include <ImageDecoderFactory.h>
 #include <Logging.h>
 #include <Serialization.h>
-
-#include "Epub/converters/DirectPixelWriter.h"
-#include "Epub/converters/ImageDecoderFactory.h"
 
 // Cache file format:
 // - uint16_t width
