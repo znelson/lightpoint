@@ -399,7 +399,7 @@ void setup() {
     case HalGPIO::WakeupReason::PowerButton:
       LOG_DBG("MAIN", "Verifying power button press duration");
       halGPIO.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
-                                   SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP);
+                                      SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP);
       break;
     case HalGPIO::WakeupReason::AfterUSBPower:
       // If USB power caused a cold boot, go back to sleep
@@ -567,7 +567,7 @@ void loop() {
   if (halGPIO.wasAnyPressed() || halGPIO.wasAnyReleased() || halTiltSensor.hadActivity() ||
       activityManager.preventAutoSleep()) {
     lastActivityTime = halPlatform.millis();  // Reset inactivity timer
-    halPowerManager.setPowerSaving(false);       // Restore normal CPU frequency on user activity
+    halPowerManager.setPowerSaving(false);    // Restore normal CPU frequency on user activity
   }
 
   static bool screenshotButtonsReleased = true;
@@ -644,7 +644,7 @@ void loop() {
   // Otherwise, use longer delay to save power
   if (activityManager.skipLoopDelay()) {
     halPowerManager.setPowerSaving(false);  // Make sure we're at full performance when skipLoopDelay is requested
-    taskYIELD();                         // Give FreeRTOS a chance to run tasks, but return immediately
+    taskYIELD();                            // Give FreeRTOS a chance to run tasks, but return immediately
   } else {
     if (halPlatform.millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
