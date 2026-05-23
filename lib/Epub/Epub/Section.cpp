@@ -199,7 +199,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
       Storage.remove(tmpHtmlPath.c_str());
     }
 
-    FsFile tmpHtml;
+    HalFile tmpHtml;
     if (!Storage.openFileForWrite("SCT", tmpHtmlPath, tmpHtml)) {
       continue;
     }
@@ -399,7 +399,7 @@ void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16
 // TOC anchor strings first (since getTocItem does file I/O to BookMetadataCache), then
 // streams through on-disk anchors matching only those, stopping as soon as all are found.
 // See buildTocBoundaries for the in-memory variant.
-void Section::buildTocBoundariesFromFile(FsFile& f) {
+void Section::buildTocBoundariesFromFile(HalFile& f) {
   const int startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
   if (startTocIndex < 0) return;
 
@@ -516,7 +516,7 @@ std::optional<Section::TocPageRange> Section::getPageRangeForTocIndex(const int 
 }
 
 std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) const {
-  FsFile f;
+  HalFile f;
   if (!Storage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
@@ -553,7 +553,7 @@ std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) con
 }
 
 std::optional<uint16_t> Section::getPageForParagraphIndex(const uint16_t pIndex) const {
-  FsFile f;
+  HalFile f;
   if (!Storage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
@@ -592,7 +592,7 @@ std::optional<uint16_t> Section::getPageForParagraphIndex(const uint16_t pIndex)
 }
 
 std::optional<uint16_t> Section::getParagraphIndexForPage(const uint16_t page) const {
-  FsFile f;
+  HalFile f;
   if (!Storage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
@@ -624,7 +624,7 @@ std::optional<uint16_t> Section::getParagraphIndexForPage(const uint16_t page) c
 }
 
 std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex) const {
-  FsFile f;
+  HalFile f;
   if (!Storage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
