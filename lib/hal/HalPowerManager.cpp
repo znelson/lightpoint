@@ -13,17 +13,17 @@
 
 #include "HalGPIO.h"
 
-HalPowerManager powerManager;  // Singleton instance
+HalPowerManager halPowerManager;  // Singleton instance
 
 void HalPowerManager::begin() {
-  if (gpio.deviceIsX3()) {
-    // I2C bus is already initialised by gpio.begin() for X3.
+  if (halGPIO.deviceIsX3()) {
+    // I2C bus is already initialised by halGPIO.begin() for X3.
     // Create a device handle for the BQ27220 fuel gauge (battery SOC monitoring).
     i2c_device_config_t devCfg = {};
     devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     devCfg.device_address = I2C_ADDR_BQ27220;
     devCfg.scl_speed_hz = X3_I2C_FREQ;
-    if (i2c_master_bus_add_device(gpio.getI2CBus(), &devCfg, &bq27220Dev) != ESP_OK) {
+    if (i2c_master_bus_add_device(halGPIO.getI2CBus(), &devCfg, &bq27220Dev) != ESP_OK) {
       LOG_ERR("PWR", "Failed to add BQ27220 I2C device");
       bq27220Dev = nullptr;
     }
@@ -137,7 +137,7 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
     _batteryLastPollMs = now;
     return _batteryCachedPercent;
   }
-  static const BatteryMonitor battery = BatteryMonitor(gpio.getAdcUnit(), BAT_GPIO0);
+  static const BatteryMonitor battery = BatteryMonitor(halGPIO.getAdcUnit(), BAT_GPIO0);
 
   // smooth the battery %.
   if (_batteryCachedPercent == 0) {
@@ -149,26 +149,26 @@ uint16_t HalPowerManager::getBatteryPercentage() const {
 }
 
 HalPowerManager::Lock::Lock() {
-  xSemaphoreTake(powerManager.modeMutex, portMAX_DELAY);
+  xSemaphoreTake(halPowerManager.modeMutex, portMAX_DELAY);
   // Current limitation: only one lock at a time
-  if (powerManager.currentLockMode != None) {
+  if (halPowerManager.currentLockMode != None) {
     LOG_ERR("PWR", "Lock already held, ignore");
     valid = false;
   } else {
-    powerManager.currentLockMode = NormalSpeed;
+    halPowerManager.currentLockMode = NormalSpeed;
     valid = true;
   }
-  xSemaphoreGive(powerManager.modeMutex);
+  xSemaphoreGive(halPowerManager.modeMutex);
   if (valid) {
     // Immediately restore normal CPU frequency if currently in low-power mode
-    powerManager.setPowerSaving(false);
+    halPowerManager.setPowerSaving(false);
   }
 }
 
 HalPowerManager::Lock::~Lock() {
-  xSemaphoreTake(powerManager.modeMutex, portMAX_DELAY);
+  xSemaphoreTake(halPowerManager.modeMutex, portMAX_DELAY);
   if (valid) {
-    powerManager.currentLockMode = None;
+    halPowerManager.currentLockMode = None;
   }
-  xSemaphoreGive(powerManager.modeMutex);
+  xSemaphoreGive(halPowerManager.modeMutex);
 }

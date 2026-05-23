@@ -36,7 +36,7 @@ bool HalTiltSensor::readGyro(float& gx, float& gy, float& gz) const {
 }
 
 void HalTiltSensor::begin() {
-  if (!gpio.deviceIsX3()) {
+  if (!halGPIO.deviceIsX3()) {
     _available = false;
     return;
   }
@@ -50,7 +50,7 @@ void HalTiltSensor::begin() {
     devCfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     devCfg.device_address = addr;
     devCfg.scl_speed_hz = X3_I2C_FREQ;
-    if (i2c_master_bus_add_device(gpio.getI2CBus(), &devCfg, &i2cDev) != ESP_OK) return false;
+    if (i2c_master_bus_add_device(halGPIO.getI2CBus(), &devCfg, &i2cDev) != ESP_OK) return false;
     uint8_t whoami = 0;
     return readReg(QMI8658_WHO_AM_I_REG, &whoami) && whoami == QMI8658_WHO_AM_I_VALUE;
   };

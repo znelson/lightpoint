@@ -18,7 +18,7 @@ class HalClock {
   static constexpr uint32_t CLOCK_POLL_MS = 10000;  // 10 seconds
 
  public:
-  // Call after gpio.begin() (I2C bus initialised there for X3)
+  // Call after halGPIO.begin() (I2C bus initialised there for X3)
   void begin();
 
   // True if the DS3231 RTC is present on this device

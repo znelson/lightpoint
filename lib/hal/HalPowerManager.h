@@ -13,7 +13,7 @@
 #include "HalGPIO.h"
 
 class HalPowerManager;
-extern HalPowerManager powerManager;  // Singleton
+extern HalPowerManager halPowerManager;  // Singleton
 
 class HalPowerManager {
   int normalFreq = 0;  // MHz
