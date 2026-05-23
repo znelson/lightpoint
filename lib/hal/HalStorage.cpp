@@ -393,7 +393,11 @@ size_t HalFile::write(const void* buf, size_t count) {
 size_t HalFile::write(uint8_t b) {
   HAL_FILE_LOCK
   if (!impl || !impl->fp) return 0;
-  return fputc(b, impl->fp) != EOF ? 1 : 0;
+  // fwrite, not fputc: picolibc's __bufio_put writes buf[bf->len] BEFORE
+  // checking overflow, so if entered with bf->len == bf->size it scribbles
+  // one byte past the buffer and corrupts the heap-poison tail canary.
+  // fwrite flushes first when the buffer is already full.
+  return fwrite(&b, 1, 1, impl->fp);
 }
 
 bool HalFile::rename(const char* newPath) {
