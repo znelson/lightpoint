@@ -423,16 +423,11 @@ void HalFile::rewindDirectory() {
 bool HalFile::close() {
   HAL_FILE_LOCK
   if (!impl) return false;
-  bool ok = true;
-  if (impl->fp) {
-    ok = (fclose(impl->fp) == 0);
-    impl->fp = nullptr;
-  }
-  if (impl->dir) {
-    closedir(impl->dir);
-    impl->dir = nullptr;
-  }
-  return ok;
+  // Impl's destructor handles fclose/closedir. Resetting here makes
+  // operator bool() / isOpen() false after close, matching the prior
+  // behavior where the post-close HalFile was no longer truthy.
+  impl.reset();
+  return true;
 }
 
 HalFile HalFile::openNextFile() {
@@ -446,26 +441,23 @@ HalFile HalFile::openNextFile() {
 
   if (!entry) return HalFile();
 
-  char childPath[512];
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-truncation"
-  snprintf(childPath, sizeof(childPath), "%s/%s", impl->fullPath, entry->d_name);
-#pragma GCC diagnostic pop
-
   auto newImpl = std::make_unique<Impl>();
   strncpy(newImpl->name, entry->d_name, sizeof(newImpl->name) - 1);
-  strncpy(newImpl->fullPath, childPath, sizeof(newImpl->fullPath) - 1);
-
-  struct stat st;
-  newImpl->isDir = (stat(childPath, &st) == 0 && S_ISDIR(st.st_mode));
-
-  if (newImpl->isDir) {
-    newImpl->dir = opendir(childPath);
-  } else {
-    newImpl->fp = fopen(childPath, "r");
-  }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-truncation"
+  snprintf(newImpl->fullPath, sizeof(newImpl->fullPath), "%s/%s", impl->fullPath, entry->d_name);
+#pragma GCC diagnostic pop
+  // vfs_fat_readdir already fills d_type with DT_DIR / DT_REG, so we avoid a
+  // stat() that would otherwise re-walk the path and allocate a 1120-byte LFN
+  // buffer per entry. We also do not opendir/fopen the child here -- every
+  // caller in this codebase only uses getName() and isDirectory(), so any
+  // open would cost another path walk + ~700 B of transient heap that we
+  // throw away on the next iteration. The returned HalFile has no OS handle
+  // but operator bool() is true (impl is set), keeping the standard iterator
+  // loop convention working.
+  newImpl->isDir = (entry->d_type == DT_DIR);
   return HalFile(std::move(newImpl));
 }
 
 bool HalFile::isOpen() const { return impl != nullptr && (impl->fp != nullptr || impl->dir != nullptr); }
-HalFile::operator bool() const { return isOpen(); }
+HalFile::operator bool() const { return impl != nullptr; }
