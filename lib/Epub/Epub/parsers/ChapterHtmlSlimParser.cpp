@@ -4,6 +4,8 @@
 #include <GfxRenderer.h>
 #include <HalPlatform.h>
 #include <HalStorage.h>
+#include <ImageDecoderFactory.h>
+#include <ImageToFramebufferDecoder.h>
 #include <Logging.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
@@ -16,8 +18,6 @@
 
 #include "Epub.h"
 #include "Epub/Page.h"
-#include "Epub/converters/ImageDecoderFactory.h"
-#include "Epub/converters/ImageToFramebufferDecoder.h"
 #include "Epub/htmlEntities.h"
 
 // Minimum file size (in bytes) to show indexing popup - smaller chapters don't benefit from it
