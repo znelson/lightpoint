@@ -49,8 +49,10 @@ class StreamingJsonParser {
   void handleNumber(char c);
   void handleLiteral(char c);
   void handleSkipString(char c);
+  void handleUnicodeHexDigit(char c);
 
   void appendToken(char c);
+  void appendCodepointUtf8(uint32_t cp);
   void emitToken();
 
   bool inArray() const { return nestingDepth > 0 && nestingStack[nestingDepth - 1] == Container::ARRAY; }
@@ -70,4 +72,13 @@ class StreamingJsonParser {
   char literalExpected[6];
   uint8_t literalLen;
   uint8_t literalPos;
+
+  // \uXXXX decoding state. While unicodeHexRemaining > 0, the next byte fed
+  // into a string is consumed as a hex digit rather than as a string char.
+  // Surrogate pairs are not supported: a value in the UTF-16 surrogate range
+  // is encoded as U+FFFD by the underlying utf8EncodeCodepoint helper. The
+  // JSON we read never contains \u escapes for supplementary-plane code
+  // points (all writers we deal with emit raw UTF-8), so this is fine.
+  uint8_t unicodeHexRemaining;
+  uint16_t unicodeHexAccum;
 };

@@ -1,5 +1,7 @@
 #include "StreamingJsonParser.h"
 
+#include <Utf8.h>
+
 #include <cstring>
 
 StreamingJsonParser::StreamingJsonParser(const JsonCallbacks& callbacks) : cb(callbacks) { reset(); }
@@ -14,6 +16,8 @@ void StreamingJsonParser::reset() {
   nestingDepth = 0;
   literalLen = 0;
   literalPos = 0;
+  unicodeHexRemaining = 0;
+  unicodeHexAccum = 0;
 }
 
 void StreamingJsonParser::feed(const char* data, size_t len) {
@@ -123,8 +127,18 @@ void StreamingJsonParser::handleScanning(char c) {
 }
 
 void StreamingJsonParser::handleStringChar(char c) {
+  if (unicodeHexRemaining > 0) {
+    handleUnicodeHexDigit(c);
+    return;
+  }
+
   if (escaped) {
     escaped = false;
+    if (c == 'u') {
+      unicodeHexRemaining = 4;
+      unicodeHexAccum = 0;
+      return;
+    }
     switch (c) {
       case '"':
       case '\\':
@@ -146,12 +160,6 @@ void StreamingJsonParser::handleStringChar(char c) {
       case 't':
         appendToken('\t');
         break;
-      case 'u':
-        // Pass \uXXXX through as literal characters -- we don't decode
-        // Unicode escapes since our use case only needs ASCII field matching.
-        appendToken('\\');
-        appendToken('u');
-        break;
       default:
         appendToken('\\');
         appendToken(c);
@@ -171,6 +179,41 @@ void StreamingJsonParser::handleStringChar(char c) {
   }
 
   appendToken(c);
+}
+
+void StreamingJsonParser::handleUnicodeHexDigit(char c) {
+  int digit;
+  if (c >= '0' && c <= '9')
+    digit = c - '0';
+  else if (c >= 'a' && c <= 'f')
+    digit = c - 'a' + 10;
+  else if (c >= 'A' && c <= 'F')
+    digit = c - 'A' + 10;
+  else {
+    // Malformed escape: replace the in-flight code unit with U+FFFD, then
+    // re-process the offending byte as a regular string char so the rest of
+    // the document still parses.
+    appendCodepointUtf8(REPLACEMENT_GLYPH);
+    unicodeHexRemaining = 0;
+    handleStringChar(c);
+    return;
+  }
+
+  unicodeHexAccum = static_cast<uint16_t>((unicodeHexAccum << 4) | digit);
+  --unicodeHexRemaining;
+  if (unicodeHexRemaining > 0) return;
+
+  // Hand the 16-bit value to the UTF-8 encoder. Values in the surrogate
+  // range (U+D800-U+DFFF) are encoded as U+FFFD by utf8EncodeCodepoint,
+  // which is the safe choice since we never see surrogate pairs in real
+  // inputs (all our JSON sources emit raw UTF-8, not \u escapes).
+  appendCodepointUtf8(unicodeHexAccum);
+}
+
+void StreamingJsonParser::appendCodepointUtf8(uint32_t cp) {
+  char buf[4];
+  int n = utf8EncodeCodepoint(cp, buf);
+  for (int i = 0; i < n; ++i) appendToken(buf[i]);
 }
 
 void StreamingJsonParser::handleNumber(char c) {
