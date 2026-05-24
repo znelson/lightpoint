@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Epub/Chapter.h>
+
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -23,11 +25,6 @@ struct MenuResult {
   uint8_t orientation = 0;
 };
 
-struct ChapterResult {
-  int spineIndex = 0;
-  std::optional<int> tocIndex;
-};
-
 struct PercentResult {
   int percent = 0;
 };
@@ -44,7 +41,7 @@ struct FilePathResult {
   std::string path;
 };
 
-using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
+using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterTarget, PercentResult,
                                    PageResult, FootnoteResult, FilePathResult>;
 
 struct ActivityResult {

@@ -813,6 +813,35 @@ int Epub::getSpineIndexForTocIndex(const int tocIndex) const {
 
 int Epub::getTocIndexForSpineIndex(const int spineIndex) const { return getSpineItem(spineIndex).tocIndex; }
 
+std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const int tocIndex) const {
+  const int tocCount = getTocItemsCount();
+  const int spineCount = getSpineItemsCount();
+  if (tocIndex < 0 || tocIndex >= tocCount) {
+    return std::nullopt;
+  }
+
+  const int firstSpine = getTocItem(tocIndex).spineIndex;
+  if (firstSpine < 0 || firstSpine >= spineCount) {
+    return std::nullopt;
+  }
+
+  int lastSpine;
+  if (tocIndex + 1 < tocCount) {
+    const auto nextToc = getTocItem(tocIndex + 1);
+    // If the next TOC entry has an anchor, it starts mid-spine, so this chapter
+    // shares that spine. If no anchor, the next chapter owns that spine exclusively.
+    lastSpine = nextToc.anchor.empty() ? nextToc.spineIndex - 1 : nextToc.spineIndex;
+    if (lastSpine < firstSpine) lastSpine = firstSpine;
+  } else {
+    // Last TOC entry: cap to its own spine rather than pulling in all remaining
+    // spines (typically end-of-book material like appendices or copyright).
+    lastSpine = firstSpine;
+  }
+  if (lastSpine >= spineCount) lastSpine = spineCount - 1;
+
+  return SpineRange{firstSpine, lastSpine};
+}
+
 size_t Epub::getBookSize() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded() || bookMetadataCache->getSpineCount() == 0) {
     return 0;

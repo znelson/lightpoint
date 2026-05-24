@@ -432,7 +432,7 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
           [this](const ActivityResult& result) {
             if (result.isCancelled) return;
             RenderLock lock(*this);
-            const auto& chapter = std::get<ChapterResult>(result.data);
+            const auto& chapter = std::get<ChapterTarget>(result.data);
             const bool sameSpine = chapter.spineIndex == currentSpineIndex && section;
             auto resolvedPage =
                 (chapter.tocIndex && sameSpine) ? section->getPageForTocIndex(*chapter.tocIndex) : std::nullopt;
@@ -914,26 +914,10 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
   // Skipped for same-chapter spine transitions (chapterPageInfo already populated)
   // and for spines not belonging to any TOC entry (tocIndex < 0).
   if (tocIndex >= 0 && chapterPageInfo.tocIndex != tocIndex) {
-    const int tocCount = epub->getTocItemsCount();
-    const int spineCount = epub->getSpineItemsCount();
-
-    // Determine the contiguous spine range for this TOC entry.
-    const int firstSpine = epub->getTocItem(tocIndex).spineIndex;
-    int lastSpine;
-    if (tocIndex + 1 < tocCount) {
-      const auto nextToc = epub->getTocItem(tocIndex + 1);
-      // If the next TOC entry has an anchor, it starts mid-spine, so this chapter
-      // shares that spine. If no anchor, the next chapter owns that spine exclusively.
-      lastSpine = nextToc.anchor.empty() ? nextToc.spineIndex - 1 : nextToc.spineIndex;
-      if (lastSpine < firstSpine) lastSpine = firstSpine;
-    } else {
-      // Last TOC entry: cap to its own spine rather than pulling in all remaining
-      // spines (which are typically end-of-book material like appendices or copyright).
-      lastSpine = firstSpine;
-    }
-    lastSpine = std::min(lastSpine, spineCount - 1);
-
-    if (firstSpine >= 0 && firstSpine < spineCount) {
+    const auto spineRange = epub->getSpineRangeForTocIndex(tocIndex);
+    if (spineRange) {
+      const int firstSpine = spineRange->first;
+      const int lastSpine = spineRange->last;
       const int totalSpines = lastSpine - firstSpine + 1;
 
       chapterPageInfo.tocIndex = tocIndex;

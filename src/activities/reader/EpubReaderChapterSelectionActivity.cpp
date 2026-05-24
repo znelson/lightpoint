@@ -41,7 +41,7 @@ void EpubReaderChapterSelectionActivity::loop() {
       setResult(std::move(result));
       finish();
     } else {
-      setResult(ChapterResult{newSpineIndex, selectorIndex});
+      setResult(ChapterTarget{selectorIndex, newSpineIndex});
       finish();
     }
   } else if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
