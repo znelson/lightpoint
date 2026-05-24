@@ -3,7 +3,7 @@
 #include <cstring>
 #include <string>
 
-#include "lib/JsonParser/ReleaseJsonParser.h"
+#include "lib/JsonIO/ReleaseJsonParser.h"
 
 namespace {
 
