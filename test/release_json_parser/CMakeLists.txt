@@ -1,12 +1,12 @@
 add_executable(ReleaseJsonParserTest
   ReleaseJsonParserTest.cpp
-  ${REPO_ROOT}/lib/JsonParser/ReleaseJsonParser.cpp
-  ${REPO_ROOT}/lib/JsonParser/StreamingJsonParser.cpp
+  ${REPO_ROOT}/lib/JsonIO/ReleaseJsonParser.cpp
+  ${REPO_ROOT}/lib/JsonIO/StreamingJsonParser.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp
 )
 
 target_include_directories(ReleaseJsonParserTest PRIVATE
-  ${REPO_ROOT}/lib/JsonParser
+  ${REPO_ROOT}/lib/JsonIO
   ${REPO_ROOT}/lib/Utf8
 )
 
