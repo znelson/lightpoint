@@ -13,6 +13,7 @@
 #include <functional>
 #include <iterator>
 #include <limits>
+#include <numeric>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
@@ -215,8 +216,7 @@ void EpubReaderActivity::loop() {
   // Enter reader menu activity.
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     const int currentPage = section ? getChapterRelativePage() + 1 : 0;
-    const int totalPages =
-        (chapterPageInfo.totalPages > 0) ? chapterPageInfo.totalPages : (section ? section->pageCount : 0);
+    const int totalPages = getChapterTotalPages();
     float bookProgress = 0.0f;
     if (epub->getBookSize() > 0 && section && section->pageCount > 0) {
       const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
@@ -683,12 +683,9 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     // no section reload is needed, just update the page range aggregation.
     chapterPageInfo.tocIndex = pageTocIndex;
     chapterPageInfo.segments.clear();
-    chapterPageInfo.totalPages = 0;
     auto range = section->getPageRangeForTocIndex(pageTocIndex);
-    if (!range) range = Section::TocPageRange{0, section->pageCount};
-    const int segPages = range->endPage - range->startPage;
-    chapterPageInfo.segments.push_back({currentSpineIndex, range->startPage, segPages, 0});
-    chapterPageInfo.totalPages = segPages;
+    if (!range) range = Chapter{pageTocIndex, currentSpineIndex, 0, section->pageCount};
+    chapterPageInfo.segments.push_back(*range);
   }
 
   renderer.clearScreen();
@@ -869,7 +866,7 @@ void EpubReaderActivity::renderStatusBar() const {
 
   // Use chapter-relative page counts when available
   const int chapterPage = getChapterRelativePage() + 1;
-  const int chapterTotal = (chapterPageInfo.totalPages > 0) ? chapterPageInfo.totalPages : section->pageCount;
+  const int chapterTotal = getChapterTotalPages();
 
   std::string title;
 
@@ -923,7 +920,6 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
       chapterPageInfo.tocIndex = tocIndex;
       chapterPageInfo.segments.clear();
       chapterPageInfo.segments.reserve(totalSpines);
-      chapterPageInfo.totalPages = 0;
 
       int loopIndex = firstSpine;
       const auto popupFn = [this, &loopIndex, firstSpine, totalSpines]() {
@@ -963,14 +959,15 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
 
         // Collect page range for this spine's contribution to the chapter
         auto range = sec->getPageRangeForTocIndex(tocIndex);
-        if (!range) range = Section::TocPageRange{0, sec->pageCount};
-        const int segPages = range->endPage - range->startPage;
-        chapterPageInfo.segments.push_back({loopIndex, range->startPage, segPages, chapterPageInfo.totalPages});
-        chapterPageInfo.totalPages += segPages;
+        if (!range) range = Chapter{tocIndex, loopIndex, 0, sec->pageCount};
+        chapterPageInfo.segments.push_back(*range);
       }
 
+      const int totalPages =
+          std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
+                          [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
       LOG_DBG("ERS", "Chapter %d: %d spines (%d-%d), %d total pages", tocIndex, totalSpines, firstSpine, lastSpine,
-              chapterPageInfo.totalPages);
+              totalPages);
     }
   }
 
@@ -997,12 +994,22 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
 }
 
 int EpubReaderActivity::getChapterRelativePage() const {
-  const auto it = std::find_if(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(),
-                               [this](const SpineSegment& seg) { return seg.spineIndex == currentSpineIndex; });
-  if (it != chapterPageInfo.segments.end()) {
-    return it->cumulativeOffset + (section->currentPage - it->startPage);
+  int chapterPagesBefore = 0;
+  for (const auto& ch : chapterPageInfo.segments) {
+    if (ch.spineIndex == currentSpineIndex) {
+      return chapterPagesBefore + (section->currentPage - ch.startPage);
+    }
+    chapterPagesBefore += ch.endPage - ch.startPage;
   }
   return section ? section->currentPage : 0;
+}
+
+int EpubReaderActivity::getChapterTotalPages() const {
+  if (chapterPageInfo.segments.empty()) {
+    return section ? section->pageCount : 0;
+  }
+  return std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
+                         [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
 }
 
 void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool savePosition) {

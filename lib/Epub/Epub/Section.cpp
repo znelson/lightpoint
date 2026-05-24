@@ -383,15 +383,20 @@ void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16
         }
       }
     }
-    tocBoundaries.push_back({i, page});
+    tocBoundaries.push_back({i, spineIndex, page, 0});  // endPage filled after sort
   }
 
   // Defensive sort in case TOC entries are out of document order in a malformed epub.
   // Tie-break on tocIndex so entries sharing a page (e.g. unresolved anchors at page 0)
   // remain in logical document order, making lookup results deterministic.
-  std::sort(tocBoundaries.begin(), tocBoundaries.end(), [](const TocBoundary& a, const TocBoundary& b) {
+  std::sort(tocBoundaries.begin(), tocBoundaries.end(), [](const Chapter& a, const Chapter& b) {
     return a.startPage != b.startPage ? a.startPage < b.startPage : a.tocIndex < b.tocIndex;
   });
+
+  // endPage of each entry is the next entry's startPage; the last entry runs to pageCount.
+  for (size_t i = 0; i < tocBoundaries.size(); i++) {
+    tocBoundaries[i].endPage = (i + 1 < tocBoundaries.size()) ? tocBoundaries[i + 1].startPage : pageCount;
+  }
 }
 
 // Resolve TOC anchor-to-page mappings by scanning the section cache's on-disk anchor data.
@@ -429,7 +434,7 @@ void Section::buildTocBoundariesFromFile(HalFile& f) {
   tocBoundaries.reserve(totalEntries);
   for (int i = startTocIndex; i < startTocIndex + totalEntries; i++) {
     const auto entry = epub->getTocItem(i);
-    tocBoundaries.push_back({i, 0});
+    tocBoundaries.push_back({i, spineIndex, 0, 0});  // startPage/endPage filled after anchor resolution + sort
     if (!entry.anchor.empty()) {
       tocAnchorsToResolve.push_back({i, std::move(entry.anchor)});
     }
@@ -476,9 +481,14 @@ void Section::buildTocBoundariesFromFile(HalFile& f) {
   // Defensive sort in case TOC entries are out of document order in a malformed epub.
   // Tie-break on tocIndex so entries sharing a page (e.g. unresolved anchors at page 0)
   // remain in logical document order, making lookup results deterministic.
-  std::sort(tocBoundaries.begin(), tocBoundaries.end(), [](const TocBoundary& a, const TocBoundary& b) {
+  std::sort(tocBoundaries.begin(), tocBoundaries.end(), [](const Chapter& a, const Chapter& b) {
     return a.startPage != b.startPage ? a.startPage < b.startPage : a.tocIndex < b.tocIndex;
   });
+
+  // endPage of each entry is the next entry's startPage; the last entry runs to pageCount.
+  for (size_t i = 0; i < tocBoundaries.size(); i++) {
+    tocBoundaries[i].endPage = (i + 1 < tocBoundaries.size()) ? tocBoundaries[i + 1].startPage : pageCount;
+  }
 }
 
 int Section::getTocIndexForPage(const int page) const {
@@ -488,7 +498,7 @@ int Section::getTocIndexForPage(const int page) const {
 
   // Find the first boundary AFTER page, then step back one
   auto it = std::upper_bound(tocBoundaries.begin(), tocBoundaries.end(), static_cast<uint16_t>(page),
-                             [](uint16_t page, const TocBoundary& boundary) { return page < boundary.startPage; });
+                             [](uint16_t page, const Chapter& boundary) { return page < boundary.startPage; });
   if (it == tocBoundaries.begin()) {
     return tocBoundaries[0].tocIndex;
   }
@@ -504,12 +514,10 @@ std::optional<int> Section::getPageForTocIndex(const int tocIndex) const {
   return std::nullopt;
 }
 
-std::optional<Section::TocPageRange> Section::getPageRangeForTocIndex(const int tocIndex) const {
-  for (size_t i = 0; i < tocBoundaries.size(); i++) {
-    if (tocBoundaries[i].tocIndex == tocIndex) {
-      const int startPage = tocBoundaries[i].startPage;
-      const int endPage = (i + 1 < tocBoundaries.size()) ? static_cast<int>(tocBoundaries[i + 1].startPage) : pageCount;
-      return TocPageRange{startPage, endPage};
+std::optional<Chapter> Section::getPageRangeForTocIndex(const int tocIndex) const {
+  for (const auto& ch : tocBoundaries) {
+    if (ch.tocIndex == tocIndex) {
+      return ch;
     }
   }
   return std::nullopt;
