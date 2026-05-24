@@ -119,4 +119,3 @@ int utf8EncodeCodepoint(uint32_t cp, char out[4]) {
   out[3] = static_cast<char>(0x80 | (cp & 0x3F));
   return 4;
 }
-
