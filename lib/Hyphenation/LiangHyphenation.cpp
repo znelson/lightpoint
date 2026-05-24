@@ -1,5 +1,7 @@
 #include "LiangHyphenation.h"
 
+#include <Utf8.h>
+
 #include <algorithm>
 #include <vector>
 
@@ -89,37 +91,23 @@ struct AugmentedWord {
 
 // Encode a single Unicode codepoint into UTF-8 and append to word.bytes[].
 // Returns the number of bytes written, or 0 if the codepoint is invalid or the
-// buffer would overflow. Surrogates (0xD800–0xDFFF) and values above 0x10FFFF
-// are not valid Unicode scalar values and are rejected.
+// buffer would overflow. Surrogates (0xD800-0xDFFF) and values above 0x10FFFF
+// are rejected here rather than passed through; utf8EncodeCodepoint would
+// silently substitute U+FFFD, but for hyphenation we want the caller to skip
+// the word entirely instead of mis-hyphenating around a replacement glyph.
 size_t encodeUtf8(uint32_t cp, AugmentedWord& word) {
   if ((cp >= 0xD800u && cp <= 0xDFFFu) || cp > 0x10FFFFu) {
     return 0;
   }
 
-  uint8_t encoded[4];
-  size_t len = 0;
-
-  if (cp <= 0x7Fu) {
-    encoded[len++] = static_cast<uint8_t>(cp);
-  } else if (cp <= 0x7FFu) {
-    encoded[len++] = static_cast<uint8_t>(0xC0u | ((cp >> 6) & 0x1Fu));
-    encoded[len++] = static_cast<uint8_t>(0x80u | (cp & 0x3Fu));
-  } else if (cp <= 0xFFFFu) {
-    encoded[len++] = static_cast<uint8_t>(0xE0u | ((cp >> 12) & 0x0Fu));
-    encoded[len++] = static_cast<uint8_t>(0x80u | ((cp >> 6) & 0x3Fu));
-    encoded[len++] = static_cast<uint8_t>(0x80u | (cp & 0x3Fu));
-  } else {
-    encoded[len++] = static_cast<uint8_t>(0xF0u | ((cp >> 18) & 0x07u));
-    encoded[len++] = static_cast<uint8_t>(0x80u | ((cp >> 12) & 0x3Fu));
-    encoded[len++] = static_cast<uint8_t>(0x80u | ((cp >> 6) & 0x3Fu));
-    encoded[len++] = static_cast<uint8_t>(0x80u | (cp & 0x3Fu));
-  }
+  char encoded[4];
+  const size_t len = static_cast<size_t>(utf8EncodeCodepoint(cp, encoded));
 
   if (word.byteLen + len > MAX_WORD_BYTES) {
     return 0;  // overflow: word too long for fixed buffer, skip hyphenation
   }
   for (size_t i = 0; i < len; ++i) {
-    word.bytes[word.byteLen++] = encoded[i];
+    word.bytes[word.byteLen++] = static_cast<uint8_t>(encoded[i]);
   }
   return len;
 }
