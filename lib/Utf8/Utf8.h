@@ -15,6 +15,12 @@ void utf8TruncateChars(std::string& str, size_t numChars);
 // incomplete trailing bytes are excluded.
 int utf8SafeTruncateBuffer(const char* buf, int len);
 
+// Encode a Unicode codepoint as UTF-8 into out (which must have room for 4
+// bytes). Returns the number of bytes written (1-4). Invalid codepoints
+// (lone surrogates U+D800-U+DFFF, or values > U+10FFFF) are replaced with
+// U+FFFD, which encodes as 3 bytes.
+int utf8EncodeCodepoint(uint32_t cp, char out[4]);
+
 // Returns true for CJK characters that allow line breaks on either side without hyphenation.
 // Covers CJK Unified Ideographs, Hiragana, Katakana, Hangul Syllables, CJK punctuation,
 // and fullwidth forms — the ranges where word boundaries are implicit per character.
