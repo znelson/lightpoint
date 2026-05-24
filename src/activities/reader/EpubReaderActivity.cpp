@@ -13,6 +13,7 @@
 #include <functional>
 #include <iterator>
 #include <limits>
+#include <numeric>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
@@ -962,8 +963,9 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
         chapterPageInfo.segments.push_back(*range);
       }
 
-      int totalPages = 0;
-      for (const auto& ch : chapterPageInfo.segments) totalPages += ch.endPage - ch.startPage;
+      const int totalPages =
+          std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
+                          [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
       LOG_DBG("ERS", "Chapter %d: %d spines (%d-%d), %d total pages", tocIndex, totalSpines, firstSpine, lastSpine,
               totalPages);
     }
@@ -1006,11 +1008,8 @@ int EpubReaderActivity::getChapterTotalPages() const {
   if (chapterPageInfo.segments.empty()) {
     return section ? section->pageCount : 0;
   }
-  int total = 0;
-  for (const auto& ch : chapterPageInfo.segments) {
-    total += ch.endPage - ch.startPage;
-  }
-  return total;
+  return std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
+                         [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
 }
 
 void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool savePosition) {
