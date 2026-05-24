@@ -25,8 +25,6 @@ class WifiCredentialStore {
   std::vector<WifiCredential> credentials;
   std::string lastConnectedSsid;
 
-  static constexpr size_t MAX_NETWORKS = 8;
-
   // Private constructor for singleton
   WifiCredentialStore() = default;
 
@@ -34,6 +32,8 @@ class WifiCredentialStore {
   friend bool JsonSettingsIO::loadWifi(WifiCredentialStore&, const char*);
 
  public:
+  static constexpr size_t MAX_NETWORKS = 8;
+
   // Delete copy constructor and assignment
   WifiCredentialStore(const WifiCredentialStore&) = delete;
   WifiCredentialStore& operator=(const WifiCredentialStore&) = delete;
