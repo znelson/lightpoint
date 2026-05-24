@@ -91,12 +91,7 @@ bool RecentBooksStore::saveToFile() const {
 }
 
 bool RecentBooksStore::loadFromFile() {
-  if (Storage.exists(RECENT_BOOKS_FILE_JSON)) {
-    std::string json = Storage.readFile(RECENT_BOOKS_FILE_JSON);
-    if (!json.empty()) {
-      return JsonSettingsIO::loadRecentBooks(*this, json.c_str());
-    }
-  }
-
-  return false;
+  HalFile file;
+  if (!Storage.openFileForRead("RBS", RECENT_BOOKS_FILE_JSON, file)) return false;
+  return JsonSettingsIO::loadRecentBooksFromFile(*this, file);
 }

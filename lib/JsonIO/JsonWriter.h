@@ -2,17 +2,20 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <string>
 #include <string_view>
 
-// Streaming JSON serializer that builds a document into a caller-owned
-// std::string. Tracks object/array nesting on a fixed-size stack (no heap
-// allocations beyond the caller's string buffer) and inserts commas
-// automatically between siblings.
+#include "JsonSink.h"
+
+// Streaming JSON serializer. Pushes bytes through a caller-supplied JsonSink
+// (StringSink for an in-memory document, HalFileSink to stream straight to
+// disk, etc.). Tracks object/array nesting on a fixed-size stack with no
+// heap allocations of its own, and inserts commas automatically between
+// siblings.
 //
 // Usage:
 //   std::string out;
-//   JsonWriter w(out);
+//   StringSink sink(out);
+//   JsonWriter w(sink);
 //   w.beginObject();
 //   w.key("name"); w.valueString("Ada");
 //   w.key("scores"); w.beginArray();
@@ -25,7 +28,7 @@ class JsonWriter {
  public:
   static constexpr size_t MAX_DEPTH = 8;
 
-  explicit JsonWriter(std::string& out);
+  explicit JsonWriter(JsonSink& sink);
 
   JsonWriter(const JsonWriter&) = delete;
   JsonWriter& operator=(const JsonWriter&) = delete;
@@ -56,8 +59,10 @@ class JsonWriter {
   // current slot consumed, and clear the "just emitted a key" suppression.
   void prepareForValue();
   void writeStringRaw(std::string_view s);
+  void writeChar(char c) { sink_.write(&c, 1); }
+  void writeLiteral(const char* s, size_t n) { sink_.write(s, n); }
 
-  std::string& out_;
+  JsonSink& sink_;
   Frame stack_[MAX_DEPTH];
   size_t depth_;
   bool justEmittedKey_;

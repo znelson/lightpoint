@@ -20,14 +20,9 @@ bool WifiCredentialStore::saveToFile() const {
 }
 
 bool WifiCredentialStore::loadFromFile() {
-  if (Storage.exists(WIFI_FILE_JSON)) {
-    std::string json = Storage.readFile(WIFI_FILE_JSON);
-    if (!json.empty()) {
-      return JsonSettingsIO::loadWifi(*this, json.c_str());
-    }
-  }
-
-  return false;
+  HalFile file;
+  if (!Storage.openFileForRead("WCS", WIFI_FILE_JSON, file)) return false;
+  return JsonSettingsIO::loadWifiFromFile(*this, file);
 }
 
 bool WifiCredentialStore::addCredential(const std::string& ssid, const std::string& password) {

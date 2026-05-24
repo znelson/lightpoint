@@ -35,14 +35,9 @@ bool CrossPointSettings::saveToFile() const {
 }
 
 bool CrossPointSettings::loadFromFile() {
-  if (Storage.exists(SETTINGS_FILE_JSON)) {
-    std::string json = Storage.readFile(SETTINGS_FILE_JSON);
-    if (!json.empty()) {
-      return JsonSettingsIO::loadSettings(*this, json.c_str());
-    }
-  }
-
-  return false;
+  HalFile file;
+  if (!Storage.openFileForRead("CPS", SETTINGS_FILE_JSON, file)) return false;
+  return JsonSettingsIO::loadSettingsFromFile(*this, file);
 }
 
 float CrossPointSettings::getReaderLineCompression() const {
