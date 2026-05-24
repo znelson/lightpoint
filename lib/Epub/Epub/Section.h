@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "Chapter.h"
 #include "Epub.h"
 
 class Page;
@@ -22,11 +23,10 @@ class Section {
                               bool embeddedStyle, uint8_t imageRendering, bool focusReadingEnabled);
   uint32_t onPageComplete(std::unique_ptr<Page> page);
 
-  struct TocBoundary {
-    int tocIndex = 0;
-    uint16_t startPage = 0;
-  };
-  std::vector<TocBoundary> tocBoundaries;
+  // Chapter boundaries within this spine. Each entry has spineIndex == this Section's spineIndex.
+  // For 1:1 layouts (no in-spine anchors), this stays empty and getTocIndexForPage falls back
+  // to epub->getTocIndexForSpineIndex.
+  std::vector<Chapter> tocBoundaries;
 
   void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, int startTocIndex,
                           uint16_t totalEntries, uint16_t unresolvedCount);
@@ -58,12 +58,8 @@ class Section {
   // Returns nullopt if the TOC index doesn't map to a boundary in this spine (e.g. belongs to a different spine).
   std::optional<int> getPageForTocIndex(int tocIndex) const;
 
-  struct TocPageRange {
-    int startPage;  // inclusive
-    int endPage;    // exclusive
-  };
-  // Returns the page range [start, end) within this spine that belongs to the given TOC index.
-  std::optional<TocPageRange> getPageRangeForTocIndex(int tocIndex) const;
+  // Returns the Chapter (with startPage inclusive, endPage exclusive) belonging to the given TOC index.
+  std::optional<Chapter> getPageRangeForTocIndex(int tocIndex) const;
 
   // Look up the page number for an anchor id from the section cache file.
   std::optional<uint16_t> getPageForAnchor(const std::string& anchor) const;

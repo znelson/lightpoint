@@ -38,17 +38,12 @@ class EpubReaderActivity final : public Activity {
   // Consumed in onExit() to relocate the finished book into /Read/.
   bool pendingReadFolderMove = false;
 
-  // Chapter-level page info aggregated across spine items sharing a TOC entry
-  struct SpineSegment {
-    int spineIndex;
-    int startPage;         // first page in this spine belonging to the chapter
-    int pageCount;         // pages in this segment (endPage - startPage)
-    int cumulativeOffset;  // total chapter pages before this segment
-  };
+  // Chapter-level page info aggregated across spine items sharing a TOC entry. `segments`
+  // contains one Chapter per spine that the current chapter spans, in spine order. `tocIndex`
+  // identifies which chapter the segments describe; nullopt means stale/uninitialized.
   struct ChapterPageInfo {
     std::optional<int> tocIndex;
-    std::vector<SpineSegment> segments;
-    int totalPages = 0;
+    std::vector<Chapter> segments;
   };
   ChapterPageInfo chapterPageInfo;
 
@@ -74,8 +69,13 @@ class EpubReaderActivity final : public Activity {
   // Load the current section and build caches for all spine items in its TOC chapter.
   // Returns false if the current section could not be loaded or built.
   bool prepareSection(uint16_t viewportWidth, uint16_t viewportHeight);
-  // Returns the chapter-relative page number for the current position.
+  // Returns the chapter-relative page number for the current position. Computes a running
+  // sum over chapterPageInfo.segments to find the segment matching currentSpineIndex, then
+  // adds the in-spine offset. Falls back to section->currentPage when no segment matches.
   int getChapterRelativePage() const;
+  // Returns the total page count of the current chapter (sum of segment ranges), or the
+  // current section's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
+  int getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
 
   // Footnote navigation
