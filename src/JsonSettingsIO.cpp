@@ -389,7 +389,7 @@ void settingsOnBool(void* p, bool v) {
   // No bool settings exist in SettingsList, but tolerate the type defensively
   // for forward-compat (e.g. a future loader writing toggles as bool instead
   // of 0/1). Map to the same handling as a numeric 0/1.
-  char tmp[2] = {v ? '1' : '0', '\0'};
+  const char* tmp = v ? "1" : "0";
   settingsOnNumber(p, tmp, 1);
 }
 
