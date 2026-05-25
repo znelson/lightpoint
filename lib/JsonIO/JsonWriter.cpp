@@ -2,27 +2,27 @@
 
 #include <cstdio>
 
-JsonWriter::JsonWriter(std::string& out) : out_(out), depth_(0), justEmittedKey_(false) {}
+JsonWriter::JsonWriter(JsonSink& sink) : sink_(sink), depth_(0), justEmittedKey_(false) {}
 
 void JsonWriter::beginObject() {
   prepareForValue();
-  out_.push_back('{');
+  writeChar('{');
   if (depth_ < MAX_DEPTH) stack_[depth_++] = {true, true};
 }
 
 void JsonWriter::endObject() {
-  out_.push_back('}');
+  writeChar('}');
   if (depth_ > 0) --depth_;
 }
 
 void JsonWriter::beginArray() {
   prepareForValue();
-  out_.push_back('[');
+  writeChar('[');
   if (depth_ < MAX_DEPTH) stack_[depth_++] = {false, true};
 }
 
 void JsonWriter::endArray() {
-  out_.push_back(']');
+  writeChar(']');
   if (depth_ > 0) --depth_;
 }
 
@@ -32,13 +32,13 @@ void JsonWriter::key(std::string_view name) {
   if (depth_ > 0) {
     Frame& top = stack_[depth_ - 1];
     if (!top.firstChild) {
-      out_.push_back(',');
+      writeChar(',');
     } else {
       top.firstChild = false;
     }
   }
   writeStringRaw(name);
-  out_.push_back(':');
+  writeChar(':');
   justEmittedKey_ = true;
 }
 
@@ -49,26 +49,29 @@ void JsonWriter::valueString(std::string_view s) {
 
 void JsonWriter::valueBool(bool b) {
   prepareForValue();
-  out_.append(b ? "true" : "false");
+  if (b)
+    writeLiteral("true", 4);
+  else
+    writeLiteral("false", 5);
 }
 
 void JsonWriter::valueInt(int64_t n) {
   prepareForValue();
   char buf[24];
   int len = snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(n));
-  if (len > 0) out_.append(buf, static_cast<size_t>(len));
+  if (len > 0) sink_.write(buf, static_cast<size_t>(len));
 }
 
 void JsonWriter::valueUInt(uint64_t n) {
   prepareForValue();
   char buf[24];
   int len = snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(n));
-  if (len > 0) out_.append(buf, static_cast<size_t>(len));
+  if (len > 0) sink_.write(buf, static_cast<size_t>(len));
 }
 
 void JsonWriter::valueNull() {
   prepareForValue();
-  out_.append("null");
+  writeLiteral("null", 4);
 }
 
 void JsonWriter::prepareForValue() {
@@ -81,50 +84,50 @@ void JsonWriter::prepareForValue() {
   if (depth_ == 0) return;  // top-level value -- nothing to bracket against
   Frame& top = stack_[depth_ - 1];
   if (!top.firstChild) {
-    out_.push_back(',');
+    writeChar(',');
   } else {
     top.firstChild = false;
   }
 }
 
 void JsonWriter::writeStringRaw(std::string_view s) {
-  out_.push_back('"');
+  writeChar('"');
   for (char c : s) {
     unsigned char uc = static_cast<unsigned char>(c);
     switch (uc) {
       case '"':
-        out_.append("\\\"");
+        writeLiteral("\\\"", 2);
         break;
       case '\\':
-        out_.append("\\\\");
+        writeLiteral("\\\\", 2);
         break;
       case '\b':
-        out_.append("\\b");
+        writeLiteral("\\b", 2);
         break;
       case '\f':
-        out_.append("\\f");
+        writeLiteral("\\f", 2);
         break;
       case '\n':
-        out_.append("\\n");
+        writeLiteral("\\n", 2);
         break;
       case '\r':
-        out_.append("\\r");
+        writeLiteral("\\r", 2);
         break;
       case '\t':
-        out_.append("\\t");
+        writeLiteral("\\t", 2);
         break;
       default:
         if (uc < 0x20) {
           // Other C0 controls require \u00XX per RFC 8259.
           char buf[7];
           snprintf(buf, sizeof(buf), "\\u%04X", uc);
-          out_.append(buf, 6);
+          sink_.write(buf, 6);
         } else {
           // ASCII printable or UTF-8 continuation/lead byte: pass through.
-          out_.push_back(c);
+          writeChar(c);
         }
         break;
     }
   }
-  out_.push_back('"');
+  writeChar('"');
 }

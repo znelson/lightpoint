@@ -1,6 +1,7 @@
 #include "JsonSettingsIO.h"
 
 #include <HalStorage.h>
+#include <JsonSink.h>
 #include <JsonWriter.h>
 #include <Logging.h>
 #include <ObfuscationUtils.h>
@@ -27,6 +28,19 @@ inline bool keyIs(const char* k, size_t len, std::string_view name) {
 }
 
 inline uint32_t parseUInt(const char* s) { return static_cast<uint32_t>(strtoul(s, nullptr, 10)); }
+
+// Pumps a HalFile through a per-type parse session in 256 B chunks. The
+// session type is duck-typed: must expose a public `parser` field reachable
+// via session.parser.feed(data, len). Used by every loadXxxFromFile path so
+// the streaming-read mechanics live in exactly one place.
+template <typename Session>
+void feedFileIntoSession(Session& session, HalFile& file) {
+  char chunk[256];
+  int n;
+  while ((n = file.read(chunk, sizeof(chunk))) > 0) {
+    session.parser.feed(chunk, static_cast<size_t>(n));
+  }
+}
 
 }  // namespace
 
@@ -156,9 +170,9 @@ void stateOnArrayEnd(void* p) {
 
 }  // namespace
 
-bool JsonSettingsIO::saveState(const CrossPointState& s, const char* path) {
-  std::string json;
-  JsonWriter w(json);
+namespace {
+void buildStateJson(const CrossPointState& s, JsonSink& sink) {
+  JsonWriter w(sink);
   w.beginObject();
   w.key("openEpubPath");
   w.valueString(s.openEpubPath);
@@ -177,31 +191,55 @@ bool JsonSettingsIO::saveState(const CrossPointState& s, const char* path) {
   w.key("showBootScreen");
   w.valueBool(s.showBootScreen);
   w.endObject();
-  return Storage.writeFile(path, json);
+}
+}  // namespace
+
+bool JsonSettingsIO::saveState(const CrossPointState& s, const char* path) {
+  HalFile file;
+  if (!Storage.openFileForWrite("CPS", path, file)) return false;
+  HalFileSink sink(file);
+  buildStateJson(s, sink);
+  return sink.close();
 }
 
-bool JsonSettingsIO::loadState(CrossPointState& s, const char* json) {
-  // Preserve the legacy behavior of zeroing the sleep-image buffer before
-  // parsing -- holes in the array stay 0 even if the JSON omits entries.
-  memset(s.recentSleepImages, 0, sizeof(s.recentSleepImages));
+namespace {
+// Holds the SAX state + parser for one State load. The string-based
+// loadState and the file-based loadStateFromFile both construct one of
+// these, feed bytes in, and call finalize() -- the only difference is
+// where the bytes come from.
+struct StateParseSession {
+  StateLoadCtx ctx;
+  StreamingJsonParser parser;
 
-  StateLoadCtx ctx{&s};
-  JsonCallbacks cbs{&ctx,    stateOnKey,         stateOnString,    stateOnNumber,     stateOnBool,
-                    nullptr, stateOnObjectStart, stateOnObjectEnd, stateOnArrayStart, stateOnArrayEnd};
-  StreamingJsonParser parser(cbs);
-  parser.feed(json, strlen(json));
-  if (parser.hasError()) {
-    LOG_ERR("CPS", "JSON parse error");
-    return false;
+  explicit StateParseSession(CrossPointState& s)
+      : ctx{&s},
+        parser({&ctx, stateOnKey, stateOnString, stateOnNumber, stateOnBool, nullptr, stateOnObjectStart,
+                stateOnObjectEnd, stateOnArrayStart, stateOnArrayEnd}) {
+    // Preserve the legacy behavior of zeroing the sleep-image buffer before
+    // parsing -- holes in the array stay 0 even if the JSON omits entries.
+    memset(s.recentSleepImages, 0, sizeof(s.recentSleepImages));
   }
 
-  // Same clamping as the previous implementation.
-  const int actualCount = ctx.imagesFilled;
-  if (s.recentSleepPos >= CrossPointState::SLEEP_RECENT_COUNT) {
-    s.recentSleepPos = actualCount > 0 ? s.recentSleepPos % CrossPointState::SLEEP_RECENT_COUNT : 0;
+  bool finalize(CrossPointState& s) {
+    if (parser.hasError()) {
+      LOG_ERR("CPS", "JSON parse error");
+      return false;
+    }
+    // Same clamping as the previous implementation.
+    const int actualCount = ctx.imagesFilled;
+    if (s.recentSleepPos >= CrossPointState::SLEEP_RECENT_COUNT) {
+      s.recentSleepPos = actualCount > 0 ? s.recentSleepPos % CrossPointState::SLEEP_RECENT_COUNT : 0;
+    }
+    s.recentSleepFill = static_cast<uint8_t>(std::min(static_cast<int>(s.recentSleepFill), actualCount));
+    return true;
   }
-  s.recentSleepFill = static_cast<uint8_t>(std::min(static_cast<int>(s.recentSleepFill), actualCount));
-  return true;
+};
+}  // namespace
+
+bool JsonSettingsIO::loadStateFromFile(CrossPointState& s, HalFile& file) {
+  StateParseSession session(s);
+  feedFileIntoSession(session, file);
+  return session.finalize(s);
 }
 
 // ---- CrossPointSettings -----------------------------------------------------
@@ -417,9 +455,9 @@ void settingsOnArrayEnd(void* /*p*/) {}
 
 }  // namespace
 
-bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path) {
-  std::string json;
-  JsonWriter w(json);
+namespace {
+void buildSettingsJson(const CrossPointSettings& s, JsonSink& sink) {
+  JsonWriter w(sink);
   w.beginObject();
 
   for (const auto& info : getSettingsList()) {
@@ -458,25 +496,48 @@ bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path)
   w.valueString((s.language < getLanguageCount()) ? LANGUAGE_CODES[s.language] : "EN");
 
   w.endObject();
-  return Storage.writeFile(path, json);
+}
+}  // namespace
+
+bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path) {
+  HalFile file;
+  if (!Storage.openFileForWrite("CPS", path, file)) return false;
+  HalFileSink sink(file);
+  buildSettingsJson(s, sink);
+  return sink.close();
 }
 
-bool JsonSettingsIO::loadSettings(CrossPointSettings& s, const char* json) {
-  const std::vector<SettingInfo> list = getSettingsList();
+namespace {
+struct SettingsParseSession {
+  // The SettingsList snapshot is captured once (it's not a singleton, each
+  // call gets its own vector copy) and the load ctx references it for the
+  // duration of the parse.
+  std::vector<SettingInfo> list;
+  SettingsLoadCtx ctx;
+  StreamingJsonParser parser;
 
-  SettingsLoadCtx ctx{&s, &list};
-  JsonCallbacks cbs{&ctx,    settingsOnKey,         settingsOnString,    settingsOnNumber,     settingsOnBool,
-                    nullptr, settingsOnObjectStart, settingsOnObjectEnd, settingsOnArrayStart, settingsOnArrayEnd};
-  StreamingJsonParser parser(cbs);
-  parser.feed(json, strlen(json));
-  if (parser.hasError()) {
-    LOG_ERR("CPS", "JSON parse error");
-    return false;
+  explicit SettingsParseSession(CrossPointSettings& s)
+      : list(getSettingsList()),
+        ctx{&s, &list},
+        parser({&ctx, settingsOnKey, settingsOnString, settingsOnNumber, settingsOnBool, nullptr, settingsOnObjectStart,
+                settingsOnObjectEnd, settingsOnArrayStart, settingsOnArrayEnd}) {}
+
+  bool finalize(CrossPointSettings& s) {
+    if (parser.hasError()) {
+      LOG_ERR("CPS", "JSON parse error");
+      return false;
+    }
+    CrossPointSettings::validateFrontButtonMapping(s);
+    LOG_DBG("CPS", "Settings loaded from file");
+    return true;
   }
+};
+}  // namespace
 
-  CrossPointSettings::validateFrontButtonMapping(s);
-  LOG_DBG("CPS", "Settings loaded from file");
-  return true;
+bool JsonSettingsIO::loadSettingsFromFile(CrossPointSettings& s, HalFile& file) {
+  SettingsParseSession session(s);
+  feedFileIntoSession(session, file);
+  return session.finalize(s);
 }
 
 // ---- WifiCredentialStore ----------------------------------------------------
@@ -589,9 +650,9 @@ void wifiOnArrayEnd(void* p) {
 
 }  // namespace
 
-bool JsonSettingsIO::saveWifi(const WifiCredentialStore& store, const char* path) {
-  std::string json;
-  JsonWriter w(json);
+namespace {
+void buildWifiJson(const WifiCredentialStore& store, JsonSink& sink) {
+  JsonWriter w(sink);
   w.beginObject();
   w.key("lastConnectedSsid");
   w.valueString(store.getLastConnectedSsid());
@@ -607,27 +668,38 @@ bool JsonSettingsIO::saveWifi(const WifiCredentialStore& store, const char* path
   }
   w.endArray();
   w.endObject();
-  return Storage.writeFile(path, json);
+}
+}  // namespace
+
+bool JsonSettingsIO::saveWifi(const WifiCredentialStore& store, const char* path) {
+  HalFile file;
+  if (!Storage.openFileForWrite("WCS", path, file)) return false;
+  HalFileSink sink(file);
+  buildWifiJson(store, sink);
+  return sink.close();
 }
 
-bool JsonSettingsIO::loadWifi(WifiCredentialStore& store, const char* json) {
+namespace {
+struct WifiParseSession {
   WifiLoadCtx ctx;
-  JsonCallbacks cbs{&ctx,    wifiOnKey,         wifiOnString,    nullptr,          nullptr,
-                    nullptr, wifiOnObjectStart, wifiOnObjectEnd, wifiOnArrayStart, wifiOnArrayEnd};
-  StreamingJsonParser parser(cbs);
-  parser.feed(json, strlen(json));
-  if (parser.hasError()) {
+  StreamingJsonParser parser;
+
+  WifiParseSession()
+      : parser({&ctx, wifiOnKey, wifiOnString, nullptr, nullptr, nullptr, wifiOnObjectStart, wifiOnObjectEnd,
+                wifiOnArrayStart, wifiOnArrayEnd}) {}
+};
+}  // namespace
+
+bool JsonSettingsIO::loadWifiFromFile(WifiCredentialStore& store, HalFile& file) {
+  WifiParseSession session;
+  feedFileIntoSession(session, file);
+  if (session.parser.hasError()) {
     LOG_ERR("WCS", "JSON parse error");
     return false;
   }
-
-  // Friend access: commit the accumulated results into the private members.
-  // Move the [0, credCount) prefix into the destination vector; assign()
-  // sizes the vector exactly once via std::distance on the iterator pair.
-  store.credentials.assign(std::make_move_iterator(ctx.creds.begin()),
-                           std::make_move_iterator(ctx.creds.begin() + ctx.credCount));
-  store.lastConnectedSsid = std::move(ctx.lastSsid);
-
+  store.credentials.assign(std::make_move_iterator(session.ctx.creds.begin()),
+                           std::make_move_iterator(session.ctx.creds.begin() + session.ctx.credCount));
+  store.lastConnectedSsid = std::move(session.ctx.lastSsid);
   LOG_DBG("WCS", "Loaded %zu WiFi credentials from file", store.credentials.size());
   return true;
 }
@@ -735,9 +807,9 @@ void recentOnArrayEnd(void* p) {
 
 }  // namespace
 
-bool JsonSettingsIO::saveRecentBooks(const RecentBooksStore& store, const char* path) {
-  std::string json;
-  JsonWriter w(json);
+namespace {
+void buildRecentBooksJson(const RecentBooksStore& store, JsonSink& sink) {
+  JsonWriter w(sink);
   w.beginObject();
   w.key("books");
   w.beginArray();
@@ -755,32 +827,37 @@ bool JsonSettingsIO::saveRecentBooks(const RecentBooksStore& store, const char* 
   }
   w.endArray();
   w.endObject();
-  return Storage.writeFile(path, json);
+}
+}  // namespace
+
+bool JsonSettingsIO::saveRecentBooks(const RecentBooksStore& store, const char* path) {
+  HalFile file;
+  if (!Storage.openFileForWrite("RBS", path, file)) return false;
+  HalFileSink sink(file);
+  buildRecentBooksJson(store, sink);
+  return sink.close();
 }
 
-bool JsonSettingsIO::loadRecentBooks(RecentBooksStore& store, const char* json) {
+namespace {
+struct RecentBooksParseSession {
   RecentBooksLoadCtx ctx;
-  JsonCallbacks cbs{&ctx,
-                    recentOnKey,
-                    recentOnString,
-                    nullptr,
-                    nullptr,
-                    nullptr,
-                    recentOnObjectStart,
-                    recentOnObjectEnd,
-                    recentOnArrayStart,
-                    recentOnArrayEnd};
-  StreamingJsonParser parser(cbs);
-  parser.feed(json, strlen(json));
-  if (parser.hasError()) {
+  StreamingJsonParser parser;
+
+  RecentBooksParseSession()
+      : parser({&ctx, recentOnKey, recentOnString, nullptr, nullptr, nullptr, recentOnObjectStart, recentOnObjectEnd,
+                recentOnArrayStart, recentOnArrayEnd}) {}
+};
+}  // namespace
+
+bool JsonSettingsIO::loadRecentBooksFromFile(RecentBooksStore& store, HalFile& file) {
+  RecentBooksParseSession session;
+  feedFileIntoSession(session, file);
+  if (session.parser.hasError()) {
     LOG_ERR("RBS", "JSON parse error");
     return false;
   }
-
-  // Friend access: commit the [0, bookCount) prefix into the destination
-  // vector. assign() sizes the vector exactly once from the iterator pair.
-  store.recentBooks.assign(std::make_move_iterator(ctx.books.begin()),
-                           std::make_move_iterator(ctx.books.begin() + ctx.bookCount));
+  store.recentBooks.assign(std::make_move_iterator(session.ctx.books.begin()),
+                           std::make_move_iterator(session.ctx.books.begin() + session.ctx.bookCount));
   LOG_DBG("RBS", "Recent books loaded from file (%d entries)", store.getCount());
   return true;
 }

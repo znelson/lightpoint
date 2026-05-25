@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "lib/JsonIO/JsonSink.h"
 #include "lib/JsonIO/JsonWriter.h"
 #include "lib/JsonIO/StreamingJsonParser.h"
 
@@ -13,7 +14,8 @@ namespace {
 // caller-owned buffer for direct comparison.
 std::string emit(void (*build)(JsonWriter&)) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   build(w);
   return out;
 }
@@ -24,7 +26,8 @@ std::string emit(void (*build)(JsonWriter&)) {
 
 TEST(JsonWriter, EmptyObject) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.endObject();
   EXPECT_EQ(out, "{}");
@@ -32,7 +35,8 @@ TEST(JsonWriter, EmptyObject) {
 
 TEST(JsonWriter, EmptyArray) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.endArray();
   EXPECT_EQ(out, "[]");
@@ -40,7 +44,8 @@ TEST(JsonWriter, EmptyArray) {
 
 TEST(JsonWriter, SingleStringMember) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("k");
   w.valueString("v");
@@ -50,7 +55,8 @@ TEST(JsonWriter, SingleStringMember) {
 
 TEST(JsonWriter, MultipleMembers) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("a");
   w.valueInt(1);
@@ -64,7 +70,8 @@ TEST(JsonWriter, MultipleMembers) {
 
 TEST(JsonWriter, ArrayOfNumbers) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.valueInt(1);
   w.valueInt(2);
@@ -75,7 +82,8 @@ TEST(JsonWriter, ArrayOfNumbers) {
 
 TEST(JsonWriter, ArrayOfStrings) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.valueString("a");
   w.valueString("b");
@@ -85,7 +93,8 @@ TEST(JsonWriter, ArrayOfStrings) {
 
 TEST(JsonWriter, NestedObjectInArray) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.beginObject();
   w.key("k");
@@ -97,7 +106,8 @@ TEST(JsonWriter, NestedObjectInArray) {
 
 TEST(JsonWriter, NestedArrayInObject) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("items");
   w.beginArray();
@@ -110,7 +120,8 @@ TEST(JsonWriter, NestedArrayInObject) {
 
 TEST(JsonWriter, MultipleObjectsInArray) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   for (int i = 0; i < 3; ++i) {
     w.beginObject();
@@ -126,7 +137,8 @@ TEST(JsonWriter, MultipleObjectsInArray) {
 
 TEST(JsonWriter, BoolValues) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("t");
   w.valueBool(true);
@@ -138,7 +150,8 @@ TEST(JsonWriter, BoolValues) {
 
 TEST(JsonWriter, IntValues) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.valueInt(0);
   w.valueInt(-1);
@@ -150,7 +163,8 @@ TEST(JsonWriter, IntValues) {
 
 TEST(JsonWriter, UIntValues) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.valueUInt(0);
   w.valueUInt(255);
@@ -161,7 +175,8 @@ TEST(JsonWriter, UIntValues) {
 
 TEST(JsonWriter, NullValue) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("x");
   w.valueNull();
@@ -173,7 +188,8 @@ TEST(JsonWriter, NullValue) {
 
 TEST(JsonWriter, EscapesQuoteAndBackslash) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("k");
   w.valueString(std::string("a\"b\\c"));
@@ -184,7 +200,8 @@ TEST(JsonWriter, EscapesQuoteAndBackslash) {
 
 TEST(JsonWriter, EscapesControlChars) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.valueString(std::string("\b"));
   w.valueString(std::string("\f"));
@@ -198,7 +215,8 @@ TEST(JsonWriter, EscapesControlChars) {
 TEST(JsonWriter, EscapesOtherC0AsUnicodeEscape) {
   // Control bytes 0x00-0x1F that don't have a short escape must use \u00XX.
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginArray();
   w.valueString(std::string(1, '\x01'));
   w.valueString(std::string(1, '\x1F'));
@@ -210,7 +228,8 @@ TEST(JsonWriter, PassesThroughRawUtf8) {
   // High-bit bytes (UTF-8 continuation / lead) must pass through unescaped.
   // Input: "café" -> 63 61 66 C3 A9
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("k");
   w.valueString(std::string("caf\xC3\xA9"));
@@ -220,7 +239,8 @@ TEST(JsonWriter, PassesThroughRawUtf8) {
 
 TEST(JsonWriter, EscapesInsideKeys) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("a\"b");
   w.valueInt(1);
@@ -230,7 +250,8 @@ TEST(JsonWriter, EscapesInsideKeys) {
 
 TEST(JsonWriter, EmptyStringValue) {
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("k");
   w.valueString("");
@@ -291,7 +312,8 @@ TEST(JsonWriter, OutputParsesBackToSameEvents) {
   // Build a non-trivial document, then feed it through StreamingJsonParser
   // and check that the event stream matches what we emitted.
   std::string out;
-  JsonWriter w(out);
+  StringSink sink(out);
+  JsonWriter w(sink);
   w.beginObject();
   w.key("name");
   w.valueString(std::string("ca\xC3\xA9"));  // café-style UTF-8
