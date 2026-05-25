@@ -96,7 +96,11 @@ bool HalStorage::begin() {
 
 bool HalStorage::ready() const { return sdInitialized; }
 
-// For the rest of the methods, we acquire the mutex to ensure thread safety
+// FatFS (FF_FS_REENTRANT=1) takes its own per-volume mutex around each VFS call, so
+// single-call wrappers below are already serialized and don't take StorageLock.
+// StorageLock wraps only compound operations whose atomicity matters: stat+open and
+// stat+mkdir (TOCTOU), opendir+readdir loops (snapshot consistency), and multi-step
+// file lifecycles (open+read+close, fclose+rename, close, openNextFile).
 
 class HalStorage::StorageLock {
  public:
@@ -195,31 +199,22 @@ bool HalStorage::ensureDirectoryExists(const char* path) {
 }
 
 bool HalStorage::mkdir(const char* path, const bool /*pFlag*/) {
-  StorageLock lock;
   const std::string fullPath = sdPath(path);
   return ::mkdir(fullPath.c_str(), 0777) == 0;
 }
 
 bool HalStorage::exists(const char* path) {
-  StorageLock lock;
   struct stat st;
   return stat(sdPath(path).c_str(), &st) == 0;
 }
 
-bool HalStorage::remove(const char* path) {
-  StorageLock lock;
-  return ::remove(sdPath(path).c_str()) == 0;
-}
+bool HalStorage::remove(const char* path) { return ::remove(sdPath(path).c_str()) == 0; }
 
 bool HalStorage::rename(const char* oldPath, const char* newPath) {
-  StorageLock lock;
   return ::rename(sdPath(oldPath).c_str(), sdPath(newPath).c_str()) == 0;
 }
 
-bool HalStorage::rmdir(const char* path) {
-  StorageLock lock;
-  return ::rmdir(sdPath(path).c_str()) == 0;
-}
+bool HalStorage::rmdir(const char* path) { return ::rmdir(sdPath(path).c_str()) == 0; }
 
 bool HalStorage::removeDir(const char* path) {
   StorageLock lock;
@@ -273,7 +268,6 @@ HalFile HalStorage::open(const char* path, const oflag_t oflag) {
 }
 
 bool HalStorage::openFileForRead(const char* /*moduleName*/, const char* path, HalFile& file) {
-  StorageLock lock;
   const std::string full = sdPath(path);
   auto newImpl = std::make_unique<HalFile::Impl>();
   newImpl->fp = fopen(full.c_str(), "r");
@@ -290,7 +284,6 @@ bool HalStorage::openFileForRead(const char* moduleName, const std::string& path
 }
 
 bool HalStorage::openFileForWrite(const char* /*moduleName*/, const char* path, HalFile& file) {
-  StorageLock lock;
   const std::string full = sdPath(path);
   auto newImpl = std::make_unique<HalFile::Impl>();
   newImpl->fp = fopen(full.c_str(), "w");
@@ -311,12 +304,10 @@ bool HalStorage::openFileForWrite(const char* moduleName, const std::string& pat
 #define HAL_FILE_LOCK HalStorage::StorageLock lock;
 
 void HalFile::flush() {
-  HAL_FILE_LOCK
   if (impl && impl->fp) fflush(impl->fp);
 }
 
 size_t HalFile::getName(char* name, size_t len) {
-  HAL_FILE_LOCK
   if (!impl || !name || len == 0) return 0;
   const size_t n = strnlen(impl->name, sizeof(impl->name));
   const size_t copy = n < len ? n : len - 1;
@@ -343,17 +334,14 @@ uint64_t HalFile::fileSize64() { return static_cast<uint64_t>(fileSize()); }
 
 bool HalFile::seek(size_t pos) { return seekSet(pos); }
 bool HalFile::seek64(uint64_t pos) {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return false;
   return fseek(impl->fp, static_cast<long>(pos), SEEK_SET) == 0;
 }
 bool HalFile::seekCur(int64_t offset) {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return false;
   return fseek(impl->fp, static_cast<long>(offset), SEEK_CUR) == 0;
 }
 bool HalFile::seekSet(size_t offset) {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return false;
   return fseek(impl->fp, static_cast<long>(offset), SEEK_SET) == 0;
 }
@@ -369,29 +357,24 @@ int HalFile::available() const {
 }
 
 size_t HalFile::position() const {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return 0;
   return static_cast<size_t>(ftell(impl->fp));
 }
 
 int HalFile::read(void* buf, size_t count) {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return -1;
   return static_cast<int>(fread(buf, 1, count, impl->fp));
 }
 int HalFile::read() {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return -1;
   return fgetc(impl->fp);
 }
 
 size_t HalFile::write(const void* buf, size_t count) {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return 0;
   return fwrite(buf, 1, count, impl->fp);
 }
 size_t HalFile::write(uint8_t b) {
-  HAL_FILE_LOCK
   if (!impl || !impl->fp) return 0;
   // fwrite, not fputc: picolibc's __bufio_put writes buf[bf->len] BEFORE
   // checking overflow, so if entered with bf->len == bf->size it scribbles
@@ -416,7 +399,6 @@ bool HalFile::isDirectory() const {
 }
 
 void HalFile::rewindDirectory() {
-  HAL_FILE_LOCK
   if (impl && impl->dir) rewinddir(impl->dir);
 }
 
