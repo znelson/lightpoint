@@ -145,59 +145,6 @@ std::string HalStorage::readFile(const char* path) {
   return content;
 }
 
-bool HalStorage::readFileToStream(const char* path, Print& out, size_t chunkSize) {
-  StorageLock lock;
-  const std::string fullPath = sdPath(path);
-  FILE* fp = fopen(fullPath.c_str(), "r");
-  if (!fp) return false;
-  constexpr size_t localBufSize = 256;
-  uint8_t buf[localBufSize];
-  const size_t toRead = (chunkSize == 0 || chunkSize > localBufSize) ? localBufSize : chunkSize;
-  while (true) {
-    const size_t r = fread(buf, 1, toRead, fp);
-    if (r > 0)
-      out.write(buf, r);
-    else
-      break;
-  }
-  fclose(fp);
-  return true;
-}
-
-size_t HalStorage::readFileToBuffer(const char* path, char* buffer, size_t bufferSize, size_t maxBytes) {
-  StorageLock lock;
-  if (!buffer || bufferSize == 0) return 0;
-  const std::string fullPath = sdPath(path);
-  FILE* fp = fopen(fullPath.c_str(), "r");
-  if (!fp) {
-    buffer[0] = '\0';
-    return 0;
-  }
-  const size_t maxToRead = (maxBytes == 0) ? (bufferSize - 1) : std::min(maxBytes, bufferSize - 1);
-  const size_t r = fread(buffer, 1, maxToRead, fp);
-  buffer[r] = '\0';
-  fclose(fp);
-  return r;
-}
-
-bool HalStorage::writeFile(const char* path, const std::string& content) {
-  StorageLock lock;
-  const std::string fullPath = sdPath(path);
-  FILE* fp = fopen(fullPath.c_str(), "w");
-  if (!fp) return false;
-  const size_t written = fwrite(content.data(), 1, content.size(), fp);
-  fclose(fp);
-  return written == content.size();
-}
-
-bool HalStorage::ensureDirectoryExists(const char* path) {
-  StorageLock lock;
-  const std::string fullPath = sdPath(path);
-  struct stat st;
-  if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) return true;
-  return ::mkdir(fullPath.c_str(), 0777) == 0;
-}
-
 bool HalStorage::mkdir(const char* path, const bool /*pFlag*/) {
   const std::string fullPath = sdPath(path);
   return ::mkdir(fullPath.c_str(), 0777) == 0;
