@@ -76,7 +76,7 @@ class HalFileSink final : public JsonSink {
   void flushIfNonEmpty();
 
   HalFile& file_;
-  char buf_[BUF_SIZE];
+  char buf_[BUF_SIZE] = {};
   size_t used_;
   bool ok_;
   bool closed_;
