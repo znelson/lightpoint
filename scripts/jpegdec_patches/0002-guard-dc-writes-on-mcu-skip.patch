@@ -16,7 +16,7 @@ index 26bcf6f..1bd38b2 100644
                  //            (*iDCPredictor) |= iPositive;  // in case the scan is run more than once
                  //            pMCU[0] = *iDCPredictor; // store in MCU[0]
 -                pMCU[0] |= iPositive;
-+                // CrossPoint patch: guard against MCU_SKIP. The pMCU
++                // LightPoint patch: guard against MCU_SKIP. The pMCU
 +                // redirect makes &sMCUs[0] safe to dereference, but
 +                // writing here would clobber the just-decoded Y DC.
 +                if (iMCU >= 0)
@@ -29,7 +29,7 @@ index 26bcf6f..1bd38b2 100644
              (*iDCPredictor) += ulCode;
          }
 -        pMCU[0] = (short)*iDCPredictor; // store in MCU[0]
-+        // CrossPoint patch: guard against MCU_SKIP. See note on the
++        // LightPoint patch: guard against MCU_SKIP. See note on the
 +        // matching SA write above.
 +        if (iMCU >= 0)
 +            pMCU[0] = (short)*iDCPredictor; // store in MCU[0]

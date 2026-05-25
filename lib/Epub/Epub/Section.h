@@ -3,7 +3,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
+#include "Chapter.h"
 #include "Epub.h"
 
 class Page;
@@ -14,12 +16,21 @@ class Section {
   const int spineIndex;
   GfxRenderer& renderer;
   std::string filePath;
-  FsFile file;
+  HalFile file;
 
   void writeSectionFileHeader(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
                               uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled,
                               bool embeddedStyle, uint8_t imageRendering, bool focusReadingEnabled);
   uint32_t onPageComplete(std::unique_ptr<Page> page);
+
+  // Chapter boundaries within this spine. Each entry has spineIndex == this Section's spineIndex.
+  // For 1:1 layouts (no in-spine anchors), this stays empty and getTocIndexForPage falls back
+  // to epub->getTocIndexForSpineIndex.
+  std::vector<Chapter> tocBoundaries;
+
+  void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, int startTocIndex,
+                          uint16_t totalEntries, uint16_t unresolvedCount);
+  void buildTocBoundariesFromFile(HalFile& f);
 
  public:
   uint16_t pageCount = 0;
@@ -40,6 +51,15 @@ class Section {
                          uint8_t imageRendering, bool focusReadingEnabled,
                          const std::function<void()>& popupFn = nullptr);
   std::unique_ptr<Page> loadPageFromSectionFile();
+
+  // Given a page in this section, return the TOC index for that page.
+  int getTocIndexForPage(int page) const;
+  // Given a TOC index, return the start page in this section.
+  // Returns nullopt if the TOC index doesn't map to a boundary in this spine (e.g. belongs to a different spine).
+  std::optional<int> getPageForTocIndex(int tocIndex) const;
+
+  // Returns the Chapter (with startPage inclusive, endPage exclusive) belonging to the given TOC index.
+  std::optional<Chapter> getPageRangeForTocIndex(int tocIndex) const;
 
   // Look up the page number for an anchor id from the section cache file.
   std::optional<uint16_t> getPageForAnchor(const std::string& anchor) const;

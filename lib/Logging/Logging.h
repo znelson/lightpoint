@@ -1,6 +1,6 @@
 #pragma once
 
-#include <HardwareSerial.h>
+#include <Print.h>
 
 #include <string>
 
@@ -14,20 +14,16 @@ Define LOG_LEVEL to control log verbosity:
 2 = ERR + INF + DBG
 If not defined, defaults to 0
 
-If you have a legitimate need for raw Serial access (e.g., binary data,
-special formatting), use the underlying logSerial object directly:
-    logSerial.printf("Special case: %d\n", value);
+For raw serial access (e.g., binary data, special formatting), use the
+logSerial object directly:
     logSerial.write(binaryData, length);
 
-The logSerial reference (defined below) points to the real Serial object and
-won't trigger deprecation warnings.
+logSerial is MySerialImpl::instance and can be used anywhere Serial is needed.
 */
 
 #ifndef LOG_LEVEL
 #define LOG_LEVEL 0
 #endif
-
-static HWCDC& logSerial = Serial;
 
 void logPrintf(const char* level, const char* origin, const char* format, ...);
 
@@ -57,6 +53,17 @@ void logPrintf(const char* level, const char* origin, const char* format, ...);
 
 std::string getLastLogs();
 void clearLastLogs();
+
+// Public so the esp_rom_printf hook can push CORRUPT HEAP messages from
+// inside ESP-IDF into the crash-report ring buffer.
+void addToLogRingBuffer(const char* message);
+
+// Installs a putc on esp_rom_printf channel 2 that pushes complete lines into
+// the crash-report ring buffer. Call once during setup. No-op in slim builds.
+#ifdef ENABLE_SERIAL_LOG
+void installRomPrintfHook();
+#endif
+
 // Validates the RTC log state (magic word + logHead range). Returns true if
 // corruption was detected (magic mismatch or logHead out of range), meaning
 // logMessages is untrusted garbage. Callers should call clearLastLogs() when
@@ -65,20 +72,15 @@ bool sanitizeLogHead();
 
 class MySerialImpl : public Print {
  public:
-  void begin(unsigned long baud) { logSerial.begin(baud); }
-
-  // Support boolean conversion for compatibility with code like:
-  //   if (Serial) or while (!Serial)
-  operator bool() const { return logSerial; }
-
-  __attribute__((deprecated("Use LOG_* macro instead"))) size_t printf(const char* format, ...);
+  void begin(unsigned long baud);
+  operator bool() const;
+  int available();
+  size_t readBytesUntil(char delim, char* buf, size_t maxLen);
   size_t write(uint8_t b) override;
   size_t write(const uint8_t* buffer, size_t size) override;
   void flush() override;
   static MySerialImpl instance;
 };
+inline MySerialImpl MySerialImpl::instance;
 
-#ifdef Serial
-#undef Serial
-#endif
-#define Serial MySerialImpl::instance
+#define logSerial MySerialImpl::instance

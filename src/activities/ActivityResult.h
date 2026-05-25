@@ -1,7 +1,10 @@
 #pragma once
 
+#include <Epub/Chapter.h>
+
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -20,11 +23,6 @@ struct KeyboardResult {
 struct MenuResult {
   int action = -1;
   uint8_t orientation = 0;
-  uint8_t pageTurnOption = 0;
-};
-
-struct ChapterResult {
-  int spineIndex = 0;
 };
 
 struct PercentResult {
@@ -35,17 +33,6 @@ struct PageResult {
   uint32_t page = 0;
 };
 
-struct SyncResult {
-  int spineIndex = 0;
-  int page = 0;
-};
-
-enum class NetworkMode;
-
-struct NetworkModeResult {
-  NetworkMode mode;
-};
-
 struct FootnoteResult {
   std::string href;
 };
@@ -54,8 +41,8 @@ struct FilePathResult {
   std::string path;
 };
 
-using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   PageResult, SyncResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterTarget, PercentResult,
+                                   PageResult, FootnoteResult, FilePathResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

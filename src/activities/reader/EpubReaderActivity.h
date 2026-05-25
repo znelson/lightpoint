@@ -4,6 +4,7 @@
 #include <Epub/Section.h>
 
 #include <optional>
+#include <vector>
 
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
@@ -13,6 +14,9 @@ class EpubReaderActivity final : public Activity {
   std::unique_ptr<Section> section = nullptr;
   int currentSpineIndex = 0;
   int nextPageNumber = 0;
+  // Set when navigating to a TOC entry in a different spine (chapter skip or chapter selector).
+  // Cleared on the next render after the new section loads and resolves it to a page.
+  std::optional<int> pendingTocIndex;
   std::optional<uint16_t> pendingPageJump;
   // Set when navigating to a footnote href with a fragment (e.g. #note1).
   // Cleared on the next render after the new section loads and resolves it to a page.
@@ -20,23 +24,28 @@ class EpubReaderActivity final : public Activity {
   int pagesUntilFullRefresh = 0;
   int cachedSpineIndex = 0;
   int cachedChapterTotalPageCount = 0;
-  unsigned long lastPageTurnTime = 0UL;
-  unsigned long pageTurnDuration = 0UL;
   // Signals that the next render should reposition within the newly loaded section
   // based on a cross-book percentage jump.
   bool pendingPercentJump = false;
   // Normalized 0.0-1.0 progress within the target spine item, computed from book percentage.
   float pendingSpineProgress = 0.0f;
   bool pendingScreenshot = false;
-  bool pendingSyncSaveError = false;
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
-  bool automaticPageTurnActive = false;
   // Tracks whether this book is currently removed from Recent Books by the
   // removeReadBooksFromRecents feature (set at End-of-Book, cleared if paged back in).
   bool recentsEntryRemoved = false;
   // Set when the reader is left at end-of-book and SETTINGS.moveFinishedToReadFolder is on.
   // Consumed in onExit() to relocate the finished book into /Read/.
   bool pendingReadFolderMove = false;
+
+  // Chapter-level page info aggregated across spine items sharing a TOC entry. `segments`
+  // contains one Chapter per spine that the current chapter spans, in spine order. `tocIndex`
+  // identifies which chapter the segments describe; nullopt means stale/uninitialized.
+  struct ChapterPageInfo {
+    std::optional<int> tocIndex;
+    std::vector<Chapter> segments;
+  };
+  ChapterPageInfo chapterPageInfo;
 
   // Footnote support
   std::vector<FootnoteEntry> currentPageFootnotes;
@@ -57,7 +66,16 @@ class EpubReaderActivity final : public Activity {
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   void applyOrientation(uint8_t orientation);
-  void toggleAutoPageTurn(uint8_t selectedPageTurnOption);
+  // Load the current section and build caches for all spine items in its TOC chapter.
+  // Returns false if the current section could not be loaded or built.
+  bool prepareSection(uint16_t viewportWidth, uint16_t viewportHeight);
+  // Returns the chapter-relative page number for the current position. Computes a running
+  // sum over chapterPageInfo.segments to find the segment matching currentSpineIndex, then
+  // adds the in-spine offset. Falls back to section->currentPage when no segment matches.
+  int getChapterRelativePage() const;
+  // Returns the total page count of the current chapter (sum of segment ranges), or the
+  // current section's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
+  int getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
 
   // Footnote navigation
