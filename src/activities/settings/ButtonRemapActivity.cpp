@@ -69,18 +69,18 @@ void ButtonRemapActivity::loop() {
     RenderLock lock(*this);
 
     // Wait for a front button press to assign to the current role.
-    const int pressedButton = mappedInput.getPressedFrontButton();
-    if (pressedButton < 0) {
+    const auto pressedButton = mappedInput.getPressedFrontButton();
+    if (!pressedButton) {
       return;
     }
 
     // Update temporary mapping and advance the remap step.
     // Only accept the press if this hardware button isn't already assigned elsewhere.
-    if (!validateUnassigned(static_cast<uint8_t>(pressedButton))) {
+    if (!validateUnassigned(*pressedButton)) {
       requestUpdate();
       return;
     }
-    tempMapping[currentStep] = static_cast<uint8_t>(pressedButton);
+    tempMapping[currentStep] = *pressedButton;
     currentStep++;
 
     if (currentStep >= kRoleCount) {

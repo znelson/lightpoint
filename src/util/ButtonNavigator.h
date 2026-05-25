@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <vector>
 
 #include "MappedInputManager.h"
@@ -11,7 +12,7 @@ class ButtonNavigator final {
 
   const uint16_t continuousStartMs;
   const uint16_t continuousIntervalMs;
-  uint32_t lastContinuousNavTime = 0;
+  std::optional<uint32_t> lastContinuousNavTime;
   static const MappedInputManager* mappedInput;
 
   [[nodiscard]] bool shouldNavigateContinuously() const;

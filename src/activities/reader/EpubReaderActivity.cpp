@@ -230,8 +230,8 @@ void EpubReaderActivity::loop() {
                              // Always apply orientation change even if the menu was cancelled
                              const auto& menu = std::get<MenuResult>(result.data);
                              applyOrientation(menu.orientation);
-                             if (!result.isCancelled) {
-                               onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(menu.action));
+                             if (!result.isCancelled && menu.action) {
+                               onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(*menu.action));
                              }
                            });
   }
