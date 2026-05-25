@@ -49,11 +49,11 @@ void ButtonNavigator::onRelease(const Buttons& buttons, const Callback& callback
   });
 
   if (wasReleased) {
-    if (lastContinuousNavTime == 0) {
+    if (!lastContinuousNavTime) {
       callback();
     }
 
-    lastContinuousNavTime = 0;
+    lastContinuousNavTime.reset();
   }
 }
 
@@ -72,7 +72,8 @@ bool ButtonNavigator::shouldNavigateContinuously() const {
   if (!mappedInput) return false;
 
   const bool buttonHeldLongEnough = mappedInput->getHeldTime() > continuousStartMs;
-  const bool navigationIntervalElapsed = (halPlatform.millis() - lastContinuousNavTime) > continuousIntervalMs;
+  const bool navigationIntervalElapsed =
+      !lastContinuousNavTime || (halPlatform.millis() - *lastContinuousNavTime) > continuousIntervalMs;
 
   return buttonHeldLongEnough && navigationIntervalElapsed;
 }

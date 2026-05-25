@@ -21,7 +21,7 @@ struct KeyboardResult {
 };
 
 struct MenuResult {
-  int action = -1;
+  std::optional<int> action;
   uint8_t orientation = 0;
 };
 

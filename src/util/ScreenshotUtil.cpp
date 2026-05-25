@@ -32,10 +32,11 @@ void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t
   if (pct < 0) pct = 0;
   if (pct > 100) pct = 100;
 
+  const bool hasChapter = info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex.has_value();
   // Display spine index as 1-based for user-facing filenames
-  const int chapterNum = info.spineIndex + 1;
+  const int chapterNum = hasChapter ? *info.spineIndex + 1 : 0;
 
-  if (info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex >= 0) {
+  if (hasChapter) {
     snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
              info.currentPage, pct, ts);
   } else {
@@ -54,7 +55,7 @@ void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t
         maxTitleLen--;
       }
       sanitizedTitle[maxTitleLen] = '\0';
-      if (info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex >= 0) {
+      if (hasChapter) {
         snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
                  info.currentPage, pct, ts);
       } else {

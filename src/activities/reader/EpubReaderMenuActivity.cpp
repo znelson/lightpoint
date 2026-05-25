@@ -68,7 +68,7 @@ void EpubReaderMenuActivity::loop() {
   } else if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;
     result.isCancelled = true;
-    result.data = MenuResult{-1, pendingOrientation};
+    result.data = MenuResult{std::nullopt, pendingOrientation};
     setResult(std::move(result));
     finish();
     return;
