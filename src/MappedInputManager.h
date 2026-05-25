@@ -21,8 +21,6 @@ class MappedInputManager {
   bool wasPressed(Button button) const;
   bool wasReleased(Button button) const;
   bool isPressed(Button button) const;
-  bool wasAnyPressed() const;
-  bool wasAnyReleased() const;
   uint32_t getHeldTime() const;
   Labels mapLabels(const char* back, const char* confirm, const char* previous, const char* next) const;
   // Returns the raw front button index that was pressed this frame, or std::nullopt if none.

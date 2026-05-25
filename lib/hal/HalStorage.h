@@ -27,17 +27,6 @@ class HalStorage {
   std::vector<std::string> listFiles(const char* path = "/", int maxFiles = 200);
   // Read the entire file at `path` into a string. Returns empty string on failure.
   std::string readFile(const char* path);
-  // Low-memory helpers:
-  // Stream the file contents to a `Print` (e.g. `Serial`, or any `Print`-derived object).
-  // Returns true on success, false on failure.
-  bool readFileToStream(const char* path, Print& out, size_t chunkSize = 256);
-  // Read up to `bufferSize-1` bytes into `buffer`, null-terminating it. Returns bytes read.
-  size_t readFileToBuffer(const char* path, char* buffer, size_t bufferSize, size_t maxBytes = 0);
-  // Write a string to `path` on the SD card. Overwrites existing file.
-  // Returns true on success.
-  bool writeFile(const char* path, const std::string& content);
-  // Ensure a directory exists, creating it if necessary. Returns true on success.
-  bool ensureDirectoryExists(const char* path);
 
   HalFile open(const char* path, oflag_t oflag = O_RDONLY);
   bool mkdir(const char* path, bool pFlag = true);
