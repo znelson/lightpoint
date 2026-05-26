@@ -10,12 +10,12 @@
 // from Print (~HalFile, write(uint8_t), flush) must be defined regardless
 // because the vtable references them.
 
-#include "HalStorageTestApi.h"
-
 #include <cstring>
 #include <string>
 #include <unordered_map>
 #include <utility>
+
+#include "HalStorageTestApi.h"
 
 namespace {
 std::unordered_map<std::string, std::string> readContents;
@@ -31,9 +31,7 @@ class HalFile::Impl {
 
 namespace test_stubs {
 
-void seedHalFileContent(const std::string& path, std::string content) {
-  readContents[path] = std::move(content);
-}
+void seedHalFileContent(const std::string& path, std::string content) { readContents[path] = std::move(content); }
 
 void clearHalFileContent() { readContents.clear(); }
 
