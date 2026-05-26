@@ -105,8 +105,27 @@ class CssParser {
   bool loadFromCache();
 
  private:
+  // Transparent hash/equal so find() can accept std::string_view without
+  // materializing a temporary std::string. Both routes go through
+  // std::hash<std::string_view> to guarantee identical hashes regardless of
+  // the lookup key type.
+  struct SvHash {
+    using is_transparent = void;
+    size_t operator()(std::string_view sv) const noexcept { return std::hash<std::string_view>{}(sv); }
+    size_t operator()(const std::string& s) const noexcept {
+      return std::hash<std::string_view>{}(std::string_view(s));
+    }
+  };
+  struct SvEqual {
+    using is_transparent = void;
+    bool operator()(std::string_view a, std::string_view b) const noexcept { return a == b; }
+    bool operator()(const std::string& a, std::string_view b) const noexcept { return std::string_view(a) == b; }
+    bool operator()(std::string_view a, const std::string& b) const noexcept { return a == std::string_view(b); }
+    bool operator()(const std::string& a, const std::string& b) const noexcept { return a == b; }
+  };
+
   // Storage: maps normalized selector -> style properties
-  std::unordered_map<std::string, CssStyle> rulesBySelector_;
+  std::unordered_map<std::string, CssStyle, SvHash, SvEqual> rulesBySelector_;
 
   std::string cachePath;
 
