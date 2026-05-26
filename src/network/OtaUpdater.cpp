@@ -1,13 +1,12 @@
 #include "OtaUpdater.h"
 
+#include <HalPlatform.h>
 #include <HalWifi.h>
 #include <Logging.h>
 #include <ReleaseJsonParser.h>
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
 #include <esp_https_ota.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 namespace {
 constexpr char latestReleaseUrl[] = "https://api.github.com/repos/znelson/lightpoint/releases/latest";
@@ -197,7 +196,7 @@ OtaUpdater::OtaUpdaterError OtaUpdater::installUpdate(ProgressCallback onProgres
         onProgress(ctx);
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(100));  // TODO: should we replace this with something better?
+    halPlatform.delay(100);  // TODO: should we replace this with something better?
   } while (esp_err == ESP_ERR_HTTPS_OTA_IN_PROGRESS);
 
   halWifi.setPowerSave(true);

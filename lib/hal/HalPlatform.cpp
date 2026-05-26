@@ -5,11 +5,15 @@
 #include <esp_random.h>
 #include <esp_system.h>
 #include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 HalPlatform halPlatform;  // Singleton instance
 
 uint32_t HalPlatform::millis() const { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 uint32_t HalPlatform::micros() const { return static_cast<uint32_t>(esp_timer_get_time()); }
+
+void HalPlatform::delay(uint32_t ms) const { vTaskDelay(pdMS_TO_TICKS(ms)); }
 
 uint32_t HalPlatform::freeHeap() const { return esp_get_free_heap_size(); }
 uint32_t HalPlatform::minFreeHeap() const { return esp_get_minimum_free_heap_size(); }

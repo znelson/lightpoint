@@ -6,8 +6,6 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 #include "MappedInputManager.h"
 #include "activities/home/FileBrowserActivity.h"
@@ -182,7 +180,7 @@ void SdFirmwareUpdateActivity::performUpdate() {
     state = State::SUCCESS;
   }
   requestUpdateAndWait();
-  vTaskDelay(pdMS_TO_TICKS(1500));
+  halPlatform.delay(1500);
   halPlatform.hardRestart();
 }
 

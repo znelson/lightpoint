@@ -2,12 +2,11 @@
 
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Serialization.h>
 #include <Utf8.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
@@ -164,7 +163,7 @@ void TxtReaderActivity::buildPageIndex() {
 
     // Yield to other tasks periodically
     if (pageOffsets.size() % 20 == 0) {
-      vTaskDelay(1);
+      halPlatform.delay(1);
     }
   }
 

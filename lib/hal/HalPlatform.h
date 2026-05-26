@@ -8,6 +8,9 @@ class HalPlatform {
   uint32_t millis() const;
   uint32_t micros() const;
 
+  // Block the current task for `ms` milliseconds.
+  void delay(uint32_t ms) const;
+
   // Heap introspection
   uint32_t freeHeap() const;
   uint32_t minFreeHeap() const;

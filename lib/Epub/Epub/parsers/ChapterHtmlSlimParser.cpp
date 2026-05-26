@@ -10,8 +10,6 @@
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 #include <algorithm>
 #include <iterator>
@@ -418,7 +416,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
               extractSuccess = self->epub->readItemContentsToStream(resolvedPath, cachedImageFile, 4096);
               cachedImageFile.flush();
               cachedImageFile.close();
-              vTaskDelay(pdMS_TO_TICKS(50));  // Give SD card time to sync
+              halPlatform.delay(50);  // Give SD card time to sync
             }
 
             if (extractSuccess) {

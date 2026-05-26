@@ -8,8 +8,6 @@
 #include <I18n.h>
 #include <Txt.h>
 #include <Xtc.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
 #include <cmath>
 
@@ -137,7 +135,7 @@ void SleepActivity::renderCustomSleepScreen() const {
       HalFile randFile;
       if (halStorage.openFileForRead("SLP", filename, randFile)) {
         LOG_DBG("SLP", "Randomly loading: %s/%s", sleepDir, files[randomFileIndex].c_str());
-        vTaskDelay(pdMS_TO_TICKS(100));
+        halPlatform.delay(100);
         Bitmap bitmap(randFile, true);
         if (bitmap.parseHeaders() == BmpReaderError::Ok) {
           renderBitmapSleepScreen(bitmap);
