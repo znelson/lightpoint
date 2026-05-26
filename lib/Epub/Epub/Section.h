@@ -28,8 +28,8 @@ class Section {
   // to epub->getTocIndexForSpineIndex.
   std::vector<Chapter> tocBoundaries;
 
-  void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, int startTocIndex,
-                          uint16_t totalEntries, uint16_t unresolvedCount);
+  void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors,
+                          std::optional<int> startTocIndex, uint16_t totalEntries, uint16_t unresolvedCount);
   void buildTocBoundariesFromFile(HalFile& f);
 
  public:
@@ -52,8 +52,9 @@ class Section {
                          const std::function<void()>& popupFn = nullptr);
   std::unique_ptr<Page> loadPageFromSectionFile();
 
-  // Given a page in this section, return the TOC index for that page.
-  int getTocIndexForPage(int page) const;
+  // Given a page in this section, return the TOC index for that page, or nullopt for
+  // pre-TOC orphan spines (e.g. cover pages) where no chapter applies.
+  std::optional<int> getTocIndexForPage(int page) const;
   // Given a TOC index, return the start page in this section.
   // Returns nullopt if the TOC index doesn't map to a boundary in this spine (e.g. belongs to a different spine).
   std::optional<int> getPageForTocIndex(int tocIndex) const;

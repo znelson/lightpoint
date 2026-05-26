@@ -831,27 +831,33 @@ int Epub::getTocItemsCount() const {
 }
 
 // work out the section index for a toc index
-int Epub::getSpineIndexForTocIndex(const int tocIndex) const {
+std::optional<int> Epub::getSpineIndexForTocIndex(const int tocIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_ERR("EBP", "getSpineIndexForTocIndex called but cache not loaded");
-    return 0;
+    return std::nullopt;
   }
 
   if (tocIndex < 0 || tocIndex >= bookMetadataCache->getTocCount()) {
     LOG_ERR("EBP", "getSpineIndexForTocIndex: tocIndex %d out of range", tocIndex);
-    return 0;
+    return std::nullopt;
   }
 
   const int spineIndex = bookMetadataCache->getTocEntry(tocIndex).spineIndex;
   if (spineIndex < 0) {
     LOG_DBG("EBP", "Section not found for TOC index %d", tocIndex);
-    return 0;
+    return std::nullopt;
   }
 
   return spineIndex;
 }
 
-int Epub::getTocIndexForSpineIndex(const int spineIndex) const { return getSpineItem(spineIndex).tocIndex; }
+std::optional<int> Epub::getTocIndexForSpineIndex(const int spineIndex) const {
+  const int stored = getSpineItem(spineIndex).tocIndex;
+  // The on-disk int16_t storage uses -1 as the no-TOC sentinel (see sentinel-audit.md
+  // Category 5). Convert at the API boundary so callers don't propagate the sentinel.
+  if (stored < 0) return std::nullopt;
+  return stored;
+}
 
 std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const int tocIndex) const {
   const int tocCount = getTocItemsCount();

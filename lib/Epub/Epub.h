@@ -67,8 +67,13 @@ class Epub {
   BookMetadataCache::TocEntry getTocItem(int tocIndex) const;
   int getSpineItemsCount() const;
   int getTocItemsCount() const;
-  int getSpineIndexForTocIndex(int tocIndex) const;
-  int getTocIndexForSpineIndex(int spineIndex) const;
+  // Returns the spine index for the given TOC entry, or nullopt if tocIndex is out of range
+  // or the entry has no spine mapping.
+  std::optional<int> getSpineIndexForTocIndex(int tocIndex) const;
+  // Returns the TOC index for the given spine, or nullopt if the spine has no TOC entry
+  // (pre-TOC orphans like the cover; post-TOC orphans inherit the previous spine's tocIndex
+  // and return it here).
+  std::optional<int> getTocIndexForSpineIndex(int spineIndex) const;
   // Contiguous spine range [first, last] (last inclusive) that belongs to the given TOC chapter.
   // Uses the next TOC entry's anchor to decide whether this chapter shares the next chapter's
   // first spine. For the last TOC entry, caps to its own spine to exclude post-TOC orphan

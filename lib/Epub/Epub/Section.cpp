@@ -248,10 +248,10 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   // Also track totalEntries and unresolvedCount here so buildTocBoundaries can skip re-deriving them.
   // unresolvedCount must be captured before tocAnchors is moved into the parser constructor.
   std::vector<std::string> tocAnchors;
-  const int startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
   uint16_t tocTotalEntries = 0;
-  if (startTocIndex >= 0) {
-    for (int i = startTocIndex; i < epub->getTocItemsCount(); i++) {
+  const auto startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
+  if (startTocIndex) {
+    for (int i = *startTocIndex; i < epub->getTocItemsCount(); i++) {
       auto entry = epub->getTocItem(i);
       if (entry.spineIndex != spineIndex) break;
       tocTotalEntries++;
@@ -364,15 +364,16 @@ std::unique_ptr<Page> Section::loadPageFromSectionFile() {
 // See buildTocBoundariesFromFile for the on-disk variant; the two are kept separate
 // because the anchor resolution has fundamentally different iteration patterns
 // (scan in-memory vector vs. stream from file with early exit).
-void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors, const int startTocIndex,
-                                 const uint16_t totalEntries, const uint16_t unresolvedCount) {
+void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors,
+                                 const std::optional<int> startTocIndex, const uint16_t totalEntries,
+                                 const uint16_t unresolvedCount) {
   // If no TOC entries have anchors, all chapters start at page 0 and
   // getTocIndexForPage falls back to epub->getTocIndexForSpineIndex,
   // so there's nothing to resolve and no value in storing boundaries.
-  if (startTocIndex < 0 || totalEntries == 0 || unresolvedCount == 0) return;
+  if (!startTocIndex || totalEntries == 0 || unresolvedCount == 0) return;
 
   tocBoundaries.reserve(totalEntries);
-  for (int i = startTocIndex; i < startTocIndex + totalEntries; i++) {
+  for (int i = *startTocIndex; i < *startTocIndex + totalEntries; i++) {
     const auto entry = epub->getTocItem(i);
     uint16_t page = 0;
     if (!entry.anchor.empty()) {
@@ -405,14 +406,14 @@ void Section::buildTocBoundaries(const std::vector<std::pair<std::string, uint16
 // streams through on-disk anchors matching only those, stopping as soon as all are found.
 // See buildTocBoundaries for the in-memory variant.
 void Section::buildTocBoundariesFromFile(HalFile& f) {
-  const int startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
-  if (startTocIndex < 0) return;
+  const auto startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
+  if (!startTocIndex) return;
 
   // Count TOC entries for this spine, then reserve and populate
   const int tocCount = epub->getTocItemsCount();
   uint16_t totalEntries = 0;
   uint16_t unresolvedCount = 0;
-  for (int i = startTocIndex; i < tocCount; i++) {
+  for (int i = *startTocIndex; i < tocCount; i++) {
     const auto entry = epub->getTocItem(i);
     if (entry.spineIndex != spineIndex) break;
     totalEntries++;
@@ -432,7 +433,7 @@ void Section::buildTocBoundariesFromFile(HalFile& f) {
   std::vector<TocAnchorEntry> tocAnchorsToResolve;
   tocAnchorsToResolve.reserve(unresolvedCount);
   tocBoundaries.reserve(totalEntries);
-  for (int i = startTocIndex; i < startTocIndex + totalEntries; i++) {
+  for (int i = *startTocIndex; i < *startTocIndex + totalEntries; i++) {
     const auto entry = epub->getTocItem(i);
     tocBoundaries.push_back({i, spineIndex, 0, 0});  // startPage/endPage filled after anchor resolution + sort
     if (!entry.anchor.empty()) {
@@ -469,7 +470,7 @@ void Section::buildTocBoundariesFromFile(HalFile& f) {
       serialization::readPod(f, page);
       for (auto& tocAnchor : tocAnchorsToResolve) {
         if (!tocAnchor.anchor.empty() && key == tocAnchor.anchor) {
-          tocBoundaries[tocAnchor.tocIndex - startTocIndex].startPage = page;
+          tocBoundaries[tocAnchor.tocIndex - *startTocIndex].startPage = page;
           tocAnchor.anchor.clear();  // mark resolved
           unresolvedCount--;
           break;
@@ -491,7 +492,7 @@ void Section::buildTocBoundariesFromFile(HalFile& f) {
   }
 }
 
-int Section::getTocIndexForPage(const int page) const {
+std::optional<int> Section::getTocIndexForPage(const int page) const {
   if (tocBoundaries.empty()) {
     return epub->getTocIndexForSpineIndex(spineIndex);
   }

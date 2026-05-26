@@ -16,11 +16,10 @@ void EpubReaderChapterSelectionActivity::onEnter() {
     return;
   }
 
-  selectorIndex = (currentTocIndex >= 0 && currentTocIndex < epub->getTocItemsCount())
-                      ? currentTocIndex
-                      : epub->getTocIndexForSpineIndex(currentSpineIndex);
-  if (selectorIndex == -1) {
-    selectorIndex = 0;
+  if (currentTocIndex && *currentTocIndex < epub->getTocItemsCount()) {
+    selectorIndex = *currentTocIndex;
+  } else {
+    selectorIndex = epub->getTocIndexForSpineIndex(currentSpineIndex).value_or(0);
   }
 
   // Trigger first update
@@ -35,13 +34,13 @@ void EpubReaderChapterSelectionActivity::loop() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     const auto newSpineIndex = epub->getSpineIndexForTocIndex(selectorIndex);
-    if (newSpineIndex == -1) {
+    if (!newSpineIndex) {
       ActivityResult result;
       result.isCancelled = true;
       setResult(std::move(result));
       finish();
     } else {
-      setResult(ChapterTarget{selectorIndex, newSpineIndex});
+      setResult(ChapterTarget{selectorIndex, *newSpineIndex});
       finish();
     }
   } else if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
