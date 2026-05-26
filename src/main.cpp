@@ -242,22 +242,22 @@ constexpr char SLEEP_FRAME_FILE[] = "/.crosspoint/sleep_frame.bin";
 
 static void saveSleepFrameBuffer() {
   HalFile file;
-  if (!Storage.openFileForWrite("SLP", SLEEP_FRAME_FILE, file)) return;
+  if (!halStorage.openFileForWrite("SLP", SLEEP_FRAME_FILE, file)) return;
   file.write(renderer.getFrameBuffer(), renderer.getBufferSize());
   file.close();
 }
 
 static bool loadSleepFrameBuffer() {
   HalFile file;
-  if (!Storage.openFileForRead("SLP", SLEEP_FRAME_FILE, file)) return false;
+  if (!halStorage.openFileForRead("SLP", SLEEP_FRAME_FILE, file)) return false;
   const size_t bufferSize = halDisplay.getBufferSize();
   const size_t bytesRead = file.read(halDisplay.getFrameBuffer(), bufferSize);
   file.close();
   if (bytesRead != bufferSize) {
-    Storage.remove(SLEEP_FRAME_FILE);
+    halStorage.remove(SLEEP_FRAME_FILE);
     return false;
   }
-  Storage.remove(SLEEP_FRAME_FILE);
+  halStorage.remove(SLEEP_FRAME_FILE);
   return true;
 }
 
@@ -379,7 +379,7 @@ void setup() {
 
   // SD Card Initialization
   // We need 6 open files concurrently when parsing a new chapter
-  if (!Storage.begin()) {
+  if (!halStorage.begin()) {
     LOG_ERR("MAIN", "SD card initialization failed");
     setupDisplayAndFonts(isSilentReboot);
     activityManager.goToFullScreenMessage("SD card error", EpdFontFamily::BOLD);

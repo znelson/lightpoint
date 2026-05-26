@@ -1,8 +1,6 @@
 #pragma once
 
 #include <Print.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
 
 #include <memory>
 #include <string>
@@ -41,18 +39,13 @@ class HalStorage {
   bool openFileForWrite(const char* moduleName, const std::string& path, HalFile& file);
   bool removeDir(const char* path);
 
-  static HalStorage& getInstance() { return instance; }
-
-  class StorageLock;  // private class, used internally
-
- private:
-  static HalStorage instance;
-
-  bool initialized = false;
-  SemaphoreHandle_t storageMutex = nullptr;
+  // Implementation detail: defined in HalStorage.cpp, references a file-static
+  // FreeRTOS mutex so this header stays free of FreeRTOS / ESP-IDF symbols.
+  // See the StorageLock policy block at the top of HalStorage.cpp.
+  class StorageLock;
 };
 
-#define Storage HalStorage::getInstance()
+extern HalStorage halStorage;  // Singleton
 
 class HalFile : public Print {
   friend class HalStorage;

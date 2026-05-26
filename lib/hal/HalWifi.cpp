@@ -6,7 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-HalWifi halWifi;
+HalWifi halWifi;  // Singleton instance
 
 bool HalWifi::init() {
   if (initialized_) return true;

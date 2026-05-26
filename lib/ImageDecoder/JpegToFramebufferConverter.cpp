@@ -53,7 +53,7 @@ struct JpegContext {
 // avoiding the need for global file state.
 void* jpegOpen(const char* filename, int32_t* size) {
   HalFile* f = new HalFile();
-  if (!Storage.openFileForRead("JPG", std::string(filename), *f)) {
+  if (!halStorage.openFileForRead("JPG", std::string(filename), *f)) {
     delete f;
     return nullptr;
   }

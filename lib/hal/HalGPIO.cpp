@@ -10,8 +10,7 @@
 #include <freertos/task.h>
 #include <nvs.h>
 
-// Global HalGPIO instance
-HalGPIO halGPIO;
+HalGPIO halGPIO;  // Singleton instance
 
 namespace X3GPIO {
 

@@ -196,7 +196,7 @@ void buildStateJson(const CrossPointState& s, JsonSink& sink) {
 
 bool JsonSettingsIO::saveState(const CrossPointState& s, const char* path) {
   HalFile file;
-  if (!Storage.openFileForWrite("CPS", path, file)) return false;
+  if (!halStorage.openFileForWrite("CPS", path, file)) return false;
   HalFileSink sink(file);
   buildStateJson(s, sink);
   return sink.close();
@@ -501,7 +501,7 @@ void buildSettingsJson(const CrossPointSettings& s, JsonSink& sink) {
 
 bool JsonSettingsIO::saveSettings(const CrossPointSettings& s, const char* path) {
   HalFile file;
-  if (!Storage.openFileForWrite("CPS", path, file)) return false;
+  if (!halStorage.openFileForWrite("CPS", path, file)) return false;
   HalFileSink sink(file);
   buildSettingsJson(s, sink);
   return sink.close();
@@ -673,7 +673,7 @@ void buildWifiJson(const WifiCredentialStore& store, JsonSink& sink) {
 
 bool JsonSettingsIO::saveWifi(const WifiCredentialStore& store, const char* path) {
   HalFile file;
-  if (!Storage.openFileForWrite("WCS", path, file)) return false;
+  if (!halStorage.openFileForWrite("WCS", path, file)) return false;
   HalFileSink sink(file);
   buildWifiJson(store, sink);
   return sink.close();
@@ -832,7 +832,7 @@ void buildRecentBooksJson(const RecentBooksStore& store, JsonSink& sink) {
 
 bool JsonSettingsIO::saveRecentBooks(const RecentBooksStore& store, const char* path) {
   HalFile file;
-  if (!Storage.openFileForWrite("RBS", path, file)) return false;
+  if (!halStorage.openFileForWrite("RBS", path, file)) return false;
   HalFileSink sink(file);
   buildRecentBooksJson(store, sink);
   return sink.close();

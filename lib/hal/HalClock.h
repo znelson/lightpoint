@@ -4,9 +4,6 @@
 
 #include "HalGPIO.h"
 
-class HalClock;
-extern HalClock halClock;  // Singleton
-
 class HalClock {
   bool _available = false;
   i2c_master_dev_handle_t ds3231Dev = nullptr;
@@ -46,3 +43,5 @@ class HalClock {
  private:
   bool writeTimeToRTC(uint8_t hour, uint8_t minute, uint8_t second);
 };
+
+extern HalClock halClock;  // Singleton

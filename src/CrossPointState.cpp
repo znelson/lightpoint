@@ -28,12 +28,12 @@ void CrossPointState::pushRecentSleep(uint16_t idx) {
 }
 
 bool CrossPointState::saveToFile() const {
-  Storage.mkdir("/.crosspoint");
+  halStorage.mkdir("/.crosspoint");
   return JsonSettingsIO::saveState(*this, STATE_FILE_JSON);
 }
 
 bool CrossPointState::loadFromFile() {
   HalFile file;
-  if (!Storage.openFileForRead("CPS", STATE_FILE_JSON, file)) return false;
+  if (!halStorage.openFileForRead("CPS", STATE_FILE_JSON, file)) return false;
   return JsonSettingsIO::loadStateFromFile(*this, file);
 }

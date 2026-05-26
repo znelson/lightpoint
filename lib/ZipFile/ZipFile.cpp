@@ -270,7 +270,7 @@ bool ZipFile::loadZipDetails() {
 }
 
 bool ZipFile::open() {
-  if (!Storage.openFileForRead("ZIP", filePath, file)) {
+  if (!halStorage.openFileForRead("ZIP", filePath, file)) {
     return false;
   }
   return true;

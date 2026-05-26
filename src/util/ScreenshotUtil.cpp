@@ -6,6 +6,8 @@
 #include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <cstring>
 #include <string>
@@ -115,15 +117,15 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   size_t last_slash = path.find_last_of('/');
   if (last_slash != std::string::npos) {
     std::string dir = path.substr(0, last_slash);
-    if (!Storage.exists(dir.c_str())) {
-      if (!Storage.mkdir(dir.c_str())) {
+    if (!halStorage.exists(dir.c_str())) {
+      if (!halStorage.mkdir(dir.c_str())) {
         return false;
       }
     }
   }
 
   HalFile file;
-  if (!Storage.openFileForWrite("SCR", filename, file)) {
+  if (!halStorage.openFileForWrite("SCR", filename, file)) {
     LOG_ERR("SCR", "Failed to save screenshot");
     return false;
   }
@@ -138,9 +140,9 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   }
 
   if (write_error) {
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove(filename);
+    halStorage.remove(filename);
     return false;
   }
 
@@ -149,9 +151,9 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   constexpr size_t kMaxRowSize = 68;
   if (rowSizePadded > kMaxRowSize) {
     LOG_ERR("SCR", "Row size %u exceeds buffer capacity", static_cast<unsigned int>(rowSizePadded));
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove(filename);
+    halStorage.remove(filename);
     return false;
   }
 
@@ -176,11 +178,11 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
     memset(rowBuffer, 0, rowSizePadded);  // Clear the buffer for the next row
   }
 
-  // Explicitly close() file before calling Storage.remove()
+  // Explicitly close() file before calling halStorage.remove()
   file.close();
 
   if (write_error) {
-    Storage.remove(filename);
+    halStorage.remove(filename);
     return false;
   }
 

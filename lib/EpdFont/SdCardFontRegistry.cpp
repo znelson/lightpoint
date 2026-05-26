@@ -77,7 +77,7 @@ bool SdCardFontRegistry::parseFilename(const char* filename, uint8_t& size, uint
 }
 
 void SdCardFontRegistry::scanDirectory(const char* dirPath, SdCardFontFamilyInfo& family) {
-  HalFile dir = Storage.open(dirPath);
+  HalFile dir = halStorage.open(dirPath);
   if (!dir || !dir.isDirectory()) return;
 
   char nameBuffer[128];
@@ -126,7 +126,7 @@ void SdCardFontRegistry::scanDirectory(const char* dirPath, SdCardFontFamilyInfo
 // Skips families whose names already exist in `out` (de-duplicates between
 // the hidden and visible roots — first scan wins).
 void SdCardFontRegistry::scanRoot(const char* rootPath, std::vector<SdCardFontFamilyInfo>& out) {
-  HalFile root = Storage.open(rootPath);
+  HalFile root = halStorage.open(rootPath);
   if (!root) {
     LOG_DBG("SDREG", "Fonts directory not found: %s", rootPath);
     return;

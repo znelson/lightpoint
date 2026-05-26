@@ -14,7 +14,7 @@
 ImageBlock::ImageBlock(const std::string& imagePath, int16_t width, int16_t height)
     : imagePath(imagePath), width(width), height(height) {}
 
-bool ImageBlock::imageExists() const { return Storage.exists(imagePath.c_str()); }
+bool ImageBlock::imageExists() const { return halStorage.exists(imagePath.c_str()); }
 
 namespace {
 
@@ -30,7 +30,7 @@ std::string getCachePath(const std::string& imagePath) {
 bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x, int y, int expectedWidth,
                      int expectedHeight) {
   HalFile cacheFile;
-  if (!Storage.openFileForRead("IMG", cachePath, cacheFile)) {
+  if (!halStorage.openFileForRead("IMG", cachePath, cacheFile)) {
     return false;
   }
 
@@ -112,7 +112,7 @@ void ImageBlock::render(GfxRenderer& renderer, const int x, const int y) {
   // No cache - need to decode the image
   // Check if image file exists
   HalFile file;
-  if (!Storage.openFileForRead("IMG", imagePath, file)) {
+  if (!halStorage.openFileForRead("IMG", imagePath, file)) {
     LOG_ERR("IMG", "Image file not found: %s", imagePath.c_str());
     return;
   }

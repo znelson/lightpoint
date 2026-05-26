@@ -78,4 +78,4 @@ class HalWifi {
   static void ipEventHandler(void* arg, esp_event_base_t base, int32_t id, void* data);
 };
 
-extern HalWifi halWifi;
+extern HalWifi halWifi;  // Singleton

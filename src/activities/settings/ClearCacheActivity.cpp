@@ -77,7 +77,7 @@ void ClearCacheActivity::clearCache() {
   LOG_DBG("CLEAR_CACHE", "Clearing cache...");
 
   // Open .crosspoint directory
-  auto root = Storage.open("/.crosspoint");
+  auto root = halStorage.open("/.crosspoint");
   if (!root || !root.isDirectory()) {
     LOG_DBG("CLEAR_CACHE", "Failed to open cache directory");
     if (root) root.close();
@@ -102,7 +102,7 @@ void ClearCacheActivity::clearCache() {
 
       file.close();  // Close before attempting to delete
 
-      if (Storage.removeDir(fullPath.c_str())) {
+      if (halStorage.removeDir(fullPath.c_str())) {
         clearedCount++;
       } else {
         LOG_ERR("CLEAR_CACHE", "Failed to remove: %s", fullPath.c_str());

@@ -77,7 +77,7 @@ void RecentBooksStore::updatePath(const std::string& oldPath, const std::string&
   saveToFile();
 }
 
-bool RecentBooksStore::isMissing(const RecentBook& book) { return !Storage.exists(book.path.c_str()); }
+bool RecentBooksStore::isMissing(const RecentBook& book) { return !halStorage.exists(book.path.c_str()); }
 
 bool RecentBooksStore::pruneMissing() {
   const size_t before = recentBooks.size();
@@ -86,12 +86,12 @@ bool RecentBooksStore::pruneMissing() {
 }
 
 bool RecentBooksStore::saveToFile() const {
-  Storage.mkdir("/.crosspoint");
+  halStorage.mkdir("/.crosspoint");
   return JsonSettingsIO::saveRecentBooks(*this, RECENT_BOOKS_FILE_JSON);
 }
 
 bool RecentBooksStore::loadFromFile() {
   HalFile file;
-  if (!Storage.openFileForRead("RBS", RECENT_BOOKS_FILE_JSON, file)) return false;
+  if (!halStorage.openFileForRead("RBS", RECENT_BOOKS_FILE_JSON, file)) return false;
   return JsonSettingsIO::loadRecentBooksFromFile(*this, file);
 }

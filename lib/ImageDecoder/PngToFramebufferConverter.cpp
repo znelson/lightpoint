@@ -45,7 +45,7 @@ struct PngContext {
 // avoiding the need for global file state.
 void* pngOpenWithHandle(const char* filename, int32_t* size) {
   HalFile* f = new HalFile();
-  if (!Storage.openFileForRead("PNG", std::string(filename), *f)) {
+  if (!halStorage.openFileForRead("PNG", std::string(filename), *f)) {
     delete f;
     return nullptr;
   }

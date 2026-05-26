@@ -4,6 +4,8 @@
 #include <dirent.h>
 #include <driver/spi_master.h>
 #include <esp_vfs_fat.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <sdmmc_cmd.h>
 #include <sys/stat.h>
 #include <sys/unistd.h>
@@ -12,15 +14,20 @@
 #include <cstdio>
 #include <cstring>
 
-HalStorage HalStorage::instance;
+HalStorage halStorage;  // Singleton instance
 
 // All SD card paths are under the VFS mount point "/sd".
 // HalStorage prepends this prefix internally so callers use plain paths like "/books/file.epub".
 namespace {
 constexpr char SD_PREFIX[] = "/sd";
 constexpr gpio_num_t SD_CS = GPIO_NUM_12;
-static sdmmc_card_t* sdCard = nullptr;
-static bool sdInitialized = false;
+sdmmc_card_t* sdCard = nullptr;
+bool sdInitialized = false;
+
+// File-static so the HalStorage public header doesn't have to pull in FreeRTOS.
+// Initialized in HalStorage's constructor (same TU as the singleton instance,
+// so the init order is deterministic top-to-bottom).
+SemaphoreHandle_t storageMutex = nullptr;
 
 std::string sdPath(const char* path) {
   std::string result = SD_PREFIX;
@@ -103,8 +110,8 @@ bool HalStorage::ready() const { return sdInitialized; }
 
 class HalStorage::StorageLock {
  public:
-  StorageLock() { xSemaphoreTake(HalStorage::getInstance().storageMutex, portMAX_DELAY); }
-  ~StorageLock() { xSemaphoreGive(HalStorage::getInstance().storageMutex); }
+  StorageLock() { xSemaphoreTake(storageMutex, portMAX_DELAY); }
+  ~StorageLock() { xSemaphoreGive(storageMutex); }
 };
 
 std::vector<std::string> HalStorage::listFiles(const char* path, int maxFiles) {

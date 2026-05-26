@@ -37,7 +37,7 @@ bool BookMetadataCache::beginContentOpfPass() {
   LOG_DBG("BMC", "Beginning content opf pass");
 
   // Open spine file for writing
-  return Storage.openFileForWrite("BMC", cachePath + tmpSpineBinFile, spineFile);
+  return halStorage.openFileForWrite("BMC", cachePath + tmpSpineBinFile, spineFile);
 }
 
 bool BookMetadataCache::endContentOpfPass() {
@@ -49,10 +49,10 @@ bool BookMetadataCache::endContentOpfPass() {
 bool BookMetadataCache::beginTocPass() {
   LOG_DBG("BMC", "Beginning toc pass");
 
-  if (!Storage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
     return false;
   }
-  if (!Storage.openFileForWrite("BMC", cachePath + tmpTocBinFile, tocFile)) {
+  if (!halStorage.openFileForWrite("BMC", cachePath + tmpTocBinFile, tocFile)) {
     // Explicit close() required: member variable persists beyond function scope
     spineFile.close();
     return false;
@@ -109,17 +109,17 @@ bool BookMetadataCache::endWrite() {
 
 bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMetadata& metadata) {
   // Open all three files, writing to meta, reading from spine and toc
-  if (!Storage.openFileForWrite("BMC", cachePath + bookBinFile, bookFile)) {
+  if (!halStorage.openFileForWrite("BMC", cachePath + bookBinFile, bookFile)) {
     return false;
   }
 
-  if (!Storage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
     // Explicit close() required: member variable persists beyond function scope
     bookFile.close();
     return false;
   }
 
-  if (!Storage.openFileForRead("BMC", cachePath + tmpTocBinFile, tocFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + tmpTocBinFile, tocFile)) {
     // Explicit close() required: member variables persist beyond function scope
     bookFile.close();
     spineFile.close();
@@ -295,12 +295,12 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
 
 bool BookMetadataCache::cleanupTmpFiles() const {
   const auto spineBinFile = cachePath + tmpSpineBinFile;
-  if (Storage.exists(spineBinFile.c_str())) {
-    Storage.remove(spineBinFile.c_str());
+  if (halStorage.exists(spineBinFile.c_str())) {
+    halStorage.remove(spineBinFile.c_str());
   }
   const auto tocBinFile = cachePath + tmpTocBinFile;
-  if (Storage.exists(tocBinFile.c_str())) {
-    Storage.remove(tocBinFile.c_str());
+  if (halStorage.exists(tocBinFile.c_str())) {
+    halStorage.remove(tocBinFile.c_str());
   }
   return true;
 }
@@ -385,7 +385,7 @@ void BookMetadataCache::createTocEntry(const std::string& title, const std::stri
 /* ============= READING / LOADING FUNCTIONS ================ */
 
 bool BookMetadataCache::load() {
-  if (!Storage.openFileForRead("BMC", cachePath + bookBinFile, bookFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + bookBinFile, bookFile)) {
     return false;
   }
 

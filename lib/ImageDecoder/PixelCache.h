@@ -57,7 +57,7 @@ struct PixelCache {
     if (!buffer) return false;
 
     HalFile cacheFile;
-    if (!Storage.openFileForWrite("IMG", cachePath, cacheFile)) {
+    if (!halStorage.openFileForWrite("IMG", cachePath, cacheFile)) {
       LOG_ERR("IMG", "Failed to open cache file for writing: %s", cachePath.c_str());
       return false;
     }

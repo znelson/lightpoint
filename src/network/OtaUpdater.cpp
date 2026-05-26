@@ -6,6 +6,8 @@
 #include <esp_crt_bundle.h>
 #include <esp_http_client.h>
 #include <esp_https_ota.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 namespace {
 constexpr char latestReleaseUrl[] = "https://api.github.com/repos/znelson/lightpoint/releases/latest";
