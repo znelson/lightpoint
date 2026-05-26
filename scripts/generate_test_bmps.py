@@ -2,7 +2,7 @@
 """
 Generate test BMP images for verifying Bitmap.cpp format support.
 
-Creates BMP files at 480x800 (CrossPoint display in portrait orientation).
+Creates BMP files at 480x800 (LightPoint display in portrait orientation).
 Test images use patterns designed to reveal dithering artifacts:
   - Checkerboard: sharp edges between gray levels, dithering adds noise at boundaries
   - Fine lines: thin 1px lines on contrasting background, dithering smears them
@@ -11,7 +11,7 @@ Test images use patterns designed to reveal dithering artifacts:
 
 Formats generated:
 - 1-bit: black & white (baseline, never dithered)
-- 2-bit: 4-level grayscale (non-standard CrossPoint extension, won't open on PC)
+- 2-bit: 4-level grayscale (non-standard LightPoint extension, won't open on PC)
 - 4-bit: 4-color grayscale palette (standard BMP, new support)
 - 8-bit: 4-color grayscale palette (colorsUsed=4, should skip dithering)
 - 8-bit: 256-color grayscale (full palette, should be dithered)
@@ -161,7 +161,7 @@ def generate_1bit(path):
 
 
 def generate_2bit(path):
-    """2-bit BMP: 4-level grayscale test pattern (non-standard, CrossPoint extension)."""
+    """2-bit BMP: 4-level grayscale test pattern (non-standard, LightPoint extension)."""
     bpp = 2
     palette = GRAY_LEVELS
     row_bytes = (WIDTH * bpp + 31) // 32 * 4
@@ -318,7 +318,7 @@ def main():
     print("  8-bit (256 colors): Same layout but with intermediate grays, WITH dithering")
     print("  24-bit: Same layout but with intermediate grays, WITH dithering")
     print()
-    print("Note: 2-bit BMP is a non-standard CrossPoint extension. Standard image viewers")
+    print("Note: 2-bit BMP is a non-standard LightPoint extension. Standard image viewers")
     print("will not open it. Use the 4-bit BMP instead for images created with standard tools")
     print("(e.g. ImageMagick: convert input.png -colorspace Gray -colors 4 -depth 4 BMP3:output.bmp)")
     print()

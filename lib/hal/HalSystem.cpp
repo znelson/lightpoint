@@ -1,14 +1,14 @@
 #include "HalSystem.h"
 
+#include <esp_debug_helpers.h>
+#include <esp_private/esp_cpu_internal.h>
+#include <esp_private/esp_system_attr.h>
+#include <esp_private/panic_internal.h>
+
 #include <string>
 
-#include "Arduino.h"
 #include "HalStorage.h"
 #include "Logging.h"
-#include "esp_debug_helpers.h"
-#include "esp_private/esp_cpu_internal.h"
-#include "esp_private/esp_system_attr.h"
-#include "esp_private/panic_internal.h"
 
 #define MAX_PANIC_STACK_DEPTH 32
 
@@ -115,14 +115,14 @@ std::string getPanicInfo(bool full) {
   } else {
     std::string info;
 
-    info += "CrossPoint version: " CROSSPOINT_VERSION;
+    info += "LightPoint version: " LIGHTPOINT_VERSION;
     info += "\n\nPanic reason: " + std::string(panicMessage);
     info += "\n\nLast logs:\n" + getLastLogs();
     info += "\n\nStack memory:\n";
 
     auto toHex = [](uint32_t value) {
       char buffer[9];
-      snprintf(buffer, sizeof(buffer), "%08X", value);
+      snprintf(buffer, sizeof(buffer), "%08X", static_cast<unsigned int>(value));
       return std::string(buffer);
     };
     for (size_t i = 0; i < MAX_PANIC_STACK_DEPTH; i++) {
