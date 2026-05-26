@@ -11,7 +11,7 @@ target_include_directories(JsonWriterTest PRIVATE
 )
 
 target_link_libraries(JsonWriterTest PRIVATE
-  crosspoint_test_common
+  lightpoint_test_common
   GTest::gtest_main
 )
 

@@ -8,7 +8,7 @@ target_include_directories(Utf8Test PRIVATE
 )
 
 target_link_libraries(Utf8Test PRIVATE
-  crosspoint_test_common
+  lightpoint_test_common
   GTest::gtest_main
 )
 
