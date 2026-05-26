@@ -13,6 +13,7 @@
 add_library(lightpoint_test_hal_stubs STATIC
   HalPlatform.cpp
   HalStorage.cpp
+  Logging.cpp
 )
 
 # lib/hal/ is on the include path so consumers resolve <HalPlatform.h> and
@@ -21,6 +22,7 @@ add_library(lightpoint_test_hal_stubs STATIC
 # is on the path so the test cpp files here find HalStorageTestApi.h.
 target_include_directories(lightpoint_test_hal_stubs PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
+  ${REPO_ROOT}/lib/Logging
   ${REPO_ROOT}/lib/Print
   ${REPO_ROOT}/lib/hal
 )

@@ -5,7 +5,6 @@ add_executable(CssParserTest
 
 target_include_directories(CssParserTest PRIVATE
   ${REPO_ROOT}/lib/Epub/Epub/css
-  ${REPO_ROOT}/lib/Logging
 )
 
 # lightpoint_test_hal_stubs provides the halPlatform / halStorage globals and
