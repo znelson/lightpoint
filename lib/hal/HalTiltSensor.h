@@ -13,9 +13,6 @@ namespace CrossPointTiltPageTurn {
 enum Value : uint8_t { TILT_OFF = 0, TILT_NORMAL = 1, TILT_INVERTED = 2 };
 }
 
-class HalTiltSensor;
-extern HalTiltSensor halTiltSensor;  // Singleton
-
 class HalTiltSensor {
   bool _available = false;
   uint8_t _i2cAddr = 0;
@@ -98,3 +95,5 @@ class HalTiltSensor {
   // Discard any pending tilt events (call when leaving reader or disabling tilt).
   void clearPendingEvents();
 };
+
+extern HalTiltSensor halTiltSensor;  // Singleton

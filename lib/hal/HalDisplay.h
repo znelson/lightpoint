@@ -71,4 +71,4 @@ class HalDisplay {
   EInkDisplay einkDisplay;
 };
 
-extern HalDisplay halDisplay;
+extern HalDisplay halDisplay;  // Singleton

@@ -12,9 +12,6 @@
 
 #include "HalGPIO.h"
 
-class HalPowerManager;
-extern HalPowerManager halPowerManager;  // Singleton
-
 class HalPowerManager {
   int normalFreq = 0;  // MHz
   bool isLowPower = false;
@@ -64,3 +61,5 @@ class HalPowerManager {
     Lock& operator=(Lock&&) = delete;
   };
 };
+
+extern HalPowerManager halPowerManager;  // Singleton

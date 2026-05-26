@@ -4,6 +4,7 @@
 #include <esp_private/esp_cpu_internal.h>
 #include <esp_private/esp_system_attr.h>
 #include <esp_private/panic_internal.h>
+#include <esp_system.h>
 
 #include <string>
 
@@ -90,7 +91,7 @@ void begin() {
 void checkPanic() {
   if (isRebootFromPanic()) {
     auto panicInfo = getPanicInfo(true);
-    auto file = Storage.open("/crash_report.txt", O_WRITE | O_CREAT | O_TRUNC);
+    auto file = halStorage.open("/crash_report.txt", O_WRITE | O_CREAT | O_TRUNC);
     if (file) {
       file.write(panicInfo.c_str(), panicInfo.size());
       file.close();

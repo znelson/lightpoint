@@ -8,6 +8,8 @@
 #include <I18n.h>
 #include <Txt.h>
 #include <Xtc.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <cmath>
 
@@ -61,13 +63,13 @@ void SleepActivity::onEnter() {
 void SleepActivity::renderCustomSleepScreen() const {
   // Check if we have a /.sleep (preferred) or /sleep directory
   const char* sleepDir = nullptr;
-  auto dir = Storage.open("/.sleep");
+  auto dir = halStorage.open("/.sleep");
 
   // Look for sleep.bmp on the root of the sd card to determine if we should
   // render a custom sleep screen instead of the default.
   // This takes priority over the /sleep folder.
   HalFile file;
-  if (Storage.openFileForRead("SLP", "/sleep.bmp", file)) {
+  if (halStorage.openFileForRead("SLP", "/sleep.bmp", file)) {
     Bitmap bitmap(file, true);
     if (bitmap.parseHeaders() == BmpReaderError::Ok) {
       LOG_DBG("SLP", "Loading: /sleep.bmp");
@@ -82,7 +84,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   if (dir && dir.isDirectory()) {
     sleepDir = "/.sleep";
   } else {
-    dir = Storage.open("/sleep");
+    dir = halStorage.open("/sleep");
     if (dir && dir.isDirectory()) {
       sleepDir = "/sleep";
     }
@@ -133,7 +135,7 @@ void SleepActivity::renderCustomSleepScreen() const {
       APP_STATE.saveToFile();
       const auto filename = std::string(sleepDir) + "/" + files[randomFileIndex];
       HalFile randFile;
-      if (Storage.openFileForRead("SLP", filename, randFile)) {
+      if (halStorage.openFileForRead("SLP", filename, randFile)) {
         LOG_DBG("SLP", "Randomly loading: %s/%s", sleepDir, files[randomFileIndex].c_str());
         vTaskDelay(pdMS_TO_TICKS(100));
         Bitmap bitmap(randFile, true);
@@ -308,7 +310,7 @@ void SleepActivity::renderCoverSleepScreen() const {
   }
 
   HalFile file;
-  if (Storage.openFileForRead("SLP", coverBmpPath, file)) {
+  if (halStorage.openFileForRead("SLP", coverBmpPath, file)) {
     Bitmap bitmap(file);
     if (bitmap.parseHeaders() == BmpReaderError::Ok) {
       LOG_DBG("SLP", "Rendering sleep cover: %s", coverBmpPath.c_str());

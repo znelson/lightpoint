@@ -48,7 +48,7 @@ class HalFile;
 // checked:
 //   {
 //     HalFile f;
-//     if (!Storage.openFileForWrite("CPS", path, f)) return false;
+//     if (!halStorage.openFileForWrite("CPS", path, f)) return false;
 //     HalFileSink sink(f);
 //     buildXxxJson(obj, sink);
 //   }  // sink flushes here

@@ -6,6 +6,8 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "MappedInputManager.h"
 #include "activities/home/FileBrowserActivity.h"
@@ -67,7 +69,7 @@ void SdFirmwareUpdateActivity::onPickerResult(const ActivityResult& result) {
 
 bool SdFirmwareUpdateActivity::validateFirmware() {
   HalFile file;
-  if (!Storage.openFileForRead("FW", firmwarePath.c_str(), file) || !file) {
+  if (!halStorage.openFileForRead("FW", firmwarePath.c_str(), file) || !file) {
     errorMessage = tr(STR_FIRMWARE_FILE_OPEN_FAILED);
     return false;
   }

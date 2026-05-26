@@ -10,6 +10,7 @@
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
 #include <algorithm>
@@ -413,7 +414,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
             // Extract image to cache file
             HalFile cachedImageFile;
             bool extractSuccess = false;
-            if (Storage.openFileForWrite("EHP", cachedImagePath, cachedImageFile)) {
+            if (halStorage.openFileForWrite("EHP", cachedImagePath, cachedImageFile)) {
               extractSuccess = self->epub->readItemContentsToStream(resolvedPath, cachedImageFile, 4096);
               cachedImageFile.flush();
               cachedImageFile.close();
@@ -603,7 +604,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
                 return;
               } else {
                 LOG_ERR("EHP", "Failed to get image dimensions");
-                Storage.remove(cachedImagePath.c_str());
+                halStorage.remove(cachedImagePath.c_str());
               }
             } else {
               LOG_ERR("EHP", "Failed to extract image");
@@ -1208,7 +1209,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   XML_SetDefaultHandlerExpand(parser, defaultHandlerExpand);
 
   HalFile file;
-  if (!Storage.openFileForRead("EHP", filepath, file)) {
+  if (!halStorage.openFileForRead("EHP", filepath, file)) {
     destroyXmlParser(parser);
     return false;
   }

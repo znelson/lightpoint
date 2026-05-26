@@ -15,13 +15,13 @@ constexpr char WIFI_FILE_JSON[] = "/.crosspoint/wifi.json";
 }  // namespace
 
 bool WifiCredentialStore::saveToFile() const {
-  Storage.mkdir("/.crosspoint");
+  halStorage.mkdir("/.crosspoint");
   return JsonSettingsIO::saveWifi(*this, WIFI_FILE_JSON);
 }
 
 bool WifiCredentialStore::loadFromFile() {
   HalFile file;
-  if (!Storage.openFileForRead("WCS", WIFI_FILE_JSON, file)) return false;
+  if (!halStorage.openFileForRead("WCS", WIFI_FILE_JSON, file)) return false;
   return JsonSettingsIO::loadWifiFromFile(*this, file);
 }
 

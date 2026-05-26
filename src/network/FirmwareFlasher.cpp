@@ -4,6 +4,8 @@
 #include <Logging.h>
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <psa/crypto.h>
 #include <spi_flash_mmap.h>
 
@@ -87,7 +89,7 @@ Result feedHashAndChecksum(HalFile& file, size_t length, uint8_t* xorAccum, psa_
 
 Result validateImageFile(const char* sdPath, size_t partitionSize) {
   HalFile file;
-  if (!Storage.openFileForRead("FLASH", sdPath, file) || !file) {
+  if (!halStorage.openFileForRead("FLASH", sdPath, file) || !file) {
     LOG_ERR("FLASH", "validate: open failed: %s", sdPath);
     return Result::OPEN_FAIL;
   }
@@ -248,7 +250,7 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("FLASH", sdPath, file) || !file) {
+  if (!halStorage.openFileForRead("FLASH", sdPath, file) || !file) {
     LOG_ERR("FLASH", "open failed: %s", sdPath);
     return Result::OPEN_FAIL;
   }

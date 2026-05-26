@@ -4,6 +4,8 @@
 #include <HalPlatform.h>
 #include <HalWifi.h>
 #include <I18n.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"

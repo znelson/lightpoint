@@ -7,6 +7,9 @@
 #include <driver/i2c_master.h>
 #include <driver/usb_serial_jtag.h>
 #include <esp_sleep.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 #include <soc/rtc.h>
 
 #include <cassert>

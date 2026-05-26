@@ -1,8 +1,7 @@
 #include <HalDisplay.h>
 #include <HalGPIO.h>
 
-// Global HalDisplay instance
-HalDisplay halDisplay;
+HalDisplay halDisplay;  // Singleton instance
 
 #define SD_SPI_MISO 7
 

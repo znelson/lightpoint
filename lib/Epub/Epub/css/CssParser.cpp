@@ -703,10 +703,10 @@ CssStyle CssParser::parseInlineStyle(std::string_view styleValue) { return parse
 // Cache file name (version is CssParser::CSS_CACHE_VERSION)
 constexpr char rulesCache[] = "/css_rules.cache";
 
-bool CssParser::hasCache() const { return Storage.exists((cachePath + rulesCache).c_str()); }
+bool CssParser::hasCache() const { return halStorage.exists((cachePath + rulesCache).c_str()); }
 
 void CssParser::deleteCache() const {
-  if (hasCache()) Storage.remove((cachePath + rulesCache).c_str());
+  if (hasCache()) halStorage.remove((cachePath + rulesCache).c_str());
 }
 
 bool CssParser::saveToCache() const {
@@ -715,7 +715,7 @@ bool CssParser::saveToCache() const {
   }
 
   HalFile file;
-  if (!Storage.openFileForWrite("CSS", cachePath + rulesCache, file)) {
+  if (!halStorage.openFileForWrite("CSS", cachePath + rulesCache, file)) {
     return false;
   }
 
@@ -792,7 +792,7 @@ bool CssParser::loadFromCache() {
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("CSS", cachePath + rulesCache, file)) {
+  if (!halStorage.openFileForRead("CSS", cachePath + rulesCache, file)) {
     return false;
   }
 
@@ -804,9 +804,9 @@ bool CssParser::loadFromCache() {
   if (file.read(&version, 1) != 1 || version != CssParser::CSS_CACHE_VERSION) {
     LOG_DBG("CSS", "Cache version mismatch (got %u, expected %u), removing stale cache for rebuild", version,
             CssParser::CSS_CACHE_VERSION);
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove((cachePath + rulesCache).c_str());
+    halStorage.remove((cachePath + rulesCache).c_str());
     return false;
   }
 

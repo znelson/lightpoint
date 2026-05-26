@@ -37,7 +37,7 @@ XtcError XtcParser::open(const char* filepath) {
   m_filepath = filepath;
 
   // Open file
-  if (!Storage.openFileForRead("XTC", filepath, m_file)) {
+  if (!halStorage.openFileForRead("XTC", filepath, m_file)) {
     m_lastError = XtcError::FILE_NOT_FOUND;
     return m_lastError;
   }
@@ -113,7 +113,7 @@ bool XtcParser::ensureFileOpen() {
   if (m_file.isOpen()) {
     return true;
   }
-  return Storage.openFileForRead("XTC", m_filepath.c_str(), m_file);
+  return halStorage.openFileForRead("XTC", m_filepath.c_str(), m_file);
 }
 
 void XtcParser::closeFile() {
@@ -531,7 +531,7 @@ XtcError XtcParser::loadPageStreaming(uint32_t pageIndex,
 
 bool XtcParser::isValidXtcFile(const char* filepath) {
   HalFile file;
-  if (!Storage.openFileForRead("XTC", filepath, file)) {
+  if (!halStorage.openFileForRead("XTC", filepath, file)) {
     return false;
   }
 

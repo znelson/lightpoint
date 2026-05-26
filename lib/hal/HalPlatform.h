@@ -24,4 +24,4 @@ class HalPlatform {
   uint64_t deviceId() const;
 };
 
-extern HalPlatform halPlatform;
+extern HalPlatform halPlatform;  // Singleton

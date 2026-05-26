@@ -6,7 +6,7 @@
 #include <esp_system.h>
 #include <esp_timer.h>
 
-HalPlatform halPlatform;
+HalPlatform halPlatform;  // Singleton instance
 
 uint32_t HalPlatform::millis() const { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 uint32_t HalPlatform::micros() const { return static_cast<uint32_t>(esp_timer_get_time()); }

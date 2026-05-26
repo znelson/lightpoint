@@ -30,13 +30,13 @@ void CrossPointSettings::validateFrontButtonMapping(CrossPointSettings& settings
 }
 
 bool CrossPointSettings::saveToFile() const {
-  Storage.mkdir("/.crosspoint");
+  halStorage.mkdir("/.crosspoint");
   return JsonSettingsIO::saveSettings(*this, SETTINGS_FILE_JSON);
 }
 
 bool CrossPointSettings::loadFromFile() {
   HalFile file;
-  if (!Storage.openFileForRead("CPS", SETTINGS_FILE_JSON, file)) return false;
+  if (!halStorage.openFileForRead("CPS", SETTINGS_FILE_JSON, file)) return false;
   return JsonSettingsIO::loadSettingsFromFile(*this, file);
 }
 

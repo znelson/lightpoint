@@ -4,6 +4,7 @@
 #include <Hyphenator.h>
 #include <Logging.h>
 #include <Serialization.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
 #include "Epub/css/CssParser.h"
@@ -95,7 +96,7 @@ bool Section::loadSectionFile(const int fontId, const float lineCompression, con
                               const uint8_t paragraphAlignment, const uint16_t viewportWidth,
                               const uint16_t viewportHeight, const bool hyphenationEnabled, const bool embeddedStyle,
                               const uint8_t imageRendering, const bool focusReadingEnabled) {
-  if (!Storage.openFileForRead("SCT", filePath, file)) {
+  if (!halStorage.openFileForRead("SCT", filePath, file)) {
     return false;
   }
 
@@ -157,12 +158,12 @@ bool Section::loadSectionFile(const int fontId, const float lineCompression, con
 
 // Your updated class method (assuming you are using the 'SD' object, which is a wrapper for a specific filesystem)
 bool Section::clearCache() const {
-  if (!Storage.exists(filePath.c_str())) {
+  if (!halStorage.exists(filePath.c_str())) {
     LOG_DBG("SCT", "Cache does not exist, no action needed");
     return true;
   }
 
-  if (!Storage.remove(filePath.c_str())) {
+  if (!halStorage.remove(filePath.c_str())) {
     LOG_ERR("SCT", "Failed to clear cache");
     return false;
   }
@@ -182,7 +183,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   // Create cache directory if it doesn't exist
   {
     const auto sectionsDir = epub->getCachePath() + "/sections";
-    Storage.mkdir(sectionsDir.c_str());
+    halStorage.mkdir(sectionsDir.c_str());
   }
 
   // Retry logic for SD card timing issues
@@ -195,22 +196,22 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
     }
 
     // Remove any incomplete file from previous attempt before retrying
-    if (Storage.exists(tmpHtmlPath.c_str())) {
-      Storage.remove(tmpHtmlPath.c_str());
+    if (halStorage.exists(tmpHtmlPath.c_str())) {
+      halStorage.remove(tmpHtmlPath.c_str());
     }
 
     HalFile tmpHtml;
-    if (!Storage.openFileForWrite("SCT", tmpHtmlPath, tmpHtml)) {
+    if (!halStorage.openFileForWrite("SCT", tmpHtmlPath, tmpHtml)) {
       continue;
     }
     success = epub->readItemContentsToStream(localPath, tmpHtml, 1024);
     fileSize = tmpHtml.size();
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     tmpHtml.close();
 
     // If streaming failed, remove the incomplete file immediately
-    if (!success && Storage.exists(tmpHtmlPath.c_str())) {
-      Storage.remove(tmpHtmlPath.c_str());
+    if (!success && halStorage.exists(tmpHtmlPath.c_str())) {
+      halStorage.remove(tmpHtmlPath.c_str());
       LOG_DBG("SCT", "Removed incomplete temp file after failed attempt");
     }
   }
@@ -222,7 +223,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
 
   LOG_DBG("SCT", "Streamed temp HTML to %s (%d bytes)", tmpHtmlPath.c_str(), fileSize);
 
-  if (!Storage.openFileForWrite("SCT", filePath, file)) {
+  if (!halStorage.openFileForWrite("SCT", filePath, file)) {
     return false;
   }
   writeSectionFileHeader(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
@@ -272,12 +273,12 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
   Hyphenator::setPreferredLanguage(epub->getLanguage());
   success = visitor.parseAndBuildPages();
 
-  Storage.remove(tmpHtmlPath.c_str());
+  halStorage.remove(tmpHtmlPath.c_str());
   if (!success) {
     LOG_ERR("SCT", "Failed to parse XML and build pages");
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove(filePath.c_str());
+    halStorage.remove(filePath.c_str());
     if (cssParser) {
       cssParser->clear();
     }
@@ -297,9 +298,9 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
 
   if (hasFailedLutRecords) {
     LOG_ERR("SCT", "Failed to write LUT due to invalid page positions");
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove(filePath.c_str());
+    halStorage.remove(filePath.c_str());
     return false;
   }
 
@@ -341,7 +342,7 @@ bool Section::createSectionFile(const int fontId, const float lineCompression, c
 }
 
 std::unique_ptr<Page> Section::loadPageFromSectionFile() {
-  if (!Storage.openFileForRead("SCT", filePath, file)) {
+  if (!halStorage.openFileForRead("SCT", filePath, file)) {
     return nullptr;
   }
 
@@ -525,7 +526,7 @@ std::optional<Chapter> Section::getPageRangeForTocIndex(const int tocIndex) cons
 
 std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) const {
   HalFile f;
-  if (!Storage.openFileForRead("SCT", filePath, f)) {
+  if (!halStorage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
 
@@ -562,7 +563,7 @@ std::optional<uint16_t> Section::getPageForAnchor(const std::string& anchor) con
 
 std::optional<uint16_t> Section::getPageForParagraphIndex(const uint16_t pIndex) const {
   HalFile f;
-  if (!Storage.openFileForRead("SCT", filePath, f)) {
+  if (!halStorage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
 
@@ -601,7 +602,7 @@ std::optional<uint16_t> Section::getPageForParagraphIndex(const uint16_t pIndex)
 
 std::optional<uint16_t> Section::getParagraphIndexForPage(const uint16_t page) const {
   HalFile f;
-  if (!Storage.openFileForRead("SCT", filePath, f)) {
+  if (!halStorage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
 
@@ -633,7 +634,7 @@ std::optional<uint16_t> Section::getParagraphIndexForPage(const uint16_t page) c
 
 std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex) const {
   HalFile f;
-  if (!Storage.openFileForRead("SCT", filePath, f)) {
+  if (!halStorage.openFileForRead("SCT", filePath, f)) {
     return std::nullopt;
   }
 
