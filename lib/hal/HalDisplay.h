@@ -1,6 +1,7 @@
 #pragma once
-#include <Arduino.h>
 #include <EInkDisplay.h>
+
+#include <cstdint>
 
 class HalDisplay {
  public:
@@ -70,4 +71,4 @@ class HalDisplay {
   EInkDisplay einkDisplay;
 };
 
-extern HalDisplay display;
+extern HalDisplay halDisplay;

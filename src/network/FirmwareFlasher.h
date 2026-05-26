@@ -38,7 +38,7 @@ using ProgressCb = void (*)(size_t written, size_t total, void* ctx);
 // Open `sdPath`, validate it looks like an ESP32 image, then stream it into the
 // next OTA app partition with interleaved 64 KiB erase + sector writes. On
 // success switches otadata via ota_boot::switchTo. Caller is responsible for
-// ESP.restart() afterwards.
+// esp_restart() afterwards.
 //
 // `alreadyValidated` lets callers that have just run `validateImageFile()`
 // themselves (e.g. SdFirmwareUpdateActivity, which validates before showing
