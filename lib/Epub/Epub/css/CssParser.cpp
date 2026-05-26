@@ -50,7 +50,33 @@ constexpr size_t MIN_FREE_HEAP_FOR_CSS = 48 * 1024;
 constexpr size_t MAX_SELECTOR_LENGTH = 256;
 
 // Check if character is CSS whitespace
-bool isCssWhitespace(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
+constexpr bool isCssWhitespace(const char c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
+}
+
+[[maybe_unused]] constexpr std::string_view trimCssWhitespace(std::string_view s) {
+  while (!s.empty() && isCssWhitespace(s.front())) s.remove_prefix(1);
+  while (!s.empty() && isCssWhitespace(s.back())) s.remove_suffix(1);
+  return s;
+}
+
+[[maybe_unused]] constexpr char asciiToLower(const char c) {
+  return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + 32) : c;
+}
+
+// Case-insensitive equality on ASCII. lowercaseKeyword MUST already be
+// lowercase; CSS keywords are ASCII by spec so byte-wise tolower is safe.
+[[maybe_unused]] constexpr bool iequalsAscii(std::string_view value, std::string_view lowercaseKeyword) {
+  return std::equal(value.begin(), value.end(), lowercaseKeyword.begin(), lowercaseKeyword.end(),
+                    [](char a, char b) { return asciiToLower(a) == b; });
+}
+
+// Case-insensitive ASCII substring search. Only needed by text-decoration,
+// which accepts multi-value strings like "underline solid red".
+[[maybe_unused]] constexpr bool icontainsAscii(std::string_view value, std::string_view lowercaseKeyword) {
+  return std::search(value.begin(), value.end(), lowercaseKeyword.begin(), lowercaseKeyword.end(),
+                     [](char a, char b) { return asciiToLower(a) == b; }) != value.end();
+}
 
 std::string_view stripTrailingImportant(std::string_view value) {
   constexpr std::string_view IMPORTANT = "!important";
