@@ -4,9 +4,8 @@
 # (release-fonts.yml) and both Python scripts (fontconvert_sdcard.py,
 # generate-font-manifest.py) read from here.
 #
-# The firmware C++ headers (SdCardFont.h, FontDownloadActivity.h) carry their
-# own copies — those must be bumped manually when the firmware is updated to
-# support a new version.
+# The firmware C++ header (SdCardFont.h) carries its own copy -- that must be
+# bumped manually when the firmware is updated to support a new version.
 
 # .cpfont binary format version. Bump when the on-disk struct layout changes.
 CPFONT_VERSION = 4

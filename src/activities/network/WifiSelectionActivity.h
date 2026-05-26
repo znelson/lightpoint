@@ -80,8 +80,8 @@ class WifiSelectionActivity final : public Activity {
   int forgetPromptSelection = 0;
 
   // Connection timeout
-  static constexpr unsigned long CONNECTION_TIMEOUT_MS = 15000;
-  unsigned long connectionStartTime = 0;
+  static constexpr uint32_t CONNECTION_TIMEOUT_MS = 15000;
+  uint32_t connectionStartTime = 0;
 
   void renderNetworkList(const Rect* screen, const ThemeMetrics* metrics) const;
   void renderPasswordEntry(const Rect* screen, const ThemeMetrics* metrics) const;

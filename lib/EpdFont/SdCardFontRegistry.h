@@ -30,22 +30,11 @@ class SdCardFontRegistry {
   static constexpr const char* FONTS_DIR_HIDDEN = "/.fonts";
   static constexpr const char* FONTS_DIR_VISIBLE = "/fonts";
 
-  // Returns the existing root for `familyName` (the one that contains
-  // /<root>/<familyName>/), or nullptr if the family is not installed in
-  // either root. Used by writers to keep re-installs in their existing dir.
-  static const char* findFamilyRoot(const char* familyName);
-
-  // Returns the root path that should be used when creating a brand-new
-  // family on disk (no prior install): the existing root if exactly one of
-  // the two roots exists, otherwise the hidden root.
-  static const char* defaultWriteRoot();
-
   // Scan SD card, populate families_. Returns true if any families found.
   bool discover();
 
   const std::vector<SdCardFontFamilyInfo>& getFamilies() const { return families_; }
   const SdCardFontFamilyInfo* findFamily(const std::string& name) const;
-  int getFamilyIndex(const std::string& name) const;
   int getFamilyCount() const { return static_cast<int>(families_.size()); }
 
  private:
