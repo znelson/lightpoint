@@ -61,6 +61,8 @@ class ChapterHtmlSlimParser {
     bool hasBold = false, bold = false;
     bool hasItalic = false, italic = false;
     bool hasUnderline = false, underline = false;
+    bool hasSup = false, sup = false;
+    bool hasSub = false, sub = false;
   };
   std::vector<StyleStackEntry> inlineStyleStack;
   std::vector<BlockStyle> blockStyleStack;  // accumulated block styles from open ancestor elements
@@ -68,6 +70,8 @@ class ChapterHtmlSlimParser {
   bool effectiveBold = false;
   bool effectiveItalic = false;
   bool effectiveUnderline = false;
+  bool effectiveSup = false;
+  bool effectiveSub = false;
   int tableDepth = 0;
   int tableRowIndex = 0;
   int tableColIndex = 0;
@@ -75,8 +79,8 @@ class ChapterHtmlSlimParser {
   // Anchor-to-page mapping: tracks which page each HTML id attribute lands on
   int completedPageCount = 0;
   std::vector<std::pair<std::string, uint16_t>> anchorData;
-  std::string pendingAnchorId;  // deferred until after previous text block is flushed
-  std::vector<std::string> tocAnchors;
+  std::string pendingAnchorId;          // deferred until after previous text block is flushed
+  std::vector<std::string> tocAnchors;  // the list of anchors that are TOC chapter boundaries
   uint16_t xpathParagraphIndex = 0;
   uint16_t xpathListItemIndex = 0;
 
