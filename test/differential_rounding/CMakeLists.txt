@@ -10,7 +10,7 @@ target_include_directories(DifferentialRoundingTest PRIVATE
 )
 
 target_link_libraries(DifferentialRoundingTest PRIVATE
-  crosspoint_test_common
+  lightpoint_test_common
   GTest::gtest_main
 )
 
