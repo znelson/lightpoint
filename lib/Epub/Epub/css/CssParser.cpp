@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstring>
 #include <string_view>
 
 namespace {
@@ -50,30 +51,26 @@ constexpr size_t MIN_FREE_HEAP_FOR_CSS = 48 * 1024;
 constexpr size_t MAX_SELECTOR_LENGTH = 256;
 
 // Check if character is CSS whitespace
-constexpr bool isCssWhitespace(const char c) {
-  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f';
-}
+constexpr bool isCssWhitespace(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
 
-[[maybe_unused]] constexpr std::string_view trimCssWhitespace(std::string_view s) {
+constexpr std::string_view trimCssWhitespace(std::string_view s) {
   while (!s.empty() && isCssWhitespace(s.front())) s.remove_prefix(1);
   while (!s.empty() && isCssWhitespace(s.back())) s.remove_suffix(1);
   return s;
 }
 
-[[maybe_unused]] constexpr char asciiToLower(const char c) {
-  return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + 32) : c;
-}
+constexpr char asciiToLower(const char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + 32) : c; }
 
 // Case-insensitive equality on ASCII. lowercaseKeyword MUST already be
 // lowercase; CSS keywords are ASCII by spec so byte-wise tolower is safe.
-[[maybe_unused]] constexpr bool iequalsAscii(std::string_view value, std::string_view lowercaseKeyword) {
+constexpr bool iequalsAscii(std::string_view value, std::string_view lowercaseKeyword) {
   return std::equal(value.begin(), value.end(), lowercaseKeyword.begin(), lowercaseKeyword.end(),
                     [](char a, char b) { return asciiToLower(a) == b; });
 }
 
 // Case-insensitive ASCII substring search. Only needed by text-decoration,
 // which accepts multi-value strings like "underline solid red".
-[[maybe_unused]] constexpr bool icontainsAscii(std::string_view value, std::string_view lowercaseKeyword) {
+constexpr bool icontainsAscii(std::string_view value, std::string_view lowercaseKeyword) {
   return std::search(value.begin(), value.end(), lowercaseKeyword.begin(), lowercaseKeyword.end(),
                      [](char a, char b) { return asciiToLower(a) == b; }) != value.end();
 }
@@ -188,93 +185,99 @@ std::vector<std::string> CssParser::splitWhitespace(const std::string& s) {
 
 // Property value interpreters
 
-CssTextAlign CssParser::interpretAlignment(const std::string& val) {
-  const std::string v = normalized(val);
+CssTextAlign CssParser::interpretAlignment(std::string_view val) {
+  val = trimCssWhitespace(val);
 
-  if (v == "left" || v == "start") return CssTextAlign::Left;
-  if (v == "right" || v == "end") return CssTextAlign::Right;
-  if (v == "center") return CssTextAlign::Center;
-  if (v == "justify") return CssTextAlign::Justify;
+  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return CssTextAlign::Left;
+  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return CssTextAlign::Right;
+  if (iequalsAscii(val, "center")) return CssTextAlign::Center;
+  if (iequalsAscii(val, "justify")) return CssTextAlign::Justify;
 
   return CssTextAlign::Left;
 }
 
-CssFontStyle CssParser::interpretFontStyle(const std::string& val) {
-  const std::string v = normalized(val);
+CssFontStyle CssParser::interpretFontStyle(std::string_view val) {
+  val = trimCssWhitespace(val);
 
-  if (v == "italic" || v == "oblique") return CssFontStyle::Italic;
+  if (iequalsAscii(val, "italic") || iequalsAscii(val, "oblique")) return CssFontStyle::Italic;
   return CssFontStyle::Normal;
 }
 
-CssFontWeight CssParser::interpretFontWeight(const std::string& val) {
-  const std::string v = normalized(val);
+CssFontWeight CssParser::interpretFontWeight(std::string_view val) {
+  val = trimCssWhitespace(val);
 
   // Named values
-  if (v == "bold" || v == "bolder") return CssFontWeight::Bold;
-  if (v == "normal" || v == "lighter") return CssFontWeight::Normal;
+  if (iequalsAscii(val, "bold") || iequalsAscii(val, "bolder")) return CssFontWeight::Bold;
+  if (iequalsAscii(val, "normal") || iequalsAscii(val, "lighter")) return CssFontWeight::Normal;
 
   // Numeric values: 100-900
   // CSS spec: 400 = normal, 700 = bold
   // We use: 0-400 = normal, 700+ = bold, 500-600 = normal (conservative)
+  char numBuf[16];
+  const size_t numLen = std::min(val.size(), sizeof(numBuf) - 1);
+  std::memcpy(numBuf, val.data(), numLen);
+  numBuf[numLen] = '\0';
+
   char* endPtr = nullptr;
-  const long numericWeight = std::strtol(v.c_str(), &endPtr, 10);
+  const long numericWeight = std::strtol(numBuf, &endPtr, 10);
 
   // If we parsed a number and consumed the whole string
-  if (endPtr != v.c_str() && *endPtr == '\0') {
+  if (endPtr != numBuf && *endPtr == '\0') {
     return numericWeight >= 700 ? CssFontWeight::Bold : CssFontWeight::Normal;
   }
 
   return CssFontWeight::Normal;
 }
 
-CssTextDecoration CssParser::interpretDecoration(const std::string& val) {
-  const std::string v = normalized(val);
-
+CssTextDecoration CssParser::interpretDecoration(std::string_view val) {
   // text-decoration can have multiple space-separated values
-  if (v.find("underline") != std::string::npos) {
+  if (icontainsAscii(val, "underline")) {
     return CssTextDecoration::Underline;
   }
   return CssTextDecoration::None;
 }
 
-CssLength CssParser::interpretLength(const std::string& val) {
+CssLength CssParser::interpretLength(std::string_view val) {
   CssLength result;
   tryInterpretLength(val, result);
   return result;
 }
 
-bool CssParser::tryInterpretLength(const std::string& val, CssLength& out) {
-  const std::string v = normalized(val);
-  if (v.empty()) {
+bool CssParser::tryInterpretLength(std::string_view val, CssLength& out) {
+  val = trimCssWhitespace(val);
+  if (val.empty()) {
     out = CssLength{};
     return false;
   }
 
-  size_t unitStart = v.size();
-  for (size_t i = 0; i < v.size(); ++i) {
-    const char c = v[i];
+  size_t unitStart = val.size();
+  for (size_t i = 0; i < val.size(); ++i) {
+    const char c = val[i];
     if (!std::isdigit(c) && c != '.' && c != '-' && c != '+') {
       unitStart = i;
       break;
     }
   }
 
-  const std::string numPart = v.substr(0, unitStart);
-  const std::string unitPart = v.substr(unitStart);
+  char numBuf[32];
+  const size_t numLen = std::min(unitStart, sizeof(numBuf) - 1);
+  std::memcpy(numBuf, val.data(), numLen);
+  numBuf[numLen] = '\0';
 
   char* endPtr = nullptr;
-  const float numericValue = std::strtof(numPart.c_str(), &endPtr);
-  if (endPtr == numPart.c_str()) {
+  const float numericValue = std::strtof(numBuf, &endPtr);
+  if (endPtr == numBuf) {
     out = CssLength{};
     return false;  // No number parsed (e.g. auto, inherit, initial)
   }
 
+  const std::string_view unitPart = val.substr(unitStart);
   auto unit = CssUnit::Pixels;
-  if (unitPart == "em") {
+  if (iequalsAscii(unitPart, "em")) {
     unit = CssUnit::Em;
-  } else if (unitPart == "rem") {
+  } else if (iequalsAscii(unitPart, "rem")) {
     unit = CssUnit::Rem;
-  } else if (unitPart == "pt") {
+  } else if (iequalsAscii(unitPart, "pt")) {
     unit = CssUnit::Points;
   } else if (unitPart == "%") {
     unit = CssUnit::Percent;

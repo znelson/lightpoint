@@ -3,6 +3,7 @@
 #include <HalStorage.h>
 
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -116,13 +117,13 @@ class CssParser {
                                         std::string& propValueBuf);
 
   // Individual property value parsers
-  static CssTextAlign interpretAlignment(const std::string& val);
-  static CssFontStyle interpretFontStyle(const std::string& val);
-  static CssFontWeight interpretFontWeight(const std::string& val);
-  static CssTextDecoration interpretDecoration(const std::string& val);
-  static CssLength interpretLength(const std::string& val);
+  static CssTextAlign interpretAlignment(std::string_view val);
+  static CssFontStyle interpretFontStyle(std::string_view val);
+  static CssFontWeight interpretFontWeight(std::string_view val);
+  static CssTextDecoration interpretDecoration(std::string_view val);
+  static CssLength interpretLength(std::string_view val);
   /** Returns true only when a numeric length was parsed (e.g. 2em, 50%). False for auto/inherit/initial. */
-  static bool tryInterpretLength(const std::string& val, CssLength& out);
+  static bool tryInterpretLength(std::string_view val, CssLength& out);
 
   // String utilities
   static std::string normalized(const std::string& s);
