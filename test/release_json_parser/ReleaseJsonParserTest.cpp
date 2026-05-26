@@ -151,6 +151,11 @@ TEST(ReleaseJsonParser, PrettyAndMinifiedAgree) {
   ReleaseJsonParser minified;
   minified.feed(kRealisticMinified, strlen(kRealisticMinified));
 
+  ASSERT_TRUE(pretty.foundTag());
+  ASSERT_TRUE(pretty.foundFirmware());
+  ASSERT_TRUE(minified.foundTag());
+  ASSERT_TRUE(minified.foundFirmware());
+
   EXPECT_STREQ(pretty.getTagName(), minified.getTagName());
   EXPECT_STREQ(pretty.getFirmwareUrl(), minified.getFirmwareUrl());
   EXPECT_EQ(pretty.getFirmwareSize(), minified.getFirmwareSize());
@@ -282,6 +287,8 @@ TEST(ReleaseJsonParser, ChunkedFeedingVariousChunkSizes) {
     EXPECT_TRUE(p.foundTag()) << "chunkSize=" << chunkSize;
     EXPECT_TRUE(p.foundFirmware()) << "chunkSize=" << chunkSize;
     EXPECT_STREQ(p.getTagName(), "v2.4.1") << "chunkSize=" << chunkSize;
+    EXPECT_STREQ(p.getFirmwareUrl(), "https://github.com/znelson/lightpoint/releases/download/v2.4.1/firmware.bin")
+        << "chunkSize=" << chunkSize;
     EXPECT_EQ(p.getFirmwareSize(), 1572864u) << "chunkSize=" << chunkSize;
   }
 }

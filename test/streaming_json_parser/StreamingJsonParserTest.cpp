@@ -154,7 +154,7 @@ TEST(StreamingJsonParser, UnicodeEscapeAscii) {
   // \u escapes for ASCII codepoints (1-byte UTF-8) decode to the raw bytes.
   auto events = parse(R"({"u": "\u0041\u0042"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, "AB");
 }
@@ -163,7 +163,7 @@ TEST(StreamingJsonParser, UnicodeEscapeTwoByteUtf8) {
   // U+00E9 (e-acute) decodes to the 2-byte UTF-8 sequence C3 A9.
   auto events = parse(R"({"k": "caf\u00E9"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("caf\xC3\xA9"));
 }
@@ -172,7 +172,7 @@ TEST(StreamingJsonParser, UnicodeEscapeThreeByteUtf8) {
   // U+20AC (euro sign) decodes to the 3-byte UTF-8 sequence E2 82 AC.
   auto events = parse(R"({"k": "\u20AC"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("\xE2\x82\xAC"));
 }
@@ -181,7 +181,7 @@ TEST(StreamingJsonParser, UnicodeEscapeMixedHexCase) {
   // Lower and upper case hex digits must both decode.
   auto events = parse(R"({"k": "\u00e9\u00E9"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("\xC3\xA9\xC3\xA9"));
 }
@@ -190,7 +190,7 @@ TEST(StreamingJsonParser, UnicodeEscapeSurrogateBecomesReplacement) {
   // Bare surrogate values (no pair handling) emit U+FFFD (EF BF BD).
   auto events = parse(R"({"k": "\uD800"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("\xEF\xBF\xBD"));
 }
@@ -200,7 +200,7 @@ TEST(StreamingJsonParser, UnicodeEscapeInvalidHexBecomesReplacement) {
   // reprocessed as a normal string char so the rest of the string parses.
   auto events = parse(R"({"k": "\u00ZZok"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("\xEF\xBF\xBD"
                                          "ZZok"));
@@ -209,7 +209,7 @@ TEST(StreamingJsonParser, UnicodeEscapeInvalidHexBecomesReplacement) {
 TEST(StreamingJsonParser, UnicodeEscapeMixedWithLiterals) {
   auto events = parse(R"({"k": "a\u00E9b"})");
 
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("a\xC3\xA9"
                                          "b"));
@@ -247,7 +247,7 @@ TEST(StreamingJsonParser, UnicodeEscapeSplitAcrossChunks) {
 TEST(StreamingJsonParser, Numbers) {
   auto events = parse(R"({"int": 42, "neg": -7, "flt": 3.14, "exp": 1e10, "nexp": -2.5E-3})");
 
-  ASSERT_GE(events.size(), 11u);
+  ASSERT_EQ(events.size(), 12u);
   EXPECT_EQ(events[2].type, EventType::NUMBER);
   EXPECT_EQ(events[2].value, "42");
   EXPECT_EQ(events[4].type, EventType::NUMBER);
@@ -263,7 +263,7 @@ TEST(StreamingJsonParser, Numbers) {
 TEST(StreamingJsonParser, BooleansAndNull) {
   auto events = parse(R"({"t": true, "f": false, "n": null})");
 
-  ASSERT_GE(events.size(), 7u);
+  ASSERT_EQ(events.size(), 8u);
   EXPECT_EQ(events[2].type, EventType::BOOL_TRUE);
   EXPECT_EQ(events[4].type, EventType::BOOL_FALSE);
   EXPECT_EQ(events[6].type, EventType::NULL_VAL);
@@ -454,7 +454,7 @@ TEST(StreamingJsonParser, TruncatedInputNoCrash) {
 
 TEST(StreamingJsonParser, AllEscapeSequences) {
   auto events = parse(R"({"e": "\b\f\n\r\t\"\\\/"})");
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
   EXPECT_EQ(events[2].value, std::string("\b\f\n\r\t\"\\/"));
 }
@@ -509,7 +509,7 @@ TEST(StreamingJsonParser, NestingOverflow) {
 
 TEST(StreamingJsonParser, NumberZero) {
   auto events = parse(R"({"z": 0})");
-  ASSERT_GE(events.size(), 3u);
+  ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::NUMBER);
   EXPECT_EQ(events[2].value, "0");
 }
