@@ -2,11 +2,13 @@
 
 #include <FontDecompressor.h>
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <Logging.h>
 #include <SdCardFont.h>
 #include <Utf8.h>
 
 #include <algorithm>
+#include <cmath>
 
 #include "FontCacheManager.h"
 
@@ -431,9 +433,7 @@ void GfxRenderer::drawText(const int fontId, const int x, const int y, const cha
       // Halve the advance so the cursor advances by the same amount the scaled glyph
       // actually occupies, keeping spacing correct without needing a separate smaller font.
       prevAdvanceFP = (prevAdvanceFP + 1) / 2;
-    }
 
-    if (isSupSub) {
       // yPos already carries the vertical offset applied by TextBlock::render().
       renderCharScaled(*this, renderMode, font, cp, lastBaseX, yPos, black, style);
     } else {
@@ -1075,10 +1075,10 @@ void GfxRenderer::fillPolygon(const int* xPoints, const int* yPoints, int numPoi
 }
 
 // For performance measurement (using static to allow "const" methods)
-static unsigned long start_ms = 0;
+static uint32_t start_ms = 0;
 
 void GfxRenderer::clearScreen(const uint8_t color) const {
-  start_ms = millis();
+  start_ms = halPlatform.millis();
   if (_stripActive) {
     // Clear only the active band's scratch, not the shared framebuffer.
     memset(_stripBuf, color, static_cast<size_t>(panelWidthBytes) * _stripRows);
@@ -1127,8 +1127,8 @@ void GfxRenderer::invertScreen() const {
 }
 
 void GfxRenderer::displayBuffer(const HalDisplay::RefreshMode refreshMode) const {
-  auto elapsed = millis() - start_ms;
-  LOG_DBG("GFX", "Time = %lu ms from clearScreen to displayBuffer", elapsed);
+  auto elapsed = halPlatform.millis() - start_ms;
+  LOG_DBG("GFX", "Time = %u ms from clearScreen to displayBuffer", elapsed);
   display.displayBuffer(refreshMode, fadingFix);
 }
 

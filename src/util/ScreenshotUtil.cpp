@@ -1,9 +1,9 @@
 #include "ScreenshotUtil.h"
 
-#include <Arduino.h>
 #include <BitmapHelpers.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
 
@@ -14,17 +14,17 @@
 #include "activities/Activity.h"
 
 void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t bufSize) {
-  const unsigned long ts = millis();
+  const unsigned int ts = static_cast<unsigned int>(halPlatform.millis());
 
   if (info.readerType == ScreenshotInfo::ReaderType::None || info.title[0] == '\0') {
-    snprintf(buf, bufSize, "/screenshots/screenshot-%lu.bmp", ts);
+    snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);
     return;
   }
 
   char sanitizedTitle[64];
   FsHelpers::sanitizePathComponentForFat32(info.title, sanitizedTitle, sizeof(sanitizedTitle));
   if (sanitizedTitle[0] == '\0') {
-    snprintf(buf, bufSize, "/screenshots/screenshot-%lu.bmp", ts);
+    snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);
     return;
   }
 
@@ -32,15 +32,16 @@ void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t
   if (pct < 0) pct = 0;
   if (pct > 100) pct = 100;
 
+  const bool hasChapter = info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex.has_value();
   // Display spine index as 1-based for user-facing filenames
-  const int chapterNum = info.spineIndex + 1;
+  const int chapterNum = hasChapter ? *info.spineIndex + 1 : 0;
 
-  if (info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex >= 0) {
-    snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
+  if (hasChapter) {
+    snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
              info.currentPage, pct, ts);
   } else {
-    snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, info.currentPage,
-             pct, ts);
+    snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, info.currentPage, pct,
+             ts);
   }
 
   // Truncate title if total path exceeds FAT32 limit
@@ -54,15 +55,15 @@ void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t
         maxTitleLen--;
       }
       sanitizedTitle[maxTitleLen] = '\0';
-      if (info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex >= 0) {
-        snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
+      if (hasChapter) {
+        snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
                  info.currentPage, pct, ts);
       } else {
-        snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, info.currentPage,
+        snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, info.currentPage,
                  pct, ts);
       }
     } else {
-      snprintf(buf, bufSize, "/screenshots/screenshot-%lu.bmp", ts);
+      snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);
     }
   }
 }
@@ -95,7 +96,7 @@ void ScreenshotUtil::takeScreenshot(GfxRenderer& renderer) {
     // Add extra margin to the border to make it more visible
     renderer.drawRect(marginLeft + 1, marginTop + 1, width - 2, height - 2, 2, true);
     renderer.displayBuffer();
-    delay(1000);
+    vTaskDelay(pdMS_TO_TICKS(1000));
     renderer.restoreBwBuffer();
     renderer.displayBuffer(HalDisplay::RefreshMode::HALF_REFRESH);
   }
@@ -147,7 +148,7 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   // Max row size for 528px height (X3) after rotation = 68 bytes; use fixed buffer to avoid VLA
   constexpr size_t kMaxRowSize = 68;
   if (rowSizePadded > kMaxRowSize) {
-    LOG_ERR("SCR", "Row size %u exceeds buffer capacity", rowSizePadded);
+    LOG_ERR("SCR", "Row size %u exceeds buffer capacity", static_cast<unsigned int>(rowSizePadded));
     // Explicitly close() file before calling Storage.remove()
     file.close();
     Storage.remove(filename);

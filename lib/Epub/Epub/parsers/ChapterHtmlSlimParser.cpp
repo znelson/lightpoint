@@ -2,11 +2,15 @@
 
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
+#include <ImageDecoderFactory.h>
+#include <ImageToFramebufferDecoder.h>
 #include <Logging.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
+#include <freertos/task.h>
 
 #include <algorithm>
 #include <iterator>
@@ -14,8 +18,6 @@
 
 #include "Epub.h"
 #include "Epub/Page.h"
-#include "Epub/converters/ImageDecoderFactory.h"
-#include "Epub/converters/ImageToFramebufferDecoder.h"
 #include "Epub/htmlEntities.h"
 
 // Minimum file size (in bytes) to show indexing popup - smaller chapters don't benefit from it
@@ -99,25 +101,6 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
   }
 }
 
-void ChapterHtmlSlimParser::flushPendingAnchor() {
-  if (pendingAnchorId.empty()) return;
-
-  // If the pending anchor is a TOC chapter boundary, force a page break after the previous
-  // block is flushed so the chapter starts on a fresh page.
-  if (std::find(tocAnchors.begin(), tocAnchors.end(), pendingAnchorId) != tocAnchors.end()) {
-    if (currentPage && !currentPage->elements.empty()) {
-      completePageFn(std::move(currentPage), xpathParagraphIndex, xpathListItemIndex);
-      completedPageCount++;
-      currentPage.reset(new Page());
-      currentPageNextY = 0;
-    }
-  }
-
-  // Record deferred anchor after previous block is flushed (and any TOC page break)
-  anchorData.push_back({std::move(pendingAnchorId), static_cast<uint16_t>(completedPageCount)});
-  pendingAnchorId.clear();
-}
-
 // flush the contents of partWordBuffer to currentTextBlock
 void ChapterHtmlSlimParser::flushPartWordBuffer() {
   // Determine font style from depth-based tracking and CSS effective style
@@ -149,6 +132,23 @@ void ChapterHtmlSlimParser::flushPartWordBuffer() {
   nextWordContinues = false;
 }
 
+void ChapterHtmlSlimParser::flushPendingAnchor() {
+  if (pendingAnchorId.empty()) return;
+  // If the pending anchor is a TOC chapter boundary, force a page break after the previous
+  // block is flushed so the chapter starts on a fresh page.
+  if (std::find(tocAnchors.begin(), tocAnchors.end(), pendingAnchorId) != tocAnchors.end()) {
+    if (currentPage && !currentPage->elements.empty()) {
+      completePageFn(std::move(currentPage), xpathParagraphIndex, xpathListItemIndex);
+      completedPageCount++;
+      currentPage.reset(new Page());
+      currentPageNextY = 0;
+    }
+  }
+  // Record deferred anchor after previous block is flushed (and any TOC page break)
+  anchorData.push_back({std::move(pendingAnchorId), static_cast<uint16_t>(completedPageCount)});
+  pendingAnchorId.clear();
+}
+
 // start a new text block if needed
 void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
   nextWordContinues = false;  // New block = new paragraph, no continuation
@@ -164,6 +164,7 @@ void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
       currentTextBlock->setBlockStyle(style.getCombinedBlockStyle(blockStyle, BlockStyle::CombineAxis::Vertical));
 
       flushPendingAnchor();
+      wordsExtractedInBlock = 0;
       return;
     }
 
@@ -416,7 +417,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
               extractSuccess = self->epub->readItemContentsToStream(resolvedPath, cachedImageFile, 4096);
               cachedImageFile.flush();
               cachedImageFile.close();
-              delay(50);  // Give SD card time to sync
+              vTaskDelay(pdMS_TO_TICKS(50));  // Give SD card time to sync
             }
 
             if (extractSuccess) {
@@ -642,8 +643,8 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
   // Skip blocks with role="doc-pagebreak" and epub:type="pagebreak"
   if (atts != nullptr) {
     for (int i = 0; atts[i]; i += 2) {
-      if (strcmp(atts[i], "role") == 0 && strcmp(atts[i + 1], "doc-pagebreak") == 0 ||
-          strcmp(atts[i], "epub:type") == 0 && strcmp(atts[i + 1], "pagebreak") == 0) {
+      if ((strcmp(atts[i], "role") == 0 && strcmp(atts[i + 1], "doc-pagebreak") == 0) ||
+          (strcmp(atts[i], "epub:type") == 0 && strcmp(atts[i + 1], "pagebreak") == 0)) {
         self->skipUntilDepth = self->depth;
         self->depth += 1;
         return;
@@ -1222,7 +1223,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   XML_SetCharacterDataHandler(parser, characterData);
 
   // Compute the time taken to parse and build pages
-  const uint32_t chapterStartTime = millis();
+  const uint32_t chapterStartTime = halPlatform.millis();
   do {
     void* const buf = XML_GetBuffer(parser, PARSE_BUFFER_SIZE);
     if (!buf) {
@@ -1251,7 +1252,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
       return false;
     }
   } while (!done);
-  LOG_DBG("EHP", "Time to parse and build pages: %lu ms", millis() - chapterStartTime);
+  LOG_DBG("EHP", "Time to parse and build pages: %u ms", halPlatform.millis() - chapterStartTime);
 
   destroyXmlParser(parser);
   file.close();

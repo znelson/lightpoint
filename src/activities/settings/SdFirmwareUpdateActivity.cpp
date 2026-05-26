@@ -1,7 +1,7 @@
 #include "SdFirmwareUpdateActivity.h"
 
-#include <Arduino.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
@@ -180,8 +180,8 @@ void SdFirmwareUpdateActivity::performUpdate() {
     state = State::SUCCESS;
   }
   requestUpdateAndWait();
-  delay(1500);
-  ESP.restart();
+  vTaskDelay(pdMS_TO_TICKS(1500));
+  halPlatform.hardRestart();
 }
 
 void SdFirmwareUpdateActivity::loop() {

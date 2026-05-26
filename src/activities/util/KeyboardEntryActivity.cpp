@@ -1,6 +1,7 @@
 #include "KeyboardEntryActivity.h"
 
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <I18n.h>
 
 #include <algorithm>
@@ -143,7 +144,7 @@ bool KeyboardEntryActivity::handleKeyPress() {
         delPressCount++;
         if (delPressCount >= 2) {
           hintVisible = true;
-          hintShowTime = millis();
+          hintShowTime = halPlatform.millis();
         }
         if (cursorPos > 0 && !text.empty()) {
           text.erase(cursorPos - 1, 1);
@@ -199,7 +200,7 @@ void KeyboardEntryActivity::loop() {
     cursorMode = true;
     upLongHandled = true;
     hintVisible = true;
-    hintShowTime = millis();
+    hintShowTime = halPlatform.millis();
     requestUpdate();
   }
 
@@ -353,7 +354,7 @@ void KeyboardEntryActivity::loop() {
     onCancel();
   }
 
-  if (hintVisible && !cursorMode && millis() - hintShowTime > 4000) {
+  if (hintVisible && !cursorMode && halPlatform.millis() - hintShowTime > 4000) {
     hintVisible = false;
     requestUpdate();
   }
@@ -393,7 +394,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
 
   const bool isPassword = (inputType == InputType::Password);
   int availableWidth = pageWidth;
-  if (gpio.deviceIsX3()) {
+  if (halGPIO.deviceIsX3()) {
     availableWidth -= 2 * metrics.sideButtonHintsWidth;
   }
   const int effectiveMargin = (pageWidth - availableWidth * metrics.keyboardTextFieldWidthPercent / 100) / 2;

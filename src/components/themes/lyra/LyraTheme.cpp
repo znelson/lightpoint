@@ -18,13 +18,11 @@
 #include "components/icons/file24.h"
 #include "components/icons/folder.h"
 #include "components/icons/folder24.h"
-#include "components/icons/hotspot.h"
 #include "components/icons/image24.h"
 #include "components/icons/library.h"
 #include "components/icons/recent.h"
 #include "components/icons/settings2.h"
 #include "components/icons/text24.h"
-#include "components/icons/transfer.h"
 #include "components/icons/wifi.h"
 #include "fontIds.h"
 
@@ -65,14 +63,10 @@ const uint8_t* iconForName(UIIcon icon, int size) {
         return RecentIcon;
       case UIIcon::Settings:
         return Settings2Icon;
-      case UIIcon::Transfer:
-        return TransferIcon;
       case UIIcon::Library:
         return LibraryIcon;
       case UIIcon::Wifi:
         return WifiIcon;
-      case UIIcon::Hotspot:
-        return HotspotIcon;
       default:
         return nullptr;
     }
@@ -82,7 +76,7 @@ const uint8_t* iconForName(UIIcon icon, int size) {
 }  // namespace
 
 void LyraTheme::fillBatteryIcon(const GfxRenderer& renderer, Rect rect, uint16_t percentage) const {
-  const bool charging = gpio.isUsbConnected();
+  const bool charging = halGPIO.isUsbConnected();
 
   if (charging) {
     // Solid fill when charging so lightning bolt is visible
@@ -238,7 +232,7 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
 
   int textX = rect.x + LyraMetrics::values.contentSidePadding + hPaddingInSelection;
   int textWidth = contentWidth - LyraMetrics::values.contentSidePadding * 2 - hPaddingInSelection * 2;
-  int iconSize;
+  int iconSize = 0;
   if (rowIcon != nullptr) {
     iconSize = (rowSubtitle != nullptr) ? mainMenuIconSize : listIconSize;
     textX += iconSize + hPaddingInSelection;
@@ -323,7 +317,7 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   // X3 has wider screen in portrait (528 vs 480), use more spacing
   constexpr int x4ButtonPositions[] = {58, 146, 254, 342};
   constexpr int x3ButtonPositions[] = {65, 157, 291, 383};
-  const int* buttonPositions = gpio.deviceIsX3() ? x3ButtonPositions : x4ButtonPositions;
+  const int* buttonPositions = halGPIO.deviceIsX3() ? x3ButtonPositions : x4ButtonPositions;
   const char* labels[] = {btn1, btn2, btn3, btn4};
 
   for (int i = 0; i < 4; i++) {
@@ -354,7 +348,7 @@ void LyraTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
   constexpr int buttonHeight = 78;                                       // Height on screen (width when rotated)
   constexpr int buttonMargin = 0;
 
-  if (gpio.deviceIsX3()) {
+  if (halGPIO.deviceIsX3()) {
     // X3 layout: Up on left side, Down on right side, positioned higher
     constexpr int x3ButtonY = 155;
 

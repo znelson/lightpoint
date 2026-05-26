@@ -1,0 +1,28 @@
+# USB Serial/JTAG - used by MySerialImpl for logSerial
+# IDF 6.x: USB-JTAG is now a console choice rather than a standalone enable flag
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# Flash size
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# FAT filesystem + long filename support (replaces SdFat USE_UTF8_LONG_NAMES)
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+CONFIG_FATFS_CODEPAGE=437
+
+# FreeRTOS
+CONFIG_FREERTOS_HZ=1000
+CONFIG_FREERTOS_UNICORE=y
+
+# C++ exceptions disabled (matches -fno-exceptions)
+CONFIG_COMPILER_CXX_EXCEPTIONS=n
+
+# Disable RTTI to match existing build flags
+CONFIG_COMPILER_CXX_RTTI=n
+
+# Stack watchpoint (helpful for debugging)
+CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK=y
+
+# Main task stack — 3584 (IDF default) is too small for our init chain
+# (HalSystem panic dump + std::string building + display/WiFi init)
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

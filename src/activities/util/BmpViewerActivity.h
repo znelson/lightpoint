@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
 
 #include "MappedInputManager.h"
@@ -20,5 +21,5 @@ class BmpViewerActivity final : public Activity {
 
   std::string filePath;
   std::vector<std::string> siblingImages;
-  int currentImageIndex = -1;
+  std::optional<size_t> currentImageIndex;
 };

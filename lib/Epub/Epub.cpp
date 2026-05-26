@@ -1,6 +1,7 @@
 #include "Epub.h"
 
 #include <FsHelpers.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
@@ -311,7 +312,7 @@ void Epub::parseCssFiles() const {
     LOG_DBG("EBP", "Parsing CSS file: %s", cssPath.c_str());
 
     // Check heap before parsing - CSS parsing allocates heavily
-    const uint32_t freeHeap = ESP.getFreeHeap();
+    const uint32_t freeHeap = halPlatform.freeHeap();
     if (freeHeap < MIN_HEAP_FOR_CSS_PARSING) {
       LOG_ERR("EBP", "Insufficient heap for CSS parsing (%u bytes free, need %zu), skipping: %s", freeHeap,
               MIN_HEAP_FOR_CSS_PARSING, cssPath.c_str());
@@ -409,7 +410,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   LOG_DBG("EBP", "Cache not found, building spine/TOC cache");
   setupCacheDir();
 
-  const uint32_t indexingStart = millis();
+  const uint32_t indexingStart = halPlatform.millis();
 
   // Begin building cache - stream entries to disk immediately
   if (!bookMetadataCache->beginWrite()) {
@@ -418,7 +419,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   }
 
   // OPF Pass
-  const uint32_t opfStart = millis();
+  const uint32_t opfStart = halPlatform.millis();
   BookMetadataCache::BookMetadata bookMetadata;
   if (!bookMetadataCache->beginContentOpfPass()) {
     LOG_ERR("EBP", "Could not begin writing content.opf pass");
@@ -432,10 +433,10 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     LOG_ERR("EBP", "Could not end writing content.opf pass");
     return false;
   }
-  LOG_DBG("EBP", "OPF pass completed in %lu ms", millis() - opfStart);
+  LOG_DBG("EBP", "OPF pass completed in %u ms", halPlatform.millis() - opfStart);
 
   // TOC Pass - try EPUB 3 nav first, fall back to NCX
-  const uint32_t tocStart = millis();
+  const uint32_t tocStart = halPlatform.millis();
   if (!bookMetadataCache->beginTocPass()) {
     LOG_ERR("EBP", "Could not begin writing toc pass");
     return false;
@@ -464,7 +465,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     LOG_ERR("EBP", "Could not end writing toc pass");
     return false;
   }
-  LOG_DBG("EBP", "TOC pass completed in %lu ms", millis() - tocStart);
+  LOG_DBG("EBP", "TOC pass completed in %u ms", halPlatform.millis() - tocStart);
 
   // Close the cache files
   if (!bookMetadataCache->endWrite()) {
@@ -473,13 +474,13 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   }
 
   // Build final book.bin
-  const uint32_t buildStart = millis();
+  const uint32_t buildStart = halPlatform.millis();
   if (!bookMetadataCache->buildBookBin(filepath, bookMetadata)) {
     LOG_ERR("EBP", "Could not update mappings and sizes");
     return false;
   }
-  LOG_DBG("EBP", "buildBookBin completed in %lu ms", millis() - buildStart);
-  LOG_DBG("EBP", "Total indexing completed in %lu ms", millis() - indexingStart);
+  LOG_DBG("EBP", "buildBookBin completed in %u ms", halPlatform.millis() - buildStart);
+  LOG_DBG("EBP", "Total indexing completed in %u ms", halPlatform.millis() - indexingStart);
 
   if (!bookMetadataCache->cleanupTmpFiles()) {
     LOG_DBG("EBP", "Could not cleanup tmp files - ignoring");
@@ -851,6 +852,35 @@ int Epub::getSpineIndexForTocIndex(const int tocIndex) const {
 }
 
 int Epub::getTocIndexForSpineIndex(const int spineIndex) const { return getSpineItem(spineIndex).tocIndex; }
+
+std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const int tocIndex) const {
+  const int tocCount = getTocItemsCount();
+  const int spineCount = getSpineItemsCount();
+  if (tocIndex < 0 || tocIndex >= tocCount) {
+    return std::nullopt;
+  }
+
+  const int firstSpine = getTocItem(tocIndex).spineIndex;
+  if (firstSpine < 0 || firstSpine >= spineCount) {
+    return std::nullopt;
+  }
+
+  int lastSpine;
+  if (tocIndex + 1 < tocCount) {
+    const auto nextToc = getTocItem(tocIndex + 1);
+    // If the next TOC entry has an anchor, it starts mid-spine, so this chapter
+    // shares that spine. If no anchor, the next chapter owns that spine exclusively.
+    lastSpine = nextToc.anchor.empty() ? nextToc.spineIndex - 1 : nextToc.spineIndex;
+    if (lastSpine < firstSpine) lastSpine = firstSpine;
+  } else {
+    // Last TOC entry: cap to its own spine rather than pulling in all remaining
+    // spines (typically end-of-book material like appendices or copyright).
+    lastSpine = firstSpine;
+  }
+  if (lastSpine >= spineCount) lastSpine = spineCount - 1;
+
+  return SpineRange{firstSpine, lastSpine};
+}
 
 size_t Epub::getBookSize() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded() || bookMetadataCache->getSpineCount() == 0) {
