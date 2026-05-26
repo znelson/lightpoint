@@ -7,10 +7,11 @@ struct WifiCredential {
   std::string password;  // Plaintext in memory; obfuscated with hardware key on disk
 };
 
+class HalFile;
 class WifiCredentialStore;
 namespace JsonSettingsIO {
 bool saveWifi(const WifiCredentialStore& store, const char* path);
-bool loadWifi(WifiCredentialStore& store, const char* json, bool* needsResave);
+bool loadWifiFromFile(WifiCredentialStore& store, HalFile& file);
 }  // namespace JsonSettingsIO
 
 /**
@@ -25,17 +26,15 @@ class WifiCredentialStore {
   std::vector<WifiCredential> credentials;
   std::string lastConnectedSsid;
 
-  static constexpr size_t MAX_NETWORKS = 8;
-
   // Private constructor for singleton
   WifiCredentialStore() = default;
 
-  bool loadFromBinaryFile();
-
   friend bool JsonSettingsIO::saveWifi(const WifiCredentialStore&, const char*);
-  friend bool JsonSettingsIO::loadWifi(WifiCredentialStore&, const char*, bool*);
+  friend bool JsonSettingsIO::loadWifiFromFile(WifiCredentialStore&, HalFile&);
 
  public:
+  static constexpr size_t MAX_NETWORKS = 8;
+
   // Delete copy constructor and assignment
   WifiCredentialStore(const WifiCredentialStore&) = delete;
   WifiCredentialStore& operator=(const WifiCredentialStore&) = delete;

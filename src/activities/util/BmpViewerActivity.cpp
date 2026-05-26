@@ -7,6 +7,7 @@
 #include <I18n.h>
 
 #include <algorithm>
+#include <cmath>
 
 #include "CrossPointSettings.h"
 #include "components/UITheme.h"
@@ -17,7 +18,7 @@ BmpViewerActivity::BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& 
 
 void BmpViewerActivity::loadSiblingImages() {
   siblingImages.clear();
-  currentImageIndex = -1;
+  currentImageIndex.reset();
 
   if (filePath.empty()) return;
 
@@ -50,7 +51,7 @@ void BmpViewerActivity::loadSiblingImages() {
 
   for (size_t i = 0; i < siblingImages.size(); ++i) {
     if (siblingImages[i] == fileName) {
-      currentImageIndex = static_cast<int>(i);
+      currentImageIndex = i;
       break;
     }
   }
@@ -97,9 +98,8 @@ void BmpViewerActivity::onEnter() {
       }
 
       // 4. Prepare Rendering
-      bool hasPrevious = (siblingImages.size() > 1 && currentImageIndex > 0);
-      bool hasNext = (siblingImages.size() > 1 && currentImageIndex != -1 &&
-                      currentImageIndex < static_cast<int>(siblingImages.size()) - 1);
+      bool hasPrevious = (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex > 0);
+      bool hasNext = (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex < siblingImages.size() - 1);
 
       const auto labels =
           mappedInput.mapLabels(tr(STR_BACK), tr(STR_SET_SLEEP_COVER), (hasPrevious ? "<" : ""), (hasNext ? ">" : ""));
@@ -172,7 +172,7 @@ void BmpViewerActivity::doSetSleepCover() {
     GUI.drawPopup(renderer, tr(STR_FAILED_LOWER));
   }
 
-  delay(1000);
+  vTaskDelay(pdMS_TO_TICKS(1000));
   onEnter();
 }
 
@@ -192,11 +192,11 @@ void BmpViewerActivity::loop() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Left) ||
       mappedInput.wasReleased(MappedInputManager::Button::Up)) {
-    if (siblingImages.size() > 1 && currentImageIndex > 0) {
-      currentImageIndex--;
+    if (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex > 0) {
+      --*currentImageIndex;
       std::string dirPath = FsHelpers::extractFolderPath(filePath);
       if (dirPath.back() != '/') dirPath += "/";
-      filePath = dirPath + siblingImages[currentImageIndex];
+      filePath = dirPath + siblingImages[*currentImageIndex];
       onEnter();
     }
     return;
@@ -204,12 +204,11 @@ void BmpViewerActivity::loop() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Right) ||
       mappedInput.wasReleased(MappedInputManager::Button::Down)) {
-    if (siblingImages.size() > 1 && currentImageIndex != -1 &&
-        currentImageIndex < static_cast<int>(siblingImages.size()) - 1) {
-      currentImageIndex++;
+    if (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex < siblingImages.size() - 1) {
+      ++*currentImageIndex;
       std::string dirPath = FsHelpers::extractFolderPath(filePath);
       if (dirPath.back() != '/') dirPath += "/";
-      filePath = dirPath + siblingImages[currentImageIndex];
+      filePath = dirPath + siblingImages[*currentImageIndex];
       onEnter();
     }
     return;

@@ -4,7 +4,7 @@
 
 #include "I18nKeys.h"
 /**
- * Internationalization (i18n) system for CrossPoint Reader
+ * Internationalization (i18n) system for LightPoint Reader
  */
 
 class I18n {
@@ -24,10 +24,6 @@ class I18n {
   void setLanguage(Language lang);
   const char* getLanguageName(Language lang) const;
   static Language languageFromCode(const char* code);
-
-  // Get all unique characters used in a specific language
-  // Returns a sorted string of unique characters
-  static const char* getCharacterSet(Language lang);
 
  private:
   I18n() : _language(Language::EN) {}

@@ -23,7 +23,7 @@ class ButtonRemapActivity final : public Activity {
   // Temporary mapping from logical role -> hardware button index.
   uint8_t tempMapping[4] = {0xFF, 0xFF, 0xFF, 0xFF};
   // Error banner timing (used when reassigning duplicate buttons).
-  unsigned long errorUntil = 0;
+  uint32_t errorUntil = 0;
   std::string errorMessage;
 
   // Commit temporary mapping to settings.
