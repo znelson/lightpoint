@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstring>
 #include <string_view>
 
 namespace {
@@ -50,7 +51,57 @@ constexpr size_t MIN_FREE_HEAP_FOR_CSS = 48 * 1024;
 constexpr size_t MAX_SELECTOR_LENGTH = 256;
 
 // Check if character is CSS whitespace
-bool isCssWhitespace(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
+constexpr bool isCssWhitespace(const char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'; }
+
+constexpr std::string_view trimCssWhitespace(std::string_view s) {
+  while (!s.empty() && isCssWhitespace(s.front())) s.remove_prefix(1);
+  while (!s.empty() && isCssWhitespace(s.back())) s.remove_suffix(1);
+  return s;
+}
+
+constexpr char asciiToLower(const char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + 32) : c; }
+
+// Case-insensitive equality on ASCII. lowercaseKeyword MUST already be
+// lowercase; CSS keywords are ASCII by spec so byte-wise tolower is safe.
+constexpr bool iequalsAscii(std::string_view value, std::string_view lowercaseKeyword) {
+  return std::equal(value.begin(), value.end(), lowercaseKeyword.begin(), lowercaseKeyword.end(),
+                    [](char a, char b) { return asciiToLower(a) == b; });
+}
+
+// Case-insensitive ASCII substring search. Only needed by text-decoration,
+// which accepts multi-value strings like "underline solid red".
+constexpr bool icontainsAscii(std::string_view value, std::string_view lowercaseKeyword) {
+  return std::search(value.begin(), value.end(), lowercaseKeyword.begin(), lowercaseKeyword.end(),
+                     [](char a, char b) { return asciiToLower(a) == b; }) != value.end();
+}
+
+// Copy src to dst byte-wise with ASCII tolower; returns bytes written. No
+// terminator. Truncates rather than overflowing when src exceeds dstCap.
+size_t lowercaseInto(std::string_view src, char* dst, size_t dstCap) {
+  const size_t n = std::min(src.size(), dstCap);
+  for (size_t i = 0; i < n; ++i) {
+    dst[i] = asciiToLower(src[i]);
+  }
+  return n;
+}
+
+// Walk s and invoke fn(token) for each whitespace-separated, non-empty run.
+// Tokens are yielded as string_views into s; no allocation.
+template <typename F>
+void forEachWhitespaceSeparatedToken(std::string_view s, F&& fn) {
+  size_t start = 0;
+  bool inWord = false;
+  for (size_t i = 0; i <= s.size(); ++i) {
+    const bool isSpace = (i == s.size()) || isCssWhitespace(s[i]);
+    if (isSpace && inWord) {
+      fn(s.substr(start, i - start));
+      inWord = false;
+    } else if (!isSpace && !inWord) {
+      start = i;
+      inWord = true;
+    }
+  }
+}
 
 std::string_view stripTrailingImportant(std::string_view value) {
   constexpr std::string_view IMPORTANT = "!important";
@@ -103,28 +154,6 @@ std::string CssParser::normalized(const std::string& s) {
   return result;
 }
 
-void CssParser::normalizedInto(const std::string& s, std::string& out) {
-  out.clear();
-  out.reserve(s.size());
-
-  bool inSpace = true;  // Start true to skip leading space
-  for (const char c : s) {
-    if (isCssWhitespace(c)) {
-      if (!inSpace) {
-        out.push_back(' ');
-        inSpace = true;
-      }
-    } else {
-      out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-      inSpace = false;
-    }
-  }
-
-  if (!out.empty() && out.back() == ' ') {
-    out.pop_back();
-  }
-}
-
 std::vector<std::string> CssParser::splitOnChar(const std::string& s, const char delimiter) {
   std::vector<std::string> parts;
   size_t start = 0;
@@ -142,7 +171,7 @@ std::vector<std::string> CssParser::splitOnChar(const std::string& s, const char
   return parts;
 }
 
-std::vector<std::string> CssParser::splitWhitespace(const std::string& s) {
+std::vector<std::string> CssParser::splitWhitespace(std::string_view s) {
   std::vector<std::string> parts;
   size_t start = 0;
   bool inWord = false;
@@ -150,7 +179,7 @@ std::vector<std::string> CssParser::splitWhitespace(const std::string& s) {
   for (size_t i = 0; i <= s.size(); ++i) {
     const bool isSpace = i == s.size() || isCssWhitespace(s[i]);
     if (isSpace && inWord) {
-      parts.push_back(s.substr(start, i - start));
+      parts.emplace_back(s.substr(start, i - start));
       inWord = false;
     } else if (!isSpace && !inWord) {
       start = i;
@@ -162,93 +191,99 @@ std::vector<std::string> CssParser::splitWhitespace(const std::string& s) {
 
 // Property value interpreters
 
-CssTextAlign CssParser::interpretAlignment(const std::string& val) {
-  const std::string v = normalized(val);
+CssTextAlign CssParser::interpretAlignment(std::string_view val) {
+  val = trimCssWhitespace(val);
 
-  if (v == "left" || v == "start") return CssTextAlign::Left;
-  if (v == "right" || v == "end") return CssTextAlign::Right;
-  if (v == "center") return CssTextAlign::Center;
-  if (v == "justify") return CssTextAlign::Justify;
+  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return CssTextAlign::Left;
+  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return CssTextAlign::Right;
+  if (iequalsAscii(val, "center")) return CssTextAlign::Center;
+  if (iequalsAscii(val, "justify")) return CssTextAlign::Justify;
 
   return CssTextAlign::Left;
 }
 
-CssFontStyle CssParser::interpretFontStyle(const std::string& val) {
-  const std::string v = normalized(val);
+CssFontStyle CssParser::interpretFontStyle(std::string_view val) {
+  val = trimCssWhitespace(val);
 
-  if (v == "italic" || v == "oblique") return CssFontStyle::Italic;
+  if (iequalsAscii(val, "italic") || iequalsAscii(val, "oblique")) return CssFontStyle::Italic;
   return CssFontStyle::Normal;
 }
 
-CssFontWeight CssParser::interpretFontWeight(const std::string& val) {
-  const std::string v = normalized(val);
+CssFontWeight CssParser::interpretFontWeight(std::string_view val) {
+  val = trimCssWhitespace(val);
 
   // Named values
-  if (v == "bold" || v == "bolder") return CssFontWeight::Bold;
-  if (v == "normal" || v == "lighter") return CssFontWeight::Normal;
+  if (iequalsAscii(val, "bold") || iequalsAscii(val, "bolder")) return CssFontWeight::Bold;
+  if (iequalsAscii(val, "normal") || iequalsAscii(val, "lighter")) return CssFontWeight::Normal;
 
   // Numeric values: 100-900
   // CSS spec: 400 = normal, 700 = bold
   // We use: 0-400 = normal, 700+ = bold, 500-600 = normal (conservative)
+  char numBuf[16];
+  const size_t numLen = std::min(val.size(), sizeof(numBuf) - 1);
+  std::memcpy(numBuf, val.data(), numLen);
+  numBuf[numLen] = '\0';
+
   char* endPtr = nullptr;
-  const long numericWeight = std::strtol(v.c_str(), &endPtr, 10);
+  const long numericWeight = std::strtol(numBuf, &endPtr, 10);
 
   // If we parsed a number and consumed the whole string
-  if (endPtr != v.c_str() && *endPtr == '\0') {
+  if (endPtr != numBuf && *endPtr == '\0') {
     return numericWeight >= 700 ? CssFontWeight::Bold : CssFontWeight::Normal;
   }
 
   return CssFontWeight::Normal;
 }
 
-CssTextDecoration CssParser::interpretDecoration(const std::string& val) {
-  const std::string v = normalized(val);
-
+CssTextDecoration CssParser::interpretDecoration(std::string_view val) {
   // text-decoration can have multiple space-separated values
-  if (v.find("underline") != std::string::npos) {
+  if (icontainsAscii(val, "underline")) {
     return CssTextDecoration::Underline;
   }
   return CssTextDecoration::None;
 }
 
-CssLength CssParser::interpretLength(const std::string& val) {
+CssLength CssParser::interpretLength(std::string_view val) {
   CssLength result;
   tryInterpretLength(val, result);
   return result;
 }
 
-bool CssParser::tryInterpretLength(const std::string& val, CssLength& out) {
-  const std::string v = normalized(val);
-  if (v.empty()) {
+bool CssParser::tryInterpretLength(std::string_view val, CssLength& out) {
+  val = trimCssWhitespace(val);
+  if (val.empty()) {
     out = CssLength{};
     return false;
   }
 
-  size_t unitStart = v.size();
-  for (size_t i = 0; i < v.size(); ++i) {
-    const char c = v[i];
+  size_t unitStart = val.size();
+  for (size_t i = 0; i < val.size(); ++i) {
+    const char c = val[i];
     if (!std::isdigit(c) && c != '.' && c != '-' && c != '+') {
       unitStart = i;
       break;
     }
   }
 
-  const std::string numPart = v.substr(0, unitStart);
-  const std::string unitPart = v.substr(unitStart);
+  char numBuf[32];
+  const size_t numLen = std::min(unitStart, sizeof(numBuf) - 1);
+  std::memcpy(numBuf, val.data(), numLen);
+  numBuf[numLen] = '\0';
 
   char* endPtr = nullptr;
-  const float numericValue = std::strtof(numPart.c_str(), &endPtr);
-  if (endPtr == numPart.c_str()) {
+  const float numericValue = std::strtof(numBuf, &endPtr);
+  if (endPtr == numBuf) {
     out = CssLength{};
     return false;  // No number parsed (e.g. auto, inherit, initial)
   }
 
+  const std::string_view unitPart = val.substr(unitStart);
   auto unit = CssUnit::Pixels;
-  if (unitPart == "em") {
+  if (iequalsAscii(unitPart, "em")) {
     unit = CssUnit::Em;
-  } else if (unitPart == "rem") {
+  } else if (iequalsAscii(unitPart, "rem")) {
     unit = CssUnit::Rem;
-  } else if (unitPart == "pt") {
+  } else if (iequalsAscii(unitPart, "pt")) {
     unit = CssUnit::Points;
   } else if (unitPart == "%") {
     unit = CssUnit::Percent;
@@ -260,45 +295,44 @@ bool CssParser::tryInterpretLength(const std::string& val, CssLength& out) {
 
 // Declaration parsing
 
-void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& style, std::string& propNameBuf,
-                                          std::string& propValueBuf) {
+void CssParser::parseDeclarationIntoStyle(std::string_view decl, CssStyle& style) {
   const size_t colonPos = decl.find(':');
-  if (colonPos == std::string::npos || colonPos == 0) return;
+  if (colonPos == std::string_view::npos || colonPos == 0) return;
 
-  normalizedInto(decl.substr(0, colonPos), propNameBuf);
-  normalizedInto(decl.substr(colonPos + 1), propValueBuf);
+  const std::string_view name = trimCssWhitespace(decl.substr(0, colonPos));
+  const std::string_view value = trimCssWhitespace(decl.substr(colonPos + 1));
 
-  if (propNameBuf.empty() || propValueBuf.empty()) return;
+  if (name.empty() || value.empty()) return;
 
-  if (propNameBuf == "text-align") {
-    style.textAlign = interpretAlignment(propValueBuf);
+  if (iequalsAscii(name, "text-align")) {
+    style.textAlign = interpretAlignment(value);
     style.defined.textAlign = 1;
-  } else if (propNameBuf == "font-style") {
-    style.fontStyle = interpretFontStyle(propValueBuf);
+  } else if (iequalsAscii(name, "font-style")) {
+    style.fontStyle = interpretFontStyle(value);
     style.defined.fontStyle = 1;
-  } else if (propNameBuf == "font-weight") {
-    style.fontWeight = interpretFontWeight(propValueBuf);
+  } else if (iequalsAscii(name, "font-weight")) {
+    style.fontWeight = interpretFontWeight(value);
     style.defined.fontWeight = 1;
-  } else if (propNameBuf == "text-decoration" || propNameBuf == "text-decoration-line") {
-    style.textDecoration = interpretDecoration(propValueBuf);
+  } else if (iequalsAscii(name, "text-decoration") || iequalsAscii(name, "text-decoration-line")) {
+    style.textDecoration = interpretDecoration(value);
     style.defined.textDecoration = 1;
-  } else if (propNameBuf == "text-indent") {
-    style.textIndent = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "text-indent")) {
+    style.textIndent = interpretLength(value);
     style.defined.textIndent = 1;
-  } else if (propNameBuf == "margin-top") {
-    style.marginTop = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-top")) {
+    style.marginTop = interpretLength(value);
     style.defined.marginTop = 1;
-  } else if (propNameBuf == "margin-bottom") {
-    style.marginBottom = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-bottom")) {
+    style.marginBottom = interpretLength(value);
     style.defined.marginBottom = 1;
-  } else if (propNameBuf == "margin-left") {
-    style.marginLeft = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-left")) {
+    style.marginLeft = interpretLength(value);
     style.defined.marginLeft = 1;
-  } else if (propNameBuf == "margin-right") {
-    style.marginRight = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-right")) {
+    style.marginRight = interpretLength(value);
     style.defined.marginRight = 1;
-  } else if (propNameBuf == "margin") {
-    const auto values = splitWhitespace(propValueBuf);
+  } else if (iequalsAscii(name, "margin")) {
+    const auto values = splitWhitespace(value);
     if (!values.empty()) {
       style.marginTop = interpretLength(values[0]);
       style.marginRight = values.size() >= 2 ? interpretLength(values[1]) : style.marginTop;
@@ -306,20 +340,20 @@ void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& sty
       style.marginLeft = values.size() >= 4 ? interpretLength(values[3]) : style.marginRight;
       style.defined.marginTop = style.defined.marginRight = style.defined.marginBottom = style.defined.marginLeft = 1;
     }
-  } else if (propNameBuf == "padding-top") {
-    style.paddingTop = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-top")) {
+    style.paddingTop = interpretLength(value);
     style.defined.paddingTop = 1;
-  } else if (propNameBuf == "padding-bottom") {
-    style.paddingBottom = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-bottom")) {
+    style.paddingBottom = interpretLength(value);
     style.defined.paddingBottom = 1;
-  } else if (propNameBuf == "padding-left") {
-    style.paddingLeft = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-left")) {
+    style.paddingLeft = interpretLength(value);
     style.defined.paddingLeft = 1;
-  } else if (propNameBuf == "padding-right") {
-    style.paddingRight = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-right")) {
+    style.paddingRight = interpretLength(value);
     style.defined.paddingRight = 1;
-  } else if (propNameBuf == "padding") {
-    const auto values = splitWhitespace(propValueBuf);
+  } else if (iequalsAscii(name, "padding")) {
+    const auto values = splitWhitespace(value);
     if (!values.empty()) {
       style.paddingTop = interpretLength(values[0]);
       style.paddingRight = values.size() >= 2 ? interpretLength(values[1]) : style.paddingTop;
@@ -328,47 +362,43 @@ void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& sty
       style.defined.paddingTop = style.defined.paddingRight = style.defined.paddingBottom = style.defined.paddingLeft =
           1;
     }
-  } else if (propNameBuf == "height") {
+  } else if (iequalsAscii(name, "height")) {
     CssLength len;
-    if (tryInterpretLength(propValueBuf, len)) {
+    if (tryInterpretLength(value, len)) {
       style.imageHeight = len;
       style.defined.imageHeight = 1;
     }
-  } else if (propNameBuf == "width") {
+  } else if (iequalsAscii(name, "width")) {
     CssLength len;
-    if (tryInterpretLength(propValueBuf, len)) {
+    if (tryInterpretLength(value, len)) {
       style.imageWidth = len;
       style.defined.imageWidth = 1;
     }
-  } else if (propNameBuf == "display") {
-    const std::string_view displayValue = stripTrailingImportant(propValueBuf);
-    style.display = (displayValue == "none") ? CssDisplay::None : CssDisplay::Block;
+  } else if (iequalsAscii(name, "display")) {
+    const std::string_view displayValue = stripTrailingImportant(value);
+    style.display = iequalsAscii(displayValue, "none") ? CssDisplay::None : CssDisplay::Block;
     style.defined.display = 1;
-  } else if (propNameBuf == "vertical-align") {
-    const std::string v = normalized(propValueBuf);
-    if (v == "super") {
+  } else if (iequalsAscii(name, "vertical-align")) {
+    if (iequalsAscii(value, "super")) {
       style.verticalAlign = CssVerticalAlign::Super;
       style.defined.verticalAlign = 1;
-    } else if (v == "sub") {
+    } else if (iequalsAscii(value, "sub")) {
       style.verticalAlign = CssVerticalAlign::Sub;
       style.defined.verticalAlign = 1;
     }
   }
 }
 
-CssStyle CssParser::parseDeclarations(const std::string& declBlock) {
+CssStyle CssParser::parseDeclarations(std::string_view declBlock) {
   CssStyle style;
-  std::string propNameBuf;
-  std::string propValueBuf;
 
   size_t start = 0;
   for (size_t i = 0; i <= declBlock.size(); ++i) {
     if (i == declBlock.size() || declBlock[i] == ';') {
       if (i > start) {
-        const size_t len = i - start;
-        std::string decl = declBlock.substr(start, len);
+        const std::string_view decl = declBlock.substr(start, i - start);
         if (!decl.empty()) {
-          parseDeclarationIntoStyle(decl, style, propNameBuf, propValueBuf);
+          parseDeclarationIntoStyle(decl, style);
         }
       }
       start = i + 1;
@@ -480,9 +510,6 @@ bool CssParser::loadFromStream(HalFile& source) {
   // Use stack-allocated buffers for parsing to avoid heap reallocations
   StackBuffer selector;
   StackBuffer declBuffer;
-  // Keep these as std::string since they're passed by reference to parseDeclarationIntoStyle
-  std::string propNameBuf;
-  std::string propValueBuf;
 
   bool inComment = false;
   bool maybeSlash = false;
@@ -539,7 +566,7 @@ bool CssParser::loadFromStream(HalFile& source) {
       --bodyDepth;
       if (bodyDepth == 0) {
         if (!skippingRule && !declBuffer.empty()) {
-          parseDeclarationIntoStyle(declBuffer.str(), currentStyle, propNameBuf, propValueBuf);
+          parseDeclarationIntoStyle(declBuffer.view(), currentStyle);
         }
         if (!skippingRule) {
           processRuleBlockWithStyle(selector.str(), currentStyle);
@@ -557,7 +584,7 @@ bool CssParser::loadFromStream(HalFile& source) {
     if (!skippingRule) {
       if (c == ';') {
         if (!declBuffer.empty()) {
-          parseDeclarationIntoStyle(declBuffer.str(), currentStyle, propNameBuf, propValueBuf);
+          parseDeclarationIntoStyle(declBuffer.view(), currentStyle);
           declBuffer.clear();
         }
       } else {
@@ -617,7 +644,7 @@ bool CssParser::loadFromStream(HalFile& source) {
 
 // Style resolution
 
-CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& classAttr) const {
+CssStyle CssParser::resolveStyle(std::string_view tagName, std::string_view classAttr) const {
   static bool lowHeapWarningLogged = false;
   if (halPlatform.freeHeap() < MIN_FREE_HEAP_FOR_CSS) {
     if (!lowHeapWarningLogged) {
@@ -627,47 +654,49 @@ CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& 
     }
     return CssStyle{};
   }
+
   CssStyle result;
-  const std::string tag = normalized(tagName);
+  char keyBuf[MAX_SELECTOR_LENGTH + 1];
 
   // 1. Apply element-level style (lowest priority)
-  const auto tagIt = rulesBySelector_.find(tag);
-  if (tagIt != rulesBySelector_.end()) {
-    result.applyOver(tagIt->second);
+  size_t tagLen = lowercaseInto(tagName, keyBuf, sizeof(keyBuf));
+  if (auto it = rulesBySelector_.find(std::string_view(keyBuf, tagLen)); it != rulesBySelector_.end()) {
+    result.applyOver(it->second);
   }
+
+  if (classAttr.empty()) return result;
 
   // TODO: Support combinations of classes (e.g. style on .class1.class2)
   // 2. Apply class styles (medium priority)
-  if (!classAttr.empty()) {
-    const auto classes = splitWhitespace(classAttr);
-
-    for (const auto& cls : classes) {
-      std::string classKey = "." + normalized(cls);
-
-      auto classIt = rulesBySelector_.find(classKey);
-      if (classIt != rulesBySelector_.end()) {
-        result.applyOver(classIt->second);
-      }
+  forEachWhitespaceSeparatedToken(classAttr, [&](std::string_view cls) {
+    if (cls.size() + 1 > sizeof(keyBuf)) return;
+    keyBuf[0] = '.';
+    const size_t clsLen = lowercaseInto(cls, keyBuf + 1, sizeof(keyBuf) - 1);
+    if (auto it = rulesBySelector_.find(std::string_view(keyBuf, 1 + clsLen)); it != rulesBySelector_.end()) {
+      result.applyOver(it->second);
     }
+  });
 
-    // TODO: Support combinations of classes (e.g. style on p.class1.class2)
-    // 3. Apply element.class styles (higher priority)
-    for (const auto& cls : classes) {
-      std::string combinedKey = tag + "." + normalized(cls);
-
-      auto combinedIt = rulesBySelector_.find(combinedKey);
-      if (combinedIt != rulesBySelector_.end()) {
-        result.applyOver(combinedIt->second);
-      }
+  // TODO: Support combinations of classes (e.g. style on p.class1.class2)
+  // 3. Apply element.class styles (higher priority)
+  // Pass 2 overwrote keyBuf; re-lowercase the tag before appending ".cls".
+  tagLen = lowercaseInto(tagName, keyBuf, sizeof(keyBuf));
+  if (tagLen + 1 >= sizeof(keyBuf)) return result;
+  keyBuf[tagLen] = '.';
+  forEachWhitespaceSeparatedToken(classAttr, [&](std::string_view cls) {
+    if (tagLen + 1 + cls.size() > sizeof(keyBuf)) return;
+    const size_t clsLen = lowercaseInto(cls, keyBuf + tagLen + 1, sizeof(keyBuf) - tagLen - 1);
+    if (auto it = rulesBySelector_.find(std::string_view(keyBuf, tagLen + 1 + clsLen)); it != rulesBySelector_.end()) {
+      result.applyOver(it->second);
     }
-  }
+  });
 
   return result;
 }
 
 // Inline style parsing (static - doesn't need rule database)
 
-CssStyle CssParser::parseInlineStyle(const std::string& styleValue) { return parseDeclarations(styleValue); }
+CssStyle CssParser::parseInlineStyle(std::string_view styleValue) { return parseDeclarations(styleValue); }
 
 // Cache serialization
 
