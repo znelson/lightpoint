@@ -64,7 +64,7 @@ class CssParser {
    * @param styleValue The value of a style="" attribute
    * @return Parsed style properties
    */
-  [[nodiscard]] static CssStyle parseInlineStyle(const std::string& styleValue);
+  [[nodiscard]] static CssStyle parseInlineStyle(std::string_view styleValue);
 
   /**
    * Check if any rules have been loaded
@@ -112,9 +112,8 @@ class CssParser {
 
   // Internal parsing helpers
   void processRuleBlockWithStyle(const std::string& selectorGroup, const CssStyle& style);
-  static CssStyle parseDeclarations(const std::string& declBlock);
-  static void parseDeclarationIntoStyle(const std::string& decl, CssStyle& style, std::string& propNameBuf,
-                                        std::string& propValueBuf);
+  static CssStyle parseDeclarations(std::string_view declBlock);
+  static void parseDeclarationIntoStyle(std::string_view decl, CssStyle& style);
 
   // Individual property value parsers
   static CssTextAlign interpretAlignment(std::string_view val);
@@ -127,7 +126,6 @@ class CssParser {
 
   // String utilities
   static std::string normalized(const std::string& s);
-  static void normalizedInto(const std::string& s, std::string& out);
   static std::vector<std::string> splitOnChar(const std::string& s, char delimiter);
-  static std::vector<std::string> splitWhitespace(const std::string& s);
+  static std::vector<std::string> splitWhitespace(std::string_view s);
 };

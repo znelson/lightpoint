@@ -126,28 +126,6 @@ std::string CssParser::normalized(const std::string& s) {
   return result;
 }
 
-void CssParser::normalizedInto(const std::string& s, std::string& out) {
-  out.clear();
-  out.reserve(s.size());
-
-  bool inSpace = true;  // Start true to skip leading space
-  for (const char c : s) {
-    if (isCssWhitespace(c)) {
-      if (!inSpace) {
-        out.push_back(' ');
-        inSpace = true;
-      }
-    } else {
-      out.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-      inSpace = false;
-    }
-  }
-
-  if (!out.empty() && out.back() == ' ') {
-    out.pop_back();
-  }
-}
-
 std::vector<std::string> CssParser::splitOnChar(const std::string& s, const char delimiter) {
   std::vector<std::string> parts;
   size_t start = 0;
@@ -165,7 +143,7 @@ std::vector<std::string> CssParser::splitOnChar(const std::string& s, const char
   return parts;
 }
 
-std::vector<std::string> CssParser::splitWhitespace(const std::string& s) {
+std::vector<std::string> CssParser::splitWhitespace(std::string_view s) {
   std::vector<std::string> parts;
   size_t start = 0;
   bool inWord = false;
@@ -173,7 +151,7 @@ std::vector<std::string> CssParser::splitWhitespace(const std::string& s) {
   for (size_t i = 0; i <= s.size(); ++i) {
     const bool isSpace = i == s.size() || isCssWhitespace(s[i]);
     if (isSpace && inWord) {
-      parts.push_back(s.substr(start, i - start));
+      parts.emplace_back(s.substr(start, i - start));
       inWord = false;
     } else if (!isSpace && !inWord) {
       start = i;
@@ -289,45 +267,44 @@ bool CssParser::tryInterpretLength(std::string_view val, CssLength& out) {
 
 // Declaration parsing
 
-void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& style, std::string& propNameBuf,
-                                          std::string& propValueBuf) {
+void CssParser::parseDeclarationIntoStyle(std::string_view decl, CssStyle& style) {
   const size_t colonPos = decl.find(':');
-  if (colonPos == std::string::npos || colonPos == 0) return;
+  if (colonPos == std::string_view::npos || colonPos == 0) return;
 
-  normalizedInto(decl.substr(0, colonPos), propNameBuf);
-  normalizedInto(decl.substr(colonPos + 1), propValueBuf);
+  const std::string_view name = trimCssWhitespace(decl.substr(0, colonPos));
+  const std::string_view value = trimCssWhitespace(decl.substr(colonPos + 1));
 
-  if (propNameBuf.empty() || propValueBuf.empty()) return;
+  if (name.empty() || value.empty()) return;
 
-  if (propNameBuf == "text-align") {
-    style.textAlign = interpretAlignment(propValueBuf);
+  if (iequalsAscii(name, "text-align")) {
+    style.textAlign = interpretAlignment(value);
     style.defined.textAlign = 1;
-  } else if (propNameBuf == "font-style") {
-    style.fontStyle = interpretFontStyle(propValueBuf);
+  } else if (iequalsAscii(name, "font-style")) {
+    style.fontStyle = interpretFontStyle(value);
     style.defined.fontStyle = 1;
-  } else if (propNameBuf == "font-weight") {
-    style.fontWeight = interpretFontWeight(propValueBuf);
+  } else if (iequalsAscii(name, "font-weight")) {
+    style.fontWeight = interpretFontWeight(value);
     style.defined.fontWeight = 1;
-  } else if (propNameBuf == "text-decoration" || propNameBuf == "text-decoration-line") {
-    style.textDecoration = interpretDecoration(propValueBuf);
+  } else if (iequalsAscii(name, "text-decoration") || iequalsAscii(name, "text-decoration-line")) {
+    style.textDecoration = interpretDecoration(value);
     style.defined.textDecoration = 1;
-  } else if (propNameBuf == "text-indent") {
-    style.textIndent = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "text-indent")) {
+    style.textIndent = interpretLength(value);
     style.defined.textIndent = 1;
-  } else if (propNameBuf == "margin-top") {
-    style.marginTop = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-top")) {
+    style.marginTop = interpretLength(value);
     style.defined.marginTop = 1;
-  } else if (propNameBuf == "margin-bottom") {
-    style.marginBottom = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-bottom")) {
+    style.marginBottom = interpretLength(value);
     style.defined.marginBottom = 1;
-  } else if (propNameBuf == "margin-left") {
-    style.marginLeft = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-left")) {
+    style.marginLeft = interpretLength(value);
     style.defined.marginLeft = 1;
-  } else if (propNameBuf == "margin-right") {
-    style.marginRight = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "margin-right")) {
+    style.marginRight = interpretLength(value);
     style.defined.marginRight = 1;
-  } else if (propNameBuf == "margin") {
-    const auto values = splitWhitespace(propValueBuf);
+  } else if (iequalsAscii(name, "margin")) {
+    const auto values = splitWhitespace(value);
     if (!values.empty()) {
       style.marginTop = interpretLength(values[0]);
       style.marginRight = values.size() >= 2 ? interpretLength(values[1]) : style.marginTop;
@@ -335,20 +312,20 @@ void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& sty
       style.marginLeft = values.size() >= 4 ? interpretLength(values[3]) : style.marginRight;
       style.defined.marginTop = style.defined.marginRight = style.defined.marginBottom = style.defined.marginLeft = 1;
     }
-  } else if (propNameBuf == "padding-top") {
-    style.paddingTop = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-top")) {
+    style.paddingTop = interpretLength(value);
     style.defined.paddingTop = 1;
-  } else if (propNameBuf == "padding-bottom") {
-    style.paddingBottom = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-bottom")) {
+    style.paddingBottom = interpretLength(value);
     style.defined.paddingBottom = 1;
-  } else if (propNameBuf == "padding-left") {
-    style.paddingLeft = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-left")) {
+    style.paddingLeft = interpretLength(value);
     style.defined.paddingLeft = 1;
-  } else if (propNameBuf == "padding-right") {
-    style.paddingRight = interpretLength(propValueBuf);
+  } else if (iequalsAscii(name, "padding-right")) {
+    style.paddingRight = interpretLength(value);
     style.defined.paddingRight = 1;
-  } else if (propNameBuf == "padding") {
-    const auto values = splitWhitespace(propValueBuf);
+  } else if (iequalsAscii(name, "padding")) {
+    const auto values = splitWhitespace(value);
     if (!values.empty()) {
       style.paddingTop = interpretLength(values[0]);
       style.paddingRight = values.size() >= 2 ? interpretLength(values[1]) : style.paddingTop;
@@ -357,47 +334,43 @@ void CssParser::parseDeclarationIntoStyle(const std::string& decl, CssStyle& sty
       style.defined.paddingTop = style.defined.paddingRight = style.defined.paddingBottom = style.defined.paddingLeft =
           1;
     }
-  } else if (propNameBuf == "height") {
+  } else if (iequalsAscii(name, "height")) {
     CssLength len;
-    if (tryInterpretLength(propValueBuf, len)) {
+    if (tryInterpretLength(value, len)) {
       style.imageHeight = len;
       style.defined.imageHeight = 1;
     }
-  } else if (propNameBuf == "width") {
+  } else if (iequalsAscii(name, "width")) {
     CssLength len;
-    if (tryInterpretLength(propValueBuf, len)) {
+    if (tryInterpretLength(value, len)) {
       style.imageWidth = len;
       style.defined.imageWidth = 1;
     }
-  } else if (propNameBuf == "display") {
-    const std::string_view displayValue = stripTrailingImportant(propValueBuf);
-    style.display = (displayValue == "none") ? CssDisplay::None : CssDisplay::Block;
+  } else if (iequalsAscii(name, "display")) {
+    const std::string_view displayValue = stripTrailingImportant(value);
+    style.display = iequalsAscii(displayValue, "none") ? CssDisplay::None : CssDisplay::Block;
     style.defined.display = 1;
-  } else if (propNameBuf == "vertical-align") {
-    const std::string v = normalized(propValueBuf);
-    if (v == "super") {
+  } else if (iequalsAscii(name, "vertical-align")) {
+    if (iequalsAscii(value, "super")) {
       style.verticalAlign = CssVerticalAlign::Super;
       style.defined.verticalAlign = 1;
-    } else if (v == "sub") {
+    } else if (iequalsAscii(value, "sub")) {
       style.verticalAlign = CssVerticalAlign::Sub;
       style.defined.verticalAlign = 1;
     }
   }
 }
 
-CssStyle CssParser::parseDeclarations(const std::string& declBlock) {
+CssStyle CssParser::parseDeclarations(std::string_view declBlock) {
   CssStyle style;
-  std::string propNameBuf;
-  std::string propValueBuf;
 
   size_t start = 0;
   for (size_t i = 0; i <= declBlock.size(); ++i) {
     if (i == declBlock.size() || declBlock[i] == ';') {
       if (i > start) {
-        const size_t len = i - start;
-        std::string decl = declBlock.substr(start, len);
+        const std::string_view decl = declBlock.substr(start, i - start);
         if (!decl.empty()) {
-          parseDeclarationIntoStyle(decl, style, propNameBuf, propValueBuf);
+          parseDeclarationIntoStyle(decl, style);
         }
       }
       start = i + 1;
@@ -509,9 +482,6 @@ bool CssParser::loadFromStream(HalFile& source) {
   // Use stack-allocated buffers for parsing to avoid heap reallocations
   StackBuffer selector;
   StackBuffer declBuffer;
-  // Keep these as std::string since they're passed by reference to parseDeclarationIntoStyle
-  std::string propNameBuf;
-  std::string propValueBuf;
 
   bool inComment = false;
   bool maybeSlash = false;
@@ -568,7 +538,7 @@ bool CssParser::loadFromStream(HalFile& source) {
       --bodyDepth;
       if (bodyDepth == 0) {
         if (!skippingRule && !declBuffer.empty()) {
-          parseDeclarationIntoStyle(declBuffer.str(), currentStyle, propNameBuf, propValueBuf);
+          parseDeclarationIntoStyle(declBuffer.view(), currentStyle);
         }
         if (!skippingRule) {
           processRuleBlockWithStyle(selector.str(), currentStyle);
@@ -586,7 +556,7 @@ bool CssParser::loadFromStream(HalFile& source) {
     if (!skippingRule) {
       if (c == ';') {
         if (!declBuffer.empty()) {
-          parseDeclarationIntoStyle(declBuffer.str(), currentStyle, propNameBuf, propValueBuf);
+          parseDeclarationIntoStyle(declBuffer.view(), currentStyle);
           declBuffer.clear();
         }
       } else {
@@ -696,7 +666,7 @@ CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& 
 
 // Inline style parsing (static - doesn't need rule database)
 
-CssStyle CssParser::parseInlineStyle(const std::string& styleValue) { return parseDeclarations(styleValue); }
+CssStyle CssParser::parseInlineStyle(std::string_view styleValue) { return parseDeclarations(styleValue); }
 
 // Cache serialization
 
