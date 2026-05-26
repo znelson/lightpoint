@@ -98,12 +98,13 @@ uint32_t CrossPointSettings::getSleepTimeoutMs() const {
     case SLEEP_5_MIN:
       return 5UL * 60 * 1000;
     case SLEEP_10_MIN:
-    default:
       return 10UL * 60 * 1000;
     case SLEEP_15_MIN:
       return 15UL * 60 * 1000;
     case SLEEP_30_MIN:
       return 30UL * 60 * 1000;
+    default:
+      return 10UL * 60 * 1000;
   }
 }
 

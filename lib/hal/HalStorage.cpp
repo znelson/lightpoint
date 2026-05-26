@@ -1,4 +1,3 @@
-#define HAL_STORAGE_IMPL
 #include "HalStorage.h"
 
 #include <Logging.h>
