@@ -57,7 +57,7 @@ class CssParser {
    * @param classAttr The class attribute value (may contain multiple space-separated classes)
    * @return Combined style with all applicable rules merged
    */
-  [[nodiscard]] CssStyle resolveStyle(const std::string& tagName, const std::string& classAttr) const;
+  [[nodiscard]] CssStyle resolveStyle(std::string_view tagName, std::string_view classAttr) const;
 
   /**
    * Parse an inline style attribute string.

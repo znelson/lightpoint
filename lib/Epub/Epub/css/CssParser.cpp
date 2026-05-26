@@ -75,6 +75,34 @@ constexpr bool icontainsAscii(std::string_view value, std::string_view lowercase
                      [](char a, char b) { return asciiToLower(a) == b; }) != value.end();
 }
 
+// Copy src to dst byte-wise with ASCII tolower; returns bytes written. No
+// terminator. Truncates rather than overflowing when src exceeds dstCap.
+size_t lowercaseInto(std::string_view src, char* dst, size_t dstCap) {
+  const size_t n = std::min(src.size(), dstCap);
+  for (size_t i = 0; i < n; ++i) {
+    dst[i] = asciiToLower(src[i]);
+  }
+  return n;
+}
+
+// Walk s and invoke fn(token) for each whitespace-separated, non-empty run.
+// Tokens are yielded as string_views into s; no allocation.
+template <typename F>
+void forEachWhitespaceSeparatedToken(std::string_view s, F&& fn) {
+  size_t start = 0;
+  bool inWord = false;
+  for (size_t i = 0; i <= s.size(); ++i) {
+    const bool isSpace = (i == s.size()) || isCssWhitespace(s[i]);
+    if (isSpace && inWord) {
+      fn(s.substr(start, i - start));
+      inWord = false;
+    } else if (!isSpace && !inWord) {
+      start = i;
+      inWord = true;
+    }
+  }
+}
+
 std::string_view stripTrailingImportant(std::string_view value) {
   constexpr std::string_view IMPORTANT = "!important";
 
@@ -616,7 +644,7 @@ bool CssParser::loadFromStream(HalFile& source) {
 
 // Style resolution
 
-CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& classAttr) const {
+CssStyle CssParser::resolveStyle(std::string_view tagName, std::string_view classAttr) const {
   static bool lowHeapWarningLogged = false;
   if (halPlatform.freeHeap() < MIN_FREE_HEAP_FOR_CSS) {
     if (!lowHeapWarningLogged) {
@@ -626,40 +654,42 @@ CssStyle CssParser::resolveStyle(const std::string& tagName, const std::string& 
     }
     return CssStyle{};
   }
+
   CssStyle result;
-  const std::string tag = normalized(tagName);
+  char keyBuf[MAX_SELECTOR_LENGTH + 1];
 
   // 1. Apply element-level style (lowest priority)
-  const auto tagIt = rulesBySelector_.find(tag);
-  if (tagIt != rulesBySelector_.end()) {
-    result.applyOver(tagIt->second);
+  size_t tagLen = lowercaseInto(tagName, keyBuf, sizeof(keyBuf));
+  if (auto it = rulesBySelector_.find(std::string_view(keyBuf, tagLen)); it != rulesBySelector_.end()) {
+    result.applyOver(it->second);
   }
+
+  if (classAttr.empty()) return result;
 
   // TODO: Support combinations of classes (e.g. style on .class1.class2)
   // 2. Apply class styles (medium priority)
-  if (!classAttr.empty()) {
-    const auto classes = splitWhitespace(classAttr);
-
-    for (const auto& cls : classes) {
-      std::string classKey = "." + normalized(cls);
-
-      auto classIt = rulesBySelector_.find(classKey);
-      if (classIt != rulesBySelector_.end()) {
-        result.applyOver(classIt->second);
-      }
+  forEachWhitespaceSeparatedToken(classAttr, [&](std::string_view cls) {
+    if (cls.size() + 1 > sizeof(keyBuf)) return;
+    keyBuf[0] = '.';
+    const size_t clsLen = lowercaseInto(cls, keyBuf + 1, sizeof(keyBuf) - 1);
+    if (auto it = rulesBySelector_.find(std::string_view(keyBuf, 1 + clsLen)); it != rulesBySelector_.end()) {
+      result.applyOver(it->second);
     }
+  });
 
-    // TODO: Support combinations of classes (e.g. style on p.class1.class2)
-    // 3. Apply element.class styles (higher priority)
-    for (const auto& cls : classes) {
-      std::string combinedKey = tag + "." + normalized(cls);
-
-      auto combinedIt = rulesBySelector_.find(combinedKey);
-      if (combinedIt != rulesBySelector_.end()) {
-        result.applyOver(combinedIt->second);
-      }
+  // TODO: Support combinations of classes (e.g. style on p.class1.class2)
+  // 3. Apply element.class styles (higher priority)
+  // Pass 2 overwrote keyBuf; re-lowercase the tag before appending ".cls".
+  tagLen = lowercaseInto(tagName, keyBuf, sizeof(keyBuf));
+  if (tagLen + 1 >= sizeof(keyBuf)) return result;
+  keyBuf[tagLen] = '.';
+  forEachWhitespaceSeparatedToken(classAttr, [&](std::string_view cls) {
+    if (tagLen + 1 + cls.size() > sizeof(keyBuf)) return;
+    const size_t clsLen = lowercaseInto(cls, keyBuf + tagLen + 1, sizeof(keyBuf) - tagLen - 1);
+    if (auto it = rulesBySelector_.find(std::string_view(keyBuf, tagLen + 1 + clsLen)); it != rulesBySelector_.end()) {
+      result.applyOver(it->second);
     }
-  }
+  });
 
   return result;
 }
