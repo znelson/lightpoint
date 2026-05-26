@@ -41,9 +41,18 @@ class EpubReaderActivity final : public Activity {
   // Chapter-level page info aggregated across spine items sharing a TOC entry. `segments`
   // contains one Chapter per spine that the current chapter spans, in spine order. `tocIndex`
   // identifies which chapter the segments describe; nullopt means stale/uninitialized.
+  // `title` is cached here so renderStatusBar doesn't have to call epub->getTocItem
+  // (which does file I/O against BookMetadataCache) on every page. Use setChapter() to
+  // mutate tocIndex+title atomically so they can't desync.
   struct ChapterPageInfo {
     std::optional<int> tocIndex;
     std::vector<Chapter> segments;
+    std::string title;
+
+    void setChapter(int newTocIndex, std::string newTitle) {
+      tocIndex = newTocIndex;
+      title = std::move(newTitle);
+    }
   };
   ChapterPageInfo chapterPageInfo;
 
