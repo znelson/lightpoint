@@ -206,8 +206,7 @@ void verifyPowerButtonDuration() {
   halGPIO.update();
   // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state
   while (!halGPIO.isPressed(HalGPIO::BTN_POWER) && halPlatform.millis() - start < 1000) {
-    halPlatform.delay(
-        10);  // only wait 10ms each iteration to not delay too much in case of short configured duration.
+    halPlatform.delay(10);  // only wait 10ms each iteration to not delay too much in case of short configured duration.
     halGPIO.update();
   }
 
