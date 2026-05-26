@@ -1,11 +1,10 @@
 #include "FirmwareFlasher.h"
 
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <psa/crypto.h>
 #include <spi_flash_mmap.h>
 
@@ -298,7 +297,7 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
     }
     streamPos += want;
     if (onProgress) onProgress(streamPos, firmwareSize, ctx);
-    vTaskDelay(pdMS_TO_TICKS(1));
+    halPlatform.delay(1);
   }
   file.close();
 

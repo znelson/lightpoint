@@ -17,8 +17,6 @@
 #include <esp_attr.h>
 #include <esp_event.h>
 #include <esp_netif.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 #include <nvs_flash.h>
 
 #include <cstring>
@@ -172,7 +170,7 @@ void silentRestart() {
   // Home. Select on the default selectorIndex=0 then opens the most-recent
   // book, looking like a trampoline back to the reader they just exited.
   GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
-  vTaskDelay(pdMS_TO_TICKS(50));
+  halPlatform.delay(50);
   halPlatform.hardRestart();
 }
 
@@ -182,7 +180,7 @@ void silentRestartToReader() {
   silentRebootMagic = SILENT_REBOOT_MAGIC;
   LOG_DBG("MAIN", "Silent restart (target=reader)");
   GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
-  vTaskDelay(pdMS_TO_TICKS(50));
+  halPlatform.delay(50);
   halPlatform.hardRestart();
 }
 
@@ -208,15 +206,14 @@ void verifyPowerButtonDuration() {
   halGPIO.update();
   // Needed because inputManager.isPressed() may take up to ~500ms to return the correct state
   while (!halGPIO.isPressed(HalGPIO::BTN_POWER) && halPlatform.millis() - start < 1000) {
-    vTaskDelay(pdMS_TO_TICKS(
-        10));  // only wait 10ms each iteration to not delay too much in case of short configured duration.
+    halPlatform.delay(10);  // only wait 10ms each iteration to not delay too much in case of short configured duration.
     halGPIO.update();
   }
 
   t2 = halPlatform.millis();
   if (halGPIO.isPressed(HalGPIO::BTN_POWER)) {
     do {
-      vTaskDelay(pdMS_TO_TICKS(10));
+      halPlatform.delay(10);
       halGPIO.update();
     } while (halGPIO.isPressed(HalGPIO::BTN_POWER) && halGPIO.getPowerButtonHeldTime() < calibratedPressDuration);
     abort = halGPIO.getPowerButtonHeldTime() < calibratedPressDuration;
@@ -233,7 +230,7 @@ void verifyPowerButtonDuration() {
 void waitForPowerRelease() {
   halGPIO.update();
   while (halGPIO.isPressed(HalGPIO::BTN_POWER)) {
-    vTaskDelay(pdMS_TO_TICKS(50));
+    halPlatform.delay(50);
     halGPIO.update();
   }
 }
@@ -346,7 +343,7 @@ void setup() {
   // setTxTimeoutMs(0) makes writes non-blocking - the HWCDC TX FIFO drops
   // bytes harmlessly if the host isn't actively draining, instead of blocking
   // for the default 250 ms per write and chaining into a firmware hang.
-  vTaskDelay(pdMS_TO_TICKS(250));
+  halPlatform.delay(250);
   logSerial.begin(115200);
   installRomPrintfHook();
 #endif
@@ -425,7 +422,7 @@ void setup() {
     const uint32_t settleStart = halPlatform.millis();
     while (halPlatform.millis() - settleStart < 500) {
       halGPIO.update();
-      vTaskDelay(pdMS_TO_TICKS(10));
+      halPlatform.delay(10);
     }
     if (halGPIO.isPressed(HalGPIO::BTN_UP)) {
       recoveryFirmwareMode = true;
@@ -513,7 +510,7 @@ void setup() {
     // without setting pressedEvents, so the first loop()'s own halGPIO.update()
     // sees state == currentState and emits nothing.
     halGPIO.update();
-    vTaskDelay(pdMS_TO_TICKS(10));
+    halPlatform.delay(10);
     halGPIO.update();
   }
 
@@ -650,10 +647,10 @@ void loop() {
     if (halPlatform.millis() - lastActivityTime >= HalPowerManager::IDLE_POWER_SAVING_MS) {
       // If we've been inactive for a while, increase the delay to save power
       halPowerManager.setPowerSaving(true);  // Lower CPU frequency after extended inactivity
-      vTaskDelay(pdMS_TO_TICKS(50));
+      halPlatform.delay(50);
     } else {
       // Short delay to prevent tight loop while still being responsive
-      vTaskDelay(pdMS_TO_TICKS(10));
+      halPlatform.delay(10);
     }
   }
 }
