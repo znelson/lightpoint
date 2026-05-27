@@ -6,6 +6,11 @@
 // Minimal Print interface replacing Arduino's Print.h.
 // HalFile and MySerialImpl inherit from this; PngToBmpConverter and
 // readFileToStream accept Print& as a write-only byte sink.
+//
+// Strings: callers use print(const char*). A write(const char*) overload
+// would be silently hidden in any derived class that overrides write(uint8_t)
+// (C++ same-name overload hiding), so the string entry point uses a
+// separate name to keep it accessible on every subclass.
 class Print {
  public:
   virtual ~Print() = default;
@@ -15,10 +20,9 @@ class Print {
     for (size_t i = 0; i < size; ++i) n += write(buf[i]);
     return n;
   }
-  size_t write(const char* str) {
+  virtual void flush() {}
+  size_t print(const char* str) {
     if (!str) return 0;
     return write(reinterpret_cast<const uint8_t*>(str), strlen(str));
   }
-  virtual void flush() {}
-  size_t print(const char* str) { return write(str); }
 };

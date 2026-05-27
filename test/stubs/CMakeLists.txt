@@ -17,13 +17,14 @@ add_library(lightpoint_test_hal_stubs STATIC
 )
 
 # lib/hal/ is on the include path so consumers resolve <HalPlatform.h> and
-# <HalStorage.h> to the real production headers; lib/Print/ is needed because
-# HalStorage.h pulls it in for HalFile's Print base class. ${CMAKE_CURRENT_SOURCE_DIR}
-# is on the path so the test cpp files here find HalStorageTestApi.h.
+# <HalStorage.h> to the real production headers; lib/Utility/ is needed
+# because HalStorage.h pulls in <Print.h> for HalFile's Print base class.
+# ${CMAKE_CURRENT_SOURCE_DIR} is on the path so the test cpp files here find
+# HalStorageTestApi.h.
 target_include_directories(lightpoint_test_hal_stubs PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${REPO_ROOT}/lib/Logging
-  ${REPO_ROOT}/lib/Print
+  ${REPO_ROOT}/lib/Utility
   ${REPO_ROOT}/lib/hal
 )
 

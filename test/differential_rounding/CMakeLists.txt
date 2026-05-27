@@ -1,12 +1,12 @@
 add_executable(DifferentialRoundingTest
   DifferentialRoundingTest.cpp
   ${REPO_ROOT}/lib/EpdFont/EpdFont.cpp
-  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
+  ${REPO_ROOT}/lib/Utility/Utf8.cpp
 )
 
 target_include_directories(DifferentialRoundingTest PRIVATE
   ${REPO_ROOT}/lib/EpdFont
-  ${REPO_ROOT}/lib/Utf8
+  ${REPO_ROOT}/lib/Utility
 )
 
 target_link_libraries(DifferentialRoundingTest PRIVATE

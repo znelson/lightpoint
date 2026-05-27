@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "lib/Utf8/Utf8.h"
+#include "Utf8.h"
 
 namespace {
 
@@ -515,7 +515,9 @@ TEST(Utf8IsCombiningMark, RangeBoundaries) {
   for (auto r : ranges) {
     EXPECT_TRUE(utf8IsCombiningMark(r.lo)) << "lo=" << std::hex << r.lo;
     EXPECT_TRUE(utf8IsCombiningMark(r.hi)) << "hi=" << std::hex << r.hi;
-    if (r.lo > 0) EXPECT_FALSE(utf8IsCombiningMark(r.lo - 1)) << "lo-1=" << std::hex << (r.lo - 1);
+    if (r.lo > 0) {
+      EXPECT_FALSE(utf8IsCombiningMark(r.lo - 1)) << "lo-1=" << std::hex << (r.lo - 1);
+    }
     EXPECT_FALSE(utf8IsCombiningMark(r.hi + 1)) << "hi+1=" << std::hex << (r.hi + 1);
   }
 }
