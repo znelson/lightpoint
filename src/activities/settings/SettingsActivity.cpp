@@ -173,11 +173,11 @@ void SettingsActivity::toggleCurrentSetting() {
   const bool sleepScreenChanged = setting.valuePtr == &CrossPointSettings::sleepScreen;
   const bool quickResumeTimeoutChanged = setting.valuePtr == &CrossPointSettings::quickResumeSleepScreen;
 
-  if (setting.type == SettingType::TOGGLE && setting.valuePtr != nullptr) {
+  if (setting.type == SettingType::TOGGLE && setting.valuePtr) {
     // Toggle the boolean value using the member pointer
     const bool currentValue = SETTINGS.*(setting.valuePtr);
     SETTINGS.*(setting.valuePtr) = !currentValue;
-  } else if (setting.type == SettingType::ENUM && setting.valuePtr != nullptr) {
+  } else if (setting.type == SettingType::ENUM && setting.valuePtr) {
     const uint8_t currentValue = SETTINGS.*(setting.valuePtr);
     SETTINGS.*(setting.valuePtr) = (currentValue + 1) % static_cast<uint8_t>(setting.enumValues.size());
   } else if (setting.type == SettingType::ENUM && setting.valueGetter && setting.valueSetter) {
@@ -195,7 +195,7 @@ void SettingsActivity::toggleCurrentSetting() {
                                     : static_cast<uint8_t>(setting.enumStringValues.size());
     const uint8_t cur = setting.valueGetter();
     setting.valueSetter((cur + 1) % totalValues);
-  } else if (setting.type == SettingType::VALUE && setting.valuePtr != nullptr) {
+  } else if (setting.type == SettingType::VALUE && setting.valuePtr) {
     const int8_t currentValue = SETTINGS.*(setting.valuePtr);
     if (currentValue + setting.valueRange.step > setting.valueRange.max) {
       SETTINGS.*(setting.valuePtr) = setting.valueRange.min;
@@ -290,10 +290,10 @@ void SettingsActivity::render(RenderLock&&) {
       [&settings](int i) {
         const auto& setting = settings[i];
         std::string valueText = "";
-        if (setting.type == SettingType::TOGGLE && setting.valuePtr != nullptr) {
+        if (setting.type == SettingType::TOGGLE && setting.valuePtr) {
           const bool value = SETTINGS.*(setting.valuePtr);
           valueText = value ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
-        } else if (setting.type == SettingType::ENUM && setting.valuePtr != nullptr) {
+        } else if (setting.type == SettingType::ENUM && setting.valuePtr) {
           const uint8_t value = SETTINGS.*(setting.valuePtr);
           valueText = I18N.get(setting.enumValues[value]);
         } else if (setting.type == SettingType::ENUM && setting.valueGetter) {
@@ -303,7 +303,7 @@ void SettingsActivity::render(RenderLock&&) {
           } else if (value < setting.enumValues.size()) {
             valueText = I18N.get(setting.enumValues[value]);
           }
-        } else if (setting.type == SettingType::VALUE && setting.valuePtr != nullptr) {
+        } else if (setting.type == SettingType::VALUE && setting.valuePtr) {
           valueText = std::to_string(SETTINGS.*(setting.valuePtr));
         }
         return valueText;

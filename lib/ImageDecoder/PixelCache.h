@@ -39,7 +39,7 @@ struct PixelCache {
       memset(buffer, 0, bufferSize);
       LOG_DBG("IMG", "Allocated cache buffer: %d bytes for %dx%d", bufferSize, w, h);
     }
-    return buffer != nullptr;
+    return buffer;
   }
 
   void setPixel(int screenX, int screenY, uint8_t value) {

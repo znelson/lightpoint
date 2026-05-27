@@ -43,7 +43,7 @@ void FontDecompressor::freeHotGroup() {
 
 uint16_t FontDecompressor::getGroupIndex(const EpdFontData* fontData, uint32_t glyphIndex) {
   // O(1) path for frequency-grouped fonts with glyphToGroup mapping
-  if (fontData->glyphToGroup != nullptr) {
+  if (fontData->glyphToGroup) {
     return fontData->glyphToGroup[glyphIndex];
   }
 

@@ -39,4 +39,4 @@ ImageToFramebufferDecoder* ImageDecoderFactory::getDecoder(const std::string& im
   return nullptr;
 }
 
-bool ImageDecoderFactory::isFormatSupported(const std::string& imagePath) { return getDecoder(imagePath) != nullptr; }
+bool ImageDecoderFactory::isFormatSupported(const std::string& imagePath) { return getDecoder(imagePath); }

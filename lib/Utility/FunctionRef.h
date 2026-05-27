@@ -47,7 +47,7 @@ class FunctionRef<R(Args...)> {
 
   R operator()(Args... args) const { return _call(_obj, std::forward<Args>(args)...); }
 
-  explicit operator bool() const noexcept { return _call != nullptr; }
+  explicit operator bool() const noexcept { return _call; }
   bool operator==(std::nullptr_t) const noexcept { return _call == nullptr; }
 
  private:

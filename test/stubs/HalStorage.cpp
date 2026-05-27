@@ -172,4 +172,4 @@ bool HalFile::close() {
   return true;
 }
 
-HalFile::operator bool() const { return impl != nullptr; }
+HalFile::operator bool() const { return static_cast<bool>(impl); }
