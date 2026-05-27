@@ -394,5 +394,5 @@ HalFile HalFile::openNextFile() {
   return HalFile(std::move(newImpl));
 }
 
-bool HalFile::isOpen() const { return impl != nullptr && (impl->fp != nullptr || impl->dir != nullptr); }
-HalFile::operator bool() const { return impl != nullptr; }
+bool HalFile::isOpen() const { return impl && (impl->fp || impl->dir); }
+HalFile::operator bool() const { return static_cast<bool>(impl); }

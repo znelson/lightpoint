@@ -30,7 +30,7 @@ void HalPowerManager::begin() {
       LOG_ERR("PWR", "Failed to add BQ27220 I2C device");
       bq27220Dev = nullptr;
     }
-    _batteryUseI2C = (bq27220Dev != nullptr);
+    _batteryUseI2C = bq27220Dev;
   } else {
     gpio_set_direction((gpio_num_t)BAT_GPIO0, GPIO_MODE_INPUT);
   }

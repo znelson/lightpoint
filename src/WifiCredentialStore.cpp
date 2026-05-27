@@ -72,7 +72,7 @@ const WifiCredential* WifiCredentialStore::findCredential(const std::string& ssi
   return nullptr;
 }
 
-bool WifiCredentialStore::hasSavedCredential(const std::string& ssid) const { return findCredential(ssid) != nullptr; }
+bool WifiCredentialStore::hasSavedCredential(const std::string& ssid) const { return findCredential(ssid); }
 
 void WifiCredentialStore::setLastConnectedSsid(const std::string& ssid) {
   if (lastConnectedSsid != ssid) {

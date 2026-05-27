@@ -24,7 +24,7 @@ uint8_t resolveSdCardStyle(const SdCardFont& font, const EpdFontFamily::Style st
 }  // namespace
 
 const uint8_t* GfxRenderer::getGlyphBitmap(const EpdFontData* fontData, const EpdGlyph* glyph) const {
-  if (fontData->groups != nullptr) {
+  if (fontData->groups) {
     auto* fd = fontCacheManager_ ? fontCacheManager_->getDecompressor() : nullptr;
     if (!fd) {
       LOG_ERR("GFX", "Compressed font but no FontDecompressor set");
@@ -243,7 +243,7 @@ static void renderCharImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode 
 
   const uint8_t* bitmap = renderer.getGlyphBitmap(fontData, glyph);
 
-  if (bitmap != nullptr) {
+  if (bitmap) {
     // For Normal:  outer loop advances screenY, inner loop advances screenX
     // For Rotated: outer loop advances screenX, inner loop advances screenY (in reverse)
     int outerBase, innerBase;

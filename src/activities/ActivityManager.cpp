@@ -264,7 +264,7 @@ void ActivityManager::requestUpdateAndWait() {
   auto currTaskHandler = xTaskGetCurrentTaskHandle();
   auto mutexHolder = xSemaphoreGetMutexHolder(renderingMutex);
   bool isRenderTask = (currTaskHandler == renderTaskHandle);
-  bool alreadyWaiting = (waitingTaskHandle != nullptr);
+  bool alreadyWaiting = waitingTaskHandle;
   bool holdingRenderLock = (mutexHolder == currTaskHandler);
   if (!alreadyWaiting && !isRenderTask && !holdingRenderLock) {
     waitingTaskHandle = currTaskHandler;

@@ -380,7 +380,7 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
   const auto inflatedDataSize = fileStat.uncompressedSize;
   const auto dataSize = trailingNullByte ? inflatedDataSize + 1 : inflatedDataSize;
   const auto data = static_cast<uint8_t*>(malloc(dataSize));
-  if (data == nullptr) {
+  if (!data) {
     LOG_ERR("ZIP", "Failed to allocate memory for output buffer (%zu bytes)", dataSize);
     return nullptr;
   }
@@ -399,7 +399,7 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
   } else if (fileStat.method == ZIP_METHOD_DEFLATED) {
     // Read out deflated content from file
     const auto deflatedData = static_cast<uint8_t*>(malloc(deflatedDataSize));
-    if (deflatedData == nullptr) {
+    if (!deflatedData) {
       LOG_ERR("ZIP", "Failed to allocate memory for decompression buffer");
       free(data);
       return nullptr;

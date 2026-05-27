@@ -184,7 +184,7 @@ struct AutomatonState {
   const uint8_t* levels = nullptr;
   size_t levelsLen = 0;
 
-  bool valid() const { return data != nullptr; }
+  bool valid() const { return data; }
 };
 
 // Interpret the node located at `addr`, returning transition metadata.
