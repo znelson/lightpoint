@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -39,8 +40,8 @@ class FunctionRef<R(Args...)> {
   // directly, matching std::function's ergonomics. noExplicitConstructor is
   // suppressed file-wide in platformio.ini (covers both this and the
   // std::nullptr_t empty-state constructor above).
-  template <typename Fn, typename = std::enable_if_t<!std::is_same_v<std::remove_cvref_t<Fn>, FunctionRef> &&
-                                                     std::is_invocable_r_v<R, Fn&, Args...>>>
+  template <typename Fn>
+    requires(!std::same_as<std::remove_cvref_t<Fn>, FunctionRef> && std::is_invocable_r_v<R, Fn&, Args...>)
   FunctionRef(Fn&& fn) noexcept
       : _obj(reinterpret_cast<intptr_t>(&fn)), _call(&trampoline<std::remove_reference_t<Fn>>) {}
 
