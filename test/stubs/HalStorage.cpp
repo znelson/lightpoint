@@ -68,7 +68,7 @@ bool HalStorage::exists(const char* path) { return fileStorage.find(path) != fil
 
 bool HalStorage::remove(const char* path) { return fileStorage.erase(path) > 0; }
 
-bool HalStorage::openFileForRead(const char* /*moduleName*/, const char* path, HalFile& file) {
+bool HalStorage::openFileForRead([[maybe_unused]] const char* moduleName, const char* path, HalFile& file) {
   auto it = fileStorage.find(path);
   if (it == fileStorage.end()) return false;
   auto impl = std::make_unique<HalFile::Impl>();
@@ -84,7 +84,7 @@ bool HalStorage::openFileForRead(const char* moduleName, const std::string& path
 // Write mode truncates: any prior content for `path` is dropped from the
 // storage map on close. Until close, writes accumulate in the Impl buffer
 // so an unfinished write does not poison a subsequent read.
-bool HalStorage::openFileForWrite(const char* /*moduleName*/, const char* path, HalFile& file) {
+bool HalStorage::openFileForWrite([[maybe_unused]] const char* moduleName, const char* path, HalFile& file) {
   auto impl = std::make_unique<HalFile::Impl>();
   impl->writable = true;
   impl->writePath = path;

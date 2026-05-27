@@ -170,14 +170,14 @@ constexpr size_t MIN_FREE_HEAP = JPEG_DECODER_SIZE + 32 * 1024;
 // Safe in single-threaded embedded context; never accessed concurrently.
 static HalFile* s_jpegFile = nullptr;
 
-void* bmpJpegOpen(const char* /*filename*/, int32_t* size) {
+void* bmpJpegOpen([[maybe_unused]] const char* filename, int32_t* size) {
   if (!s_jpegFile || !*s_jpegFile) return nullptr;
   s_jpegFile->seek(0);
   *size = static_cast<int32_t>(s_jpegFile->size());
   return s_jpegFile;
 }
 
-void bmpJpegClose(void* /*handle*/) {
+void bmpJpegClose([[maybe_unused]] void* handle) {
   // Caller owns the file — do not close it here
 }
 

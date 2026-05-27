@@ -113,7 +113,7 @@ void clearLastLogs() {
 
 static bool _usbJtagInstalled = false;
 
-void MySerialImpl::begin(unsigned long /*baud*/) {
+void MySerialImpl::begin([[maybe_unused]] unsigned long baud) {
   if (_usbJtagInstalled) return;
   usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
   cfg.tx_buffer_size = 256;

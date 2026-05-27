@@ -399,8 +399,8 @@ TEST(ReleaseJsonParser, TruncatedRealisticJson) {
 
     ReleaseJsonParser p;
     p.feed(full.c_str(), cutPoint);
-    (void)p.foundTag();
-    (void)p.foundFirmware();
+    p.foundTag();
+    p.foundFirmware();
   }
   SUCCEED();
 }

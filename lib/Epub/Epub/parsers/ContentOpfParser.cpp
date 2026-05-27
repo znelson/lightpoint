@@ -93,7 +93,6 @@ size_t ContentOpfParser::write(const uint8_t* buffer, const size_t size) {
 
 void XMLCALL ContentOpfParser::startElement(void* userData, const XML_Char* name, const XML_Char** atts) {
   auto* self = static_cast<ContentOpfParser*>(userData);
-  (void)atts;
 
   if (self->state == START && (strcmp(name, "package") == 0 || strcmp(name, "opf:package") == 0)) {
     self->state = IN_PACKAGE;
@@ -355,7 +354,6 @@ void XMLCALL ContentOpfParser::characterData(void* userData, const XML_Char* s, 
 
 void XMLCALL ContentOpfParser::endElement(void* userData, const XML_Char* name) {
   auto* self = static_cast<ContentOpfParser*>(userData);
-  (void)name;
 
   if (self->state == IN_SPINE && (strcmp(name, "spine") == 0 || strcmp(name, "opf:spine") == 0)) {
     self->state = IN_PACKAGE;

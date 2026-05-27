@@ -58,8 +58,8 @@ std::unique_ptr<PageImage> PageImage::deserialize(HalFile& file) {
   return img;
 }
 
-void PageHorizontalRule::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset) {
-  (void)fontId;
+void PageHorizontalRule::render(GfxRenderer& renderer, [[maybe_unused]] const int fontId, const int xOffset,
+                                const int yOffset) {
   if (width == 0 || thickness == 0) {
     return;
   }

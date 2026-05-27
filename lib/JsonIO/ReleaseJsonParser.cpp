@@ -111,7 +111,7 @@ void ReleaseJsonParser::sOnString(void* ctx, const char* value, size_t len) {
   self->lastKey = LastKey::NONE;
 }
 
-void ReleaseJsonParser::sOnNumber(void* ctx, const char* value, size_t /*len*/) {
+void ReleaseJsonParser::sOnNumber(void* ctx, const char* value, [[maybe_unused]] size_t len) {
   auto* self = static_cast<ReleaseJsonParser*>(ctx);
 
   if (self->lastKey == LastKey::ASSET_SIZE && self->position == Position::IN_ASSET_OBJECT && self->assetDepth == 1) {
@@ -120,7 +120,7 @@ void ReleaseJsonParser::sOnNumber(void* ctx, const char* value, size_t /*len*/) 
   self->lastKey = LastKey::NONE;
 }
 
-void ReleaseJsonParser::sOnBool(void* ctx, bool /*value*/) {
+void ReleaseJsonParser::sOnBool(void* ctx, [[maybe_unused]] bool value) {
   static_cast<ReleaseJsonParser*>(ctx)->lastKey = LastKey::NONE;
 }
 
