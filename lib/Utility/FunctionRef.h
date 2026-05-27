@@ -39,9 +39,10 @@ class FunctionRef<R(Args...)> {
                                                      std::is_invocable_r_v<R, Fn&, Args...>>>
   // Implicit by design: callers pass lambdas / function objects directly,
   // matching std::function's converting-constructor ergonomics.
-  // cppcheck-suppress noExplicitConstructor
+  // cppcheck-suppress-begin noExplicitConstructor
   FunctionRef(Fn&& fn) noexcept
       : _obj(reinterpret_cast<intptr_t>(&fn)), _call(&trampoline<std::remove_reference_t<Fn>>) {}
+  // cppcheck-suppress-end noExplicitConstructor
 
   R operator()(Args... args) const { return _call(_obj, std::forward<Args>(args)...); }
 
