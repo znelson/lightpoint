@@ -44,11 +44,16 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Cache PlatformIO packages
-        uses: actions/cache@v4
+      - name: Compute PlatformIO packages cache key
+        id: pio-cache-key
+        run: echo "key=${{ runner.os }}-pio-packages-$(python3 scripts/pio_cache_key.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore PlatformIO packages cache
+        id: pio-cache-restore
+        uses: actions/cache/restore@v4
         with:
           path: ~/.platformio/packages
-          key: ${{ runner.os }}-pio-packages-${{ hashFiles('platformio.ini') }}
+          key: ${{ steps.pio-cache-key.outputs.key }}
           restore-keys: ${{ runner.os }}-pio-packages-
 
       - name: Install uv
@@ -63,6 +68,13 @@ jobs:
       - name: Run cppcheck
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
 
+      - name: Save PlatformIO packages cache
+        if: github.ref == 'refs/heads/main' && steps.pio-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.platformio/packages
+          key: ${{ steps.pio-cache-key.outputs.key }}
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -74,11 +86,16 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Cache PlatformIO packages
-        uses: actions/cache@v4
+      - name: Compute PlatformIO packages cache key
+        id: pio-cache-key
+        run: echo "key=${{ runner.os }}-pio-packages-$(python3 scripts/pio_cache_key.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore PlatformIO packages cache
+        id: pio-cache-restore
+        uses: actions/cache/restore@v4
         with:
           path: ~/.platformio/packages
-          key: ${{ runner.os }}-pio-packages-${{ hashFiles('platformio.ini') }}
+          key: ${{ steps.pio-cache-key.outputs.key }}
           restore-keys: ${{ runner.os }}-pio-packages-
 
       - name: Install uv
@@ -116,6 +133,13 @@ jobs:
           path: .pio/build/default/firmware.bin
           if-no-files-found: error
 
+      - name: Save PlatformIO packages cache
+        if: github.ref == 'refs/heads/main' && steps.pio-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.platformio/packages
+          key: ${{ steps.pio-cache-key.outputs.key }}
+
   unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -128,11 +152,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build
 
-      - name: Cache googletest source
-        uses: actions/cache@v4
+      - name: Compute googletest cache key
+        id: gtest-cache-key
+        run: |
+          tag=$(grep -E '^[[:space:]]*GIT_TAG' test/CMakeLists.txt | awk '{print $2}')
+          echo "key=${{ runner.os }}-googletest-${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore googletest source cache
+        id: gtest-cache-restore
+        uses: actions/cache/restore@v4
         with:
           path: build/test/_deps/googletest-src
-          key: ${{ runner.os }}-googletest-${{ hashFiles('test/CMakeLists.txt') }}
+          key: ${{ steps.gtest-cache-key.outputs.key }}
 
       - name: Configure
         run: cmake -S test -B build/test -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -142,6 +173,13 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir build/test --output-on-failure -j
+
+      - name: Save googletest source cache
+        if: github.ref == 'refs/heads/main' && steps.gtest-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/test/_deps/googletest-src
+          key: ${{ steps.gtest-cache-key.outputs.key }}
 
   # This job is used as the PR required actions check, allows for changes to other steps in the future without breaking
   # PR requirements.
