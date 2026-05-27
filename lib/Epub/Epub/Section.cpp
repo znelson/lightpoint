@@ -5,9 +5,9 @@
 #include <Hyphenator.h>
 #include <Logging.h>
 #include <Serialization.h>
+#include <Typesetter/Page.h>
 
 #include "Epub/css/CssParser.h"
-#include "Page.h"
 #include "parsers/ChapterHtmlSlimParser.h"
 
 namespace {

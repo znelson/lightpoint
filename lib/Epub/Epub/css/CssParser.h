@@ -135,7 +135,7 @@ class CssParser {
   static void parseDeclarationIntoStyle(std::string_view decl, CssStyle& style);
 
   // Individual property value parsers
-  static CssTextAlign interpretAlignment(std::string_view val);
+  static TextAlign interpretAlignment(std::string_view val);
   static CssFontStyle interpretFontStyle(std::string_view val);
   static CssFontWeight interpretFontWeight(std::string_view val);
   static CssTextDecoration interpretDecoration(std::string_view val);

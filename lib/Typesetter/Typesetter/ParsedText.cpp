@@ -314,7 +314,7 @@ std::vector<size_t> ParsedText::computeLineBreaks(const GfxRenderer& renderer, c
   // it is structural (positions the bullet/marker), not decorative.
   const int firstLineIndent =
       blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing) &&
-              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left)
+              (blockStyle.alignment == TextAlign::Justify || blockStyle.alignment == TextAlign::Left)
           ? blockStyle.textIndent
           : 0;
 
@@ -430,7 +430,7 @@ void ParsedText::applyParagraphIndent() {
   if (blockStyle.textIndentDefined) {
     // CSS text-indent is explicitly set (even if 0) - don't use fallback EmSpace
     // The actual indent positioning is handled in extractLine()
-  } else if (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left) {
+  } else if (blockStyle.alignment == TextAlign::Justify || blockStyle.alignment == TextAlign::Left) {
     // No CSS text-indent defined - use EmSpace fallback for visual indent
     words.front().insert(0, "\xe2\x80\x83");
   }
@@ -446,7 +446,7 @@ std::vector<size_t> ParsedText::computeHyphenatedLineBreaks(const GfxRenderer& r
   // it is structural (positions the bullet/marker), not decorative.
   const int firstLineIndent =
       blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing) &&
-              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left)
+              (blockStyle.alignment == TextAlign::Justify || blockStyle.alignment == TextAlign::Left)
           ? blockStyle.textIndent
           : 0;
 
@@ -618,7 +618,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   const bool isFirstLine = breakIndex == 0;
   const int firstLineIndent =
       isFirstLine && blockStyle.textIndentDefined && (blockStyle.textIndent < 0 || !extraParagraphSpacing) &&
-              (blockStyle.alignment == CssTextAlign::Justify || blockStyle.alignment == CssTextAlign::Left)
+              (blockStyle.alignment == TextAlign::Justify || blockStyle.alignment == TextAlign::Left)
           ? blockStyle.textIndent
           : 0;
 
@@ -655,16 +655,16 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
 
   // For justified text, compute per-gap extra to distribute remaining space evenly
   const int spareSpace = effectivePageWidth - lineWordWidthSum - totalNaturalGaps;
-  const int justifyExtra = (blockStyle.alignment == CssTextAlign::Justify && !isLastLine && actualGapCount >= 1)
+  const int justifyExtra = (blockStyle.alignment == TextAlign::Justify && !isLastLine && actualGapCount >= 1)
                                ? spareSpace / static_cast<int>(actualGapCount)
                                : 0;
 
   // Calculate initial x position (first line starts at indent for left/justified text;
   // may be negative for hanging indents, e.g. margin-left:3em; text-indent:-1em).
   auto xpos = static_cast<int16_t>(firstLineIndent);
-  if (blockStyle.alignment == CssTextAlign::Right) {
+  if (blockStyle.alignment == TextAlign::Right) {
     xpos = effectivePageWidth - lineWordWidthSum - totalNaturalGaps;
-  } else if (blockStyle.alignment == CssTextAlign::Center) {
+  } else if (blockStyle.alignment == TextAlign::Center) {
     xpos = (effectivePageWidth - lineWordWidthSum - totalNaturalGaps) / 2;
   }
 
@@ -685,7 +685,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
                               firstCodepoint(words[lastBreakAt + wordIdx + 1]), wordStyles[lastBreakAt + wordIdx]);
       // Non-breaking space tokens are stretchable — expand them during justification like normal spaces.
       if (words[lastBreakAt + wordIdx] == " " && continuesVec[lastBreakAt + wordIdx] &&
-          blockStyle.alignment == CssTextAlign::Justify && !isLastLine) {
+          blockStyle.alignment == TextAlign::Justify && !isLastLine) {
         advance += justifyExtra;
       }
       xpos += advance;
@@ -696,7 +696,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
                                        firstCodepoint(words[lastBreakAt + wordIdx + 1]),
                                        wordStyles[lastBreakAt + wordIdx]);
       }
-      if (blockStyle.alignment == CssTextAlign::Justify && !isLastLine) {
+      if (blockStyle.alignment == TextAlign::Justify && !isLastLine) {
         gap += justifyExtra;
       }
       xpos += wordWidths[lastBreakAt + wordIdx] + gap;
