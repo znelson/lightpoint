@@ -155,7 +155,9 @@ TEST(ScopedCleanupTest, FiresOnScopeExit) {
 
 TEST(ScopedCleanupTest, FiresExactlyOnce) {
   int fired = 0;
-  { ScopedCleanup cleanup{[&] { ++fired; }}; }
+  {
+    ScopedCleanup cleanup{[&] { ++fired; }};
+  }
   EXPECT_EQ(fired, 1);
 }
 

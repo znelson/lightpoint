@@ -218,18 +218,15 @@ template <typename T, typename Fn, typename = void>
 struct IsConstructibleFromCallable : std::false_type {};
 
 template <typename T, typename Fn>
-struct IsConstructibleFromCallable<
-    T, Fn, std::void_t<decltype(T(std::declval<Fn>()))>> : std::true_type {};
+struct IsConstructibleFromCallable<T, Fn, std::void_t<decltype(T(std::declval<Fn>()))>> : std::true_type {};
 
 // Plain pointer to int is not invocable -- SFINAE should reject it.
 static_assert(!IsConstructibleFromCallable<FunctionRef<int(int)>, int*>::value);
 
 // A lambda with the wrong arity should be rejected.
-static_assert(!IsConstructibleFromCallable<FunctionRef<int(int)>,
-                                           decltype([] { return 0; })>::value);
+static_assert(!IsConstructibleFromCallable<FunctionRef<int(int)>, decltype([] { return 0; })>::value);
 
 // A lambda with the right shape should be accepted.
-static_assert(IsConstructibleFromCallable<FunctionRef<int(int)>,
-                                          decltype([](int x) { return x; })>::value);
+static_assert(IsConstructibleFromCallable<FunctionRef<int(int)>, decltype([](int x) { return x; })>::value);
 
 }  // namespace

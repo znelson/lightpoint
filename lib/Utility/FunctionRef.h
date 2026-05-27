@@ -27,17 +27,12 @@ class FunctionRef;
 template <typename R, typename... Args>
 class FunctionRef<R(Args...)> {
  public:
-  template <typename Fn,
-            typename = std::enable_if_t<
-                !std::is_same_v<std::remove_cvref_t<Fn>, FunctionRef> &&
-                std::is_invocable_r_v<R, Fn&, Args...>>>
+  template <typename Fn, typename = std::enable_if_t<!std::is_same_v<std::remove_cvref_t<Fn>, FunctionRef> &&
+                                                     std::is_invocable_r_v<R, Fn&, Args...>>>
   FunctionRef(Fn&& fn) noexcept
-      : _obj(reinterpret_cast<intptr_t>(&fn)),
-        _call(&trampoline<std::remove_reference_t<Fn>>) {}
+      : _obj(reinterpret_cast<intptr_t>(&fn)), _call(&trampoline<std::remove_reference_t<Fn>>) {}
 
-  R operator()(Args... args) const {
-    return _call(_obj, std::forward<Args>(args)...);
-  }
+  R operator()(Args... args) const { return _call(_obj, std::forward<Args>(args)...); }
 
  private:
   template <typename Fn>

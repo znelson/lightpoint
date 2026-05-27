@@ -109,9 +109,7 @@ TEST(SerializationString, RoundTripsAscii) {
   EXPECT_EQ(roundTripString("The quick brown fox"), "The quick brown fox");
 }
 
-TEST(SerializationString, RoundTripsEmpty) {
-  EXPECT_EQ(roundTripString(""), "");
-}
+TEST(SerializationString, RoundTripsEmpty) { EXPECT_EQ(roundTripString(""), ""); }
 
 TEST(SerializationString, RoundTripsEmbeddedNulls) {
   std::string in;
@@ -171,8 +169,7 @@ std::string encodeViaStream(auto&& encode) {
 
 TEST(SerializationHalFile, ReadPodFromSeededFile) {
   test_stubs::clearHalFileContent();
-  std::string bytes = encodeViaStream(
-      [](std::ostream& o) { serialization::writePod(o, uint32_t{0xCAFEBABE}); });
+  std::string bytes = encodeViaStream([](std::ostream& o) { serialization::writePod(o, uint32_t{0xCAFEBABE}); });
   HalFile file = test_stubs::makeReadableHalFile(std::move(bytes));
   uint32_t out = 0;
   serialization::readPod(file, out);
@@ -181,9 +178,7 @@ TEST(SerializationHalFile, ReadPodFromSeededFile) {
 
 TEST(SerializationHalFile, ReadStringFromSeededFile) {
   test_stubs::clearHalFileContent();
-  std::string bytes = encodeViaStream([](std::ostream& o) {
-    serialization::writeString(o, std::string("greetings"));
-  });
+  std::string bytes = encodeViaStream([](std::ostream& o) { serialization::writeString(o, std::string("greetings")); });
   HalFile file = test_stubs::makeReadableHalFile(std::move(bytes));
   std::string out;
   serialization::readString(file, out);
