@@ -116,8 +116,17 @@ class Section {
 
   // --- File management --------------------------------------------------
   // Remove the cache file from disk. Returns true if the file was removed
-  // or didn't exist; false on filesystem error.
+  // or didn't exist; false on filesystem error. Assumes no write handle
+  // is currently open on the file; see closeAndRemove for the mid-write
+  // abandon case.
   bool clearCache() const;
+
+  // Abandon an in-progress write: close the internal file handle (if open)
+  // and remove the cache file. Used when a build (parse/layout) fails
+  // partway through openForWrite -> writeHeader -> writePage* and the
+  // partial cache must not be left readable on disk. Returns false if the
+  // remove call failed.
+  bool closeAndRemove();
 
  private:
   std::string filePath_;
