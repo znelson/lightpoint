@@ -17,6 +17,7 @@ This is an opinionated, lightweight fork of [CrossPoint](https://github.com/cros
 - **QR code display** -- "Show page as QR" reader menu option removed
 - **Auto page turn** -- automatic timed page-turning feature removed
 - **Font downloader** -- "Manage Fonts" settings entry and over-the-air font download removed; fonts may still be placed on the SD card manually
+- **Next-chapter pre-indexing** -- the synchronous next-chapter cache pre-warm that ran on the render task when the reader reached the second-to-last page; an interruptible replacement is planned
 
 ### Added
 
