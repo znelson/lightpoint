@@ -9,3 +9,5 @@
 HalPlatform halPlatform;
 
 uint32_t HalPlatform::freeHeap() const { return 256u * 1024u; }
+
+void HalPlatform::delay(uint32_t) const {}

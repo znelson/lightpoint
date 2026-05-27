@@ -1,0 +1,41 @@
+#pragma once
+
+// Test-only stub of Typesetter. Shadows lib/Typesetter/Typesetter.h via
+// CMake include-path priority in test/markdown/CMakeLists.txt. Provides
+// just the surface MarkdownParser invokes (`submitParagraph`,
+// `getCompletedPageCount`, `finish`) without dragging in the real layout
+// engine, GfxRenderer, Hyphenator, etc. Submitted paragraphs accumulate
+// in `submitted` so tests can inspect them; `completedPageCount` is
+// settable so anchor-recording tests can simulate pagination by bumping
+// the counter between submits.
+
+#include <Typesetter/ParsedText.h>
+
+#include <cstdint>
+#include <memory>
+#include <utility>
+#include <vector>
+
+class Typesetter {
+ public:
+  // Test ctor: no GfxRenderer, no callback. Tests construct directly.
+  Typesetter() = default;
+  virtual ~Typesetter() = default;
+
+  // virtual so tests can subclass to inject side effects (see CountingTypesetter
+  // in MarkdownParserTest). The production Typesetter is non-virtual; this is
+  // a test-only relaxation that doesn't affect production code.
+  virtual void submitParagraph(std::unique_ptr<ParsedText> p) { submitted.push_back(std::move(p)); }
+
+  void finish() { finished = true; }
+
+  int getCompletedPageCount() const { return completedPageCount; }
+
+  // Test-only knob: lets a test simulate "the page counter advanced because
+  // this paragraph filled a page." Call between submits.
+  void setCompletedPageCount(int n) { completedPageCount = n; }
+
+  std::vector<std::unique_ptr<ParsedText>> submitted;
+  bool finished = false;
+  int completedPageCount = 0;
+};

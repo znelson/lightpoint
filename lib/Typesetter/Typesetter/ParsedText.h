@@ -45,9 +45,13 @@ class ParsedText {
 
   void addWord(std::string word, EpdFontFamily::Style fontStyle, bool underline = false, bool attachToPrevious = false);
   void setBlockStyle(const BlockStyle& blockStyle) { this->blockStyle = blockStyle; }
-  BlockStyle& getBlockStyle() { return blockStyle; }
+  const BlockStyle& getBlockStyle() const { return blockStyle; }
   size_t size() const { return words.size(); }
   bool isEmpty() const { return words.empty(); }
+  // Word-level introspection. Used by tests and by the upcoming TOC selector
+  // (extracts heading display text from submitted paragraphs).
+  const std::string& getWord(size_t i) const { return words[i]; }
+  EpdFontFamily::Style getWordStyle(size_t i) const { return wordStyles[i]; }
   void layoutAndExtractLines(const GfxRenderer& renderer, int fontId, uint16_t viewportWidth,
                              FunctionRef<void(std::shared_ptr<TextBlock>)> processLine, bool includeLastLine = true);
 };
