@@ -104,6 +104,49 @@ bool isUnorderedListItem(const std::string& line, std::string& out) {
   return true;
 }
 
+// CommonMark "ASCII punctuation" set -- the chars that backslash can escape.
+// `\X` where X is in this set emits X literally; otherwise the backslash
+// stays as a literal character.
+bool isAsciiPunctuation(char c) {
+  switch (c) {
+    case '!':
+    case '"':
+    case '#':
+    case '$':
+    case '%':
+    case '&':
+    case '\'':
+    case '(':
+    case ')':
+    case '*':
+    case '+':
+    case ',':
+    case '-':
+    case '.':
+    case '/':
+    case ':':
+    case ';':
+    case '<':
+    case '=':
+    case '>':
+    case '?':
+    case '@':
+    case '[':
+    case '\\':
+    case ']':
+    case '^':
+    case '_':
+    case '`':
+    case '{':
+    case '|':
+    case '}':
+    case '~':
+      return true;
+    default:
+      return false;
+  }
+}
+
 // Inline-text parser state shared between the addStyledWords dispatcher and
 // the per-syntax helpers below. The helpers each consume some prefix of
 // `text[pos..]`, mutate the state in place, and return true if they matched
@@ -133,6 +176,23 @@ struct InlineState {
     }
   }
 };
+
+// \X where X is ASCII punctuation: emit X as a literal char, swallow both.
+// Otherwise (e.g. \n where n is a letter) the helper declines and the
+// backslash falls through to literal-character accumulation. Must dispatch
+// FIRST so `\*` doesn't trigger emphasis, `\[` doesn't trigger link parse,
+// etc. Block-level escapes (`\#` not a heading, `\>` not a blockquote) work
+// for free because the block-level classifiers only inspect `line[0]`,
+// which is `\\` rather than the syntax character.
+bool tryEscape(InlineState& s) {
+  if (s.text[s.pos] != '\\') return false;
+  if (s.pos + 1 >= s.text.size()) return false;
+  const char next = s.text[s.pos + 1];
+  if (!isAsciiPunctuation(next)) return false;
+  s.currentToken += next;
+  s.pos += 2;
+  return true;
+}
 
 // *...*, _..._, **...**, __...__, ***...***, ___...___. Counts marker run
 // length: 1 toggles italic, 2 toggles bold, >=3 toggles both. Flushes any
@@ -165,17 +225,69 @@ bool tryEmphasis(InlineState& s) {
 // "![alt](src)" emits as one word. Returns false (no consume) if the
 // bracket/paren pair is missing -- the '[' then falls through to literal
 // character accumulation.
+//
+// Escape-aware scanning: `\]` inside link text and `\)` inside link target
+// don't terminate. The link text is de-escaped before tokenization so
+// `[a\]b](url)` emits a single underlined word "a]b".
+//
+// Balanced parens: the target scan tracks `(`/`)` depth so URLs like
+// `Foo_(disambig)` don't clip at the inner `)`. Escaped parens (`\(` /
+// `\)`) do not contribute to depth.
 bool tryLink(InlineState& s) {
   if (s.text[s.pos] != '[') return false;
   if (!s.currentToken.empty() && s.currentToken.back() == '!') return false;  // image
-  const size_t closeBracket = s.text.find(']', s.pos + 1);
+
+  // Find closing ']' respecting backslash escapes inside the link text.
+  size_t closeBracket = std::string::npos;
+  for (size_t i = s.pos + 1; i < s.text.size(); i++) {
+    if (s.text[i] == '\\' && i + 1 < s.text.size()) {
+      i++;  // skip the escaped char
+      continue;
+    }
+    if (s.text[i] == ']') {
+      closeBracket = i;
+      break;
+    }
+  }
   if (closeBracket == std::string::npos) return false;
   if (closeBracket + 1 >= s.text.size() || s.text[closeBracket + 1] != '(') return false;
-  const size_t closeParen = s.text.find(')', closeBracket + 2);
+
+  // Find the matching close-paren with depth tracking. Escapes are skipped
+  // without affecting depth.
+  size_t closeParen = std::string::npos;
+  int depth = 0;
+  for (size_t i = closeBracket + 2; i < s.text.size(); i++) {
+    if (s.text[i] == '\\' && i + 1 < s.text.size()) {
+      i++;
+      continue;
+    }
+    char c = s.text[i];
+    if (c == '(') {
+      depth++;
+    } else if (c == ')') {
+      if (depth == 0) {
+        closeParen = i;
+        break;
+      }
+      depth--;
+    }
+  }
   if (closeParen == std::string::npos) return false;
 
   s.flushToken();
-  const std::string linkText = s.text.substr(s.pos + 1, closeBracket - s.pos - 1);
+
+  // De-escape link text into a flat buffer, then tokenize on whitespace.
+  std::string linkText;
+  linkText.reserve(closeBracket - s.pos - 1);
+  for (size_t i = s.pos + 1; i < closeBracket; i++) {
+    if (s.text[i] == '\\' && i + 1 < closeBracket) {
+      linkText.push_back(s.text[i + 1]);
+      i++;
+    } else {
+      linkText.push_back(s.text[i]);
+    }
+  }
+
   size_t tp = 0;
   while (tp < linkText.size()) {
     while (tp < linkText.size() && (linkText[tp] == ' ' || linkText[tp] == '\t')) tp++;
@@ -533,9 +645,11 @@ void MarkdownParser::addStyledWords(const std::string& text, uint8_t baseStyle) 
   };
 
   // Dispatch: each helper inspects text[pos], consumes some prefix, returns
-  // true if it matched. Order matters when characters could trigger multiple
-  // helpers; here they're disjoint by leading char so any order works.
+  // true if it matched. tryEscape MUST go first so `\*` doesn't trigger
+  // emphasis, `\[` doesn't trigger link parse, etc.; the rest are disjoint
+  // by leading char so any order after that works.
   while (s.pos < s.text.size()) {
+    if (tryEscape(s)) continue;
     if (tryEmphasis(s)) continue;
     if (tryLink(s)) continue;
     if (tryInlineCode(s)) continue;

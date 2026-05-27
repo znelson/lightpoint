@@ -274,6 +274,103 @@ TEST(MarkdownParser, BracketsWithoutParensStayLiteral) {
   }
 }
 
+// ---- Backslash escapes ---------------------------------------------------
+
+TEST(MarkdownParser, BackslashEscapeOfEmphasisMarkerRendersLiteral) {
+  Typesetter t;
+  // \*not italic\* should render literal asterisks with no italic styling.
+  ASSERT_TRUE(parseMarkdown("\\*not italic\\*\n", t));
+  const auto& p = *t.submitted[0];
+  // Words: "*not", "italic*"
+  ASSERT_EQ(p.size(), 2u);
+  EXPECT_EQ(p.getWord(0), "*not");
+  EXPECT_EQ(p.getWord(1), "italic*");
+  for (size_t i = 0; i < p.size(); i++) {
+    EXPECT_FALSE(hasFlag(p.getWordStyle(i), EpdFontFamily::ITALIC));
+  }
+}
+
+TEST(MarkdownParser, BackslashEscapeOfBracketsPreventsLink) {
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("\\[not a link\\](url)\n", t));
+  const auto& p = *t.submitted[0];
+  // Whole sequence renders literally without underline.
+  for (size_t i = 0; i < p.size(); i++) {
+    EXPECT_FALSE(hasFlag(p.getWordStyle(i), EpdFontFamily::UNDERLINE));
+  }
+  EXPECT_EQ(p.getWord(0), "[not");
+}
+
+TEST(MarkdownParser, BackslashOfNonPunctuationStaysLiteral) {
+  Typesetter t;
+  // \n is not an escape (n is not ASCII punctuation); render both chars literally.
+  ASSERT_TRUE(parseMarkdown("hello\\nworld\n", t));
+  const auto& p = *t.submitted[0];
+  ASSERT_EQ(p.size(), 1u);
+  EXPECT_EQ(p.getWord(0), "hello\\nworld");
+}
+
+TEST(MarkdownParser, DoubleBackslashEmitsLiteralBackslashAndAllowsEmphasisAfter) {
+  Typesetter t;
+  // `\\` -> literal `\`; the subsequent `*` then triggers italic as normal.
+  // The emphasis-marker flush separates the literal `\` from the italic run,
+  // so we get two words. Visual continuity (no space between them) would
+  // need attachToPrevious, which this parser doesn't currently set at
+  // style boundaries.
+  ASSERT_TRUE(parseMarkdown("\\\\*italic*\n", t));
+  const auto& p = *t.submitted[0];
+  ASSERT_EQ(p.size(), 2u);
+  EXPECT_EQ(p.getWord(0), "\\");
+  EXPECT_FALSE(hasFlag(p.getWordStyle(0), EpdFontFamily::ITALIC));
+  EXPECT_EQ(p.getWord(1), "italic");
+  EXPECT_TRUE(hasFlag(p.getWordStyle(1), EpdFontFamily::ITALIC));
+}
+
+TEST(MarkdownParser, BackslashHeadingAtLineStartIsNotHeading) {
+  // \# at line start should not be a heading; the block-level classifier
+  // looks at line[0] which is \\ (not #), so we fall through to body where
+  // tryEscape strips the backslash.
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("\\# Not a heading\n", t));
+  const auto& p = *t.submitted[0];
+  EXPECT_NE(p.getBlockStyle().alignment, TextAlign::Center);
+  EXPECT_EQ(p.getWord(0), "#");
+}
+
+// ---- Link target balanced parens + escapes ------------------------------
+
+TEST(MarkdownParser, LinkTargetWithBalancedParensDoesNotClip) {
+  Typesetter t;
+  // [wiki](Foo_(disambig)) -- the inner () should not terminate the link
+  // target; the outer ) closes it. Nothing trails the link.
+  ASSERT_TRUE(parseMarkdown("[wiki](Foo_(disambig))\n", t));
+  const auto& p = *t.submitted[0];
+  ASSERT_EQ(p.size(), 1u);
+  EXPECT_EQ(p.getWord(0), "wiki");
+  EXPECT_TRUE(hasFlag(p.getWordStyle(0), EpdFontFamily::UNDERLINE));
+}
+
+TEST(MarkdownParser, LinkTargetWithEscapedParenNoClip) {
+  Typesetter t;
+  // Escaped close-paren inside target shouldn't end the link.
+  ASSERT_TRUE(parseMarkdown("[x](a\\)b)\n", t));
+  const auto& p = *t.submitted[0];
+  ASSERT_EQ(p.size(), 1u);
+  EXPECT_EQ(p.getWord(0), "x");
+  EXPECT_TRUE(hasFlag(p.getWordStyle(0), EpdFontFamily::UNDERLINE));
+}
+
+TEST(MarkdownParser, LinkTextWithEscapedBracketKeepsLinkIntact) {
+  Typesetter t;
+  // [a\]b](url) -- the escaped ] inside link text should not terminate the
+  // link, and the de-escape pass should produce a token "a]b".
+  ASSERT_TRUE(parseMarkdown("[a\\]b](url)\n", t));
+  const auto& p = *t.submitted[0];
+  ASSERT_EQ(p.size(), 1u);
+  EXPECT_EQ(p.getWord(0), "a]b");
+  EXPECT_TRUE(hasFlag(p.getWordStyle(0), EpdFontFamily::UNDERLINE));
+}
+
 // ---- Paragraph flow ------------------------------------------------------
 
 TEST(MarkdownParser, MultiLineBodyJoinsIntoOneParagraph) {
