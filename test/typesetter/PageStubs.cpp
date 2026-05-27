@@ -1,20 +1,19 @@
 // Stub implementations of non-inline virtual methods for Page/PageElement
-// subclasses and ImageBlock. The Typesetter test constructs PageImage and
-// ImageBlock instances (via submitImage); the linker needs definitions for
-// their vtables. These stubs satisfy the linker without dragging in the
-// production rendering pipeline (lib/GfxRenderer, lib/ImageDecoder,
-// FsHelpers, Serialization, etc.).
+// subclasses and ImageBlock. The Typesetter test constructs PageImage,
+// ImageBlock, and (via real ParsedText layout) PageLine/TextBlock instances;
+// the linker needs definitions for their vtables. These stubs satisfy the
+// linker without dragging in the production rendering pipeline
+// (lib/ImageDecoder, FsHelpers, etc.).
 //
-// None of these methods are invoked by Tier 1 tests -- they exist only so
-// the vtables resolve.
+// None of these methods are invoked by the tests -- they exist only so the
+// vtables resolve. The real ParsedText.cpp + TextBlock.cpp ARE linked into
+// the test (so layout runs end-to-end); their virtual methods that depend on
+// the rendering pipeline (TextBlock::render, ImageBlock::render) are
+// overridden here as no-ops via the test build's link order.
 
 #include <Typesetter/Page.h>
-#include <Typesetter/ParsedText.h>
 #include <Typesetter/blocks/ImageBlock.h>
 #include <Typesetter/blocks/TextBlock.h>
-
-#include <cstring>
-#include <utility>
 
 // --- PageLine -------------------------------------------------------------
 
@@ -48,10 +47,3 @@ bool ImageBlock::imageExists() const { return true; }
 void ImageBlock::render(GfxRenderer&, int, int) {}
 bool ImageBlock::serialize(HalFile&) { return true; }
 std::unique_ptr<ImageBlock> ImageBlock::deserialize(HalFile&) { return nullptr; }
-
-// --- ParsedText -----------------------------------------------------------
-// Referenced by Typesetter::submitParagraph and Typesetter::partialFlush (Tier 2).
-// Tier 1 tests don't call these methods, but the linker needs the symbol present.
-
-void ParsedText::layoutAndExtractLines(const GfxRenderer&, int, uint16_t,
-                                       const std::function<void(std::shared_ptr<TextBlock>)>&, bool) {}
