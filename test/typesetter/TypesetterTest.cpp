@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -32,11 +33,18 @@ class TypesetterFixture : public ::testing::Test {
   GfxRenderer renderer;
   std::vector<CapturedPage> emitted;
 
+  // Lives as a fixture member so any Typesetter built via makeTypesetter()
+  // can hold a FunctionRef to it without dangling once the helper returns.
+  // FunctionRef binds to this std::function (callable -> operator()), and
+  // the std::function's address is stable for the fixture's lifetime.
+  std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t)> emit = [this](std::unique_ptr<Page> p, uint16_t parIdx,
+                                                                               uint16_t liIdx) {
+    emitted.push_back({std::move(p), parIdx, liIdx});
+  };
+
   Typesetter makeTypesetter(bool extraParagraphSpacing = kExtraParagraphSpacing) {
     return Typesetter(renderer, kFontId, kLineCompression, extraParagraphSpacing, kViewportWidth, kViewportHeight,
-                      [this](std::unique_ptr<Page> p, uint16_t parIdx, uint16_t liIdx) {
-                        emitted.push_back({std::move(p), parIdx, liIdx});
-                      });
+                      emit);
   }
 
   // Builds a FootnoteEntry with the given number string for queue-and-attach tests.

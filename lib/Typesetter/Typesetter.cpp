@@ -14,7 +14,7 @@ Typesetter::Typesetter(GfxRenderer& renderer, int fontId, float lineCompression,
       extraParagraphSpacing(extraParagraphSpacing),
       viewportWidth(viewportWidth),
       viewportHeight(viewportHeight),
-      completePageFn(std::move(completePageFn)) {}
+      completePageFn(completePageFn) {}
 
 void Typesetter::addLineToPage(std::shared_ptr<TextBlock> line) {
   const int lineHeight = renderer.getLineHeight(fontId) * lineCompression;

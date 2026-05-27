@@ -468,7 +468,7 @@ size_t XtcParser::loadPage(uint32_t pageIndex, uint8_t* buffer, size_t bufferSiz
 }
 
 XtcError XtcParser::loadPageStreaming(uint32_t pageIndex,
-                                      std::function<void(const uint8_t* data, size_t size, size_t offset)> callback,
+                                      FunctionRef<void(const uint8_t* data, size_t size, size_t offset)> callback,
                                       size_t chunkSize) {
   if (!m_isOpen) {
     return XtcError::FILE_NOT_FOUND;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <FunctionRef.h>
 #include <Typesetter/FootnoteEntry.h>
 #include <Typesetter/Page.h>
 #include <Typesetter/ParsedText.h>
@@ -7,7 +8,6 @@
 #include <Typesetter/blocks/ImageBlock.h>
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -25,7 +25,7 @@ class GfxRenderer;
 // the bottom of the class.
 class Typesetter {
  public:
-  using PageCompleteFn = std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t)>;
+  using PageCompleteFn = FunctionRef<void(std::unique_ptr<Page>, uint16_t, uint16_t)>;
 
   Typesetter(GfxRenderer& renderer, int fontId, float lineCompression, bool extraParagraphSpacing,
              uint16_t viewportWidth, uint16_t viewportHeight, PageCompleteFn completePageFn);

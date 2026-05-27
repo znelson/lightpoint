@@ -1,5 +1,6 @@
 #pragma once
 
+#include <FunctionRef.h>
 #include <Typesetter.h>
 #include <Typesetter/FootnoteEntry.h>
 #include <Typesetter/ParsedText.h>
@@ -8,7 +9,6 @@
 #include <expat.h>
 
 #include <climits>
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,7 +27,7 @@ class ChapterHtmlSlimParser {
   const std::string& filepath;
   GfxRenderer& renderer;
   Typesetter typesetter;
-  std::function<void()> popupFn;  // Popup callback
+  FunctionRef<void()> popupFn;  // Popup callback (lifetime: caller's frame; see SpineItem::createSectionFile)
   int depth = 0;
   int skipUntilDepth = INT_MAX;
   int boldUntilDepth = INT_MAX;
@@ -104,11 +104,11 @@ class ChapterHtmlSlimParser {
                                  const uint8_t paragraphAlignment, const uint16_t viewportWidth,
                                  const uint16_t viewportHeight, const bool hyphenationEnabled,
                                  const bool focusReadingEnabled,
-                                 const std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t)>& completePageFn,
+                                 FunctionRef<void(std::unique_ptr<Page>, uint16_t, uint16_t)> completePageFn,
                                  const bool embeddedStyle, const std::string& contentBase,
                                  const std::string& imageBasePath, const uint8_t imageRendering = 0,
-                                 std::vector<std::string> tocAnchors = {},
-                                 const std::function<void()>& popupFn = nullptr, const CssParser* cssParser = nullptr)
+                                 std::vector<std::string> tocAnchors = {}, FunctionRef<void()> popupFn = nullptr,
+                                 const CssParser* cssParser = nullptr)
 
       : epub(epub),
         filepath(filepath),

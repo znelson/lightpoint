@@ -28,6 +28,50 @@ struct MutatingFunctor {
 
 }  // namespace
 
+// ---- nullability -------------------------------------------------------------
+
+TEST(FunctionRefNull, DefaultConstructedIsEmpty) {
+  FunctionRef<void()> ref;
+  EXPECT_FALSE(static_cast<bool>(ref));
+}
+
+TEST(FunctionRefNull, NullptrConstructedIsEmpty) {
+  FunctionRef<int(int)> ref = nullptr;
+  EXPECT_FALSE(static_cast<bool>(ref));
+}
+
+TEST(FunctionRefNull, BoundLambdaIsTruthy) {
+  auto fn = [](int x) { return x; };
+  FunctionRef<int(int)> ref = fn;
+  EXPECT_TRUE(static_cast<bool>(ref));
+}
+
+TEST(FunctionRefNull, NullptrEqualityComparisons) {
+  // Production code uses `cb != nullptr` / `cb == nullptr` idioms; both must
+  // work directly on FunctionRef without an explicit bool cast.
+  FunctionRef<int(int)> empty;
+  EXPECT_TRUE(empty == nullptr);
+  EXPECT_FALSE(empty != nullptr);
+
+  auto fn = [](int x) { return x; };
+  FunctionRef<int(int)> bound = fn;
+  EXPECT_FALSE(bound == nullptr);
+  EXPECT_TRUE(bound != nullptr);
+}
+
+TEST(FunctionRefNull, GuardedCallIdiom) {
+  // Mirrors the production pattern: `if (cb) cb(arg);`
+  FunctionRef<int(int)> ref;
+  int observed = -1;
+  if (ref) observed = ref(99);
+  EXPECT_EQ(observed, -1);
+
+  auto fn = [](int x) { return x * 2; };
+  ref = fn;
+  if (ref) observed = ref(7);
+  EXPECT_EQ(observed, 14);
+}
+
 // ---- size / shape ------------------------------------------------------------
 
 TEST(FunctionRefSize, IsTwoPointers) {
