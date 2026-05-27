@@ -13,10 +13,10 @@
 
 // --- Public API: load / create / TOC queries -----------------------------
 
-bool SpineItem::loadSectionFile(const int fontId, const float lineCompression, const bool extraParagraphSpacing,
-                                const uint8_t paragraphAlignment, const uint16_t viewportWidth,
-                                const uint16_t viewportHeight, const bool hyphenationEnabled, const bool embeddedStyle,
-                                const uint8_t imageRendering, const bool focusReadingEnabled) {
+bool SpineItem::loadCacheFile(const int fontId, const float lineCompression, const bool extraParagraphSpacing,
+                              const uint8_t paragraphAlignment, const uint16_t viewportWidth,
+                              const uint16_t viewportHeight, const bool hyphenationEnabled, const bool embeddedStyle,
+                              const uint8_t imageRendering, const bool focusReadingEnabled) {
   if (!section_.loadHeader(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
                            viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering, focusReadingEnabled)) {
     return false;
@@ -27,11 +27,11 @@ bool SpineItem::loadSectionFile(const int fontId, const float lineCompression, c
   return true;
 }
 
-bool SpineItem::createSectionFile(const int fontId, const float lineCompression, const bool extraParagraphSpacing,
-                                  const uint8_t paragraphAlignment, const uint16_t viewportWidth,
-                                  const uint16_t viewportHeight, const bool hyphenationEnabled,
-                                  const bool embeddedStyle, const uint8_t imageRendering,
-                                  const bool focusReadingEnabled, FunctionRef<void()> popupFn) {
+bool SpineItem::createCacheFile(const int fontId, const float lineCompression, const bool extraParagraphSpacing,
+                                const uint8_t paragraphAlignment, const uint16_t viewportWidth,
+                                const uint16_t viewportHeight, const bool hyphenationEnabled, const bool embeddedStyle,
+                                const uint8_t imageRendering, const bool focusReadingEnabled,
+                                FunctionRef<void()> popupFn) {
   const auto localPath = epub->getSpineItem(spineIndex).href;
   const auto tmpHtmlPath = epub->getCachePath() + "/.tmp_" + std::to_string(spineIndex) + ".html";
 
@@ -160,7 +160,7 @@ std::unique_ptr<Page> SpineItem::loadPageFromSectionFile() { return section_.loa
 // --- TOC boundary building ----------------------------------------------
 
 // Resolve TOC anchor-to-page mappings from the parser's in-memory anchor vector.
-// Called after createSectionFile when anchors are already in memory.
+// Called after createCacheFile when anchors are already in memory.
 // See buildTocBoundariesFromFile for the on-disk variant; the two are kept separate
 // because the anchor resolution has fundamentally different iteration patterns
 // (scan in-memory vector vs. stream from file with early exit).

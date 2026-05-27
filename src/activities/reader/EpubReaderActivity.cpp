@@ -612,7 +612,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
   const uint16_t viewportHeight = renderer.getScreenHeight() - orientedMarginTop - orientedMarginBottom;
 
   if (!spineItem) {
-    if (!prepareSection(viewportWidth, viewportHeight)) {
+    if (!prepareSpineItem(viewportWidth, viewportHeight)) {
       LOG_ERR("ERS", "Failed to persist page data to SD");
       return;
     }
@@ -676,9 +676,9 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 
   // Update chapter page info when the current page's TOC index changes (e.g. navigating
   // between sub-chapters within the same spine via page turns or chapter skip).
-  // prepareSection uses the spine-level TOC index since the spineItem isn't loaded yet;
+  // prepareSpineItem uses the spine-level TOC index since the spineItem isn't loaded yet;
   // this check uses the per-page index once the spineItem is available.
-  // spineItem is guaranteed non-null here: prepareSection returns false (early exit above)
+  // spineItem is guaranteed non-null here: prepareSpineItem returns false (early exit above)
   // if it can't load the spineItem, and the else branch only runs when spineItem already exists.
   const auto pageTocIndex = spineItem->getTocIndexForPage(spineItem->currentPage);
   if (pageTocIndex && chapterPageInfo.tocIndex != pageTocIndex) {
@@ -902,7 +902,7 @@ void EpubReaderActivity::renderStatusBar() const {
     // spineItem->getTocIndexForPage distinguishes pre-TOC orphans (nullopt -> "Unnamed")
     // from post-TOC orphans (inherited tocIndex -> show inheriting chapter's title).
     // chapterPageInfo.title is kept in sync by setChapter at the per-page TOC update
-    // and prepareSection, so we don't pay file I/O on the hot path here.
+    // and prepareSpineItem, so we don't pay file I/O on the hot path here.
     const auto tocIndex = spineItem ? spineItem->getTocIndexForPage(spineItem->currentPage)
                                     : epub->getTocIndexForSpineIndex(currentSpineIndex);
     title = tocIndex ? chapterPageInfo.title : tr(STR_UNNAMED);
@@ -913,7 +913,7 @@ void EpubReaderActivity::renderStatusBar() const {
   GUI.drawStatusBar(renderer, bookProgress, chapterPage, chapterTotal, title, 0, textYOffset);
 }
 
-bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint16_t viewportHeight) {
+bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const uint16_t viewportHeight) {
   const auto filepath = epub->getSpineItem(currentSpineIndex).href;
   LOG_DBG("ERS", "Loading file: %s, index: %d", filepath.c_str(), currentSpineIndex);
   spineItem = std::make_unique<SpineItem>(epub, currentSpineIndex, renderer);
@@ -970,12 +970,12 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
           spi = &*tmp;
         }
 
-        if (!spi->loadSectionFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
-                                  viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
-                                  focusReadingEnabled)) {
-          if (!spi->createSectionFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
-                                      viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
-                                      focusReadingEnabled, popupFn)) {
+        if (!spi->loadCacheFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
+                                viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
+                                focusReadingEnabled)) {
+          if (!spi->createCacheFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
+                                    viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
+                                    focusReadingEnabled, popupFn)) {
             LOG_ERR("ERS", "Failed to build spineItem cache for spine %d", loopIndex);
             continue;
           }
@@ -1000,16 +1000,16 @@ bool EpubReaderActivity::prepareSection(const uint16_t viewportWidth, const uint
 
   // Fallback for same-chapter re-entry (chapterPageInfo already valid) or non-TOC
   // spines: just load or build this one spineItem.
-  if (spineItem->loadSectionFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
-                                 viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
-                                 focusReadingEnabled)) {
+  if (spineItem->loadCacheFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
+                               viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
+                               focusReadingEnabled)) {
     return true;
   }
 
   const auto popupFn = [this]() { GUI.drawPopup(renderer, tr(STR_INDEXING)); };
-  if (spineItem->createSectionFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
-                                   viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering,
-                                   focusReadingEnabled, popupFn)) {
+  if (spineItem->createCacheFile(fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
+                                 viewportHeight, hyphenationEnabled, embeddedStyle, imageRendering, focusReadingEnabled,
+                                 popupFn)) {
     return true;
   }
 

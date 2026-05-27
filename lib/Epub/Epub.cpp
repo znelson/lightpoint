@@ -830,7 +830,7 @@ int Epub::getTocItemsCount() const {
   return bookMetadataCache->getTocCount();
 }
 
-// work out the section index for a toc index
+// work out the spine index for a toc index
 std::optional<int> Epub::getSpineIndexForTocIndex(const int tocIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_ERR("EBP", "getSpineIndexForTocIndex called but cache not loaded");
@@ -844,7 +844,7 @@ std::optional<int> Epub::getSpineIndexForTocIndex(const int tocIndex) const {
 
   const int spineIndex = bookMetadataCache->getTocEntry(tocIndex).spineIndex;
   if (spineIndex < 0) {
-    LOG_DBG("EBP", "Section not found for TOC index %d", tocIndex);
+    LOG_DBG("EBP", "Spine item not found for TOC index %d", tocIndex);
     return std::nullopt;
   }
 
@@ -919,7 +919,7 @@ int Epub::getSpineIndexForTextReference() const {
     }
   }
   // This should not happen, as we checked for empty textReferenceHref earlier
-  LOG_DBG("EBP", "Section not found for text reference");
+  LOG_DBG("EBP", "Spine item not found for text reference");
   return 0;
 }
 

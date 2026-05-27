@@ -24,7 +24,7 @@ class EpubReaderActivity final : public Activity {
   int pagesUntilFullRefresh = 0;
   int cachedSpineIndex = 0;
   int cachedChapterTotalPageCount = 0;
-  // Signals that the next render should reposition within the newly loaded section
+  // Signals that the next render should reposition within the newly loaded spine item
   // based on a cross-book percentage jump.
   bool pendingPercentJump = false;
   // Normalized 0.0-1.0 progress within the target spine item, computed from book percentage.
@@ -76,7 +76,7 @@ class EpubReaderActivity final : public Activity {
   void applyOrientation(uint8_t orientation);
   // Load the current spineItem and build caches for all spine items in its TOC chapter.
   // Returns false if the current spineItem could not be loaded or built.
-  bool prepareSection(uint16_t viewportWidth, uint16_t viewportHeight);
+  bool prepareSpineItem(uint16_t viewportWidth, uint16_t viewportHeight);
   // Returns the chapter-relative page number for the current position. Computes a running
   // sum over chapterPageInfo.segments to find the segment matching currentSpineIndex, then
   // adds the in-spine offset. Falls back to spineItem->currentPage when no segment matches.
