@@ -2,9 +2,8 @@
 
 #include <GfxRenderer.h>
 #include <Logging.h>
+#include <Memory.h>
 #include <Serialization.h>
-
-#include <new>
 
 void PageLine::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset) {
   block->render(renderer, fontId, xPos + xOffset, yPos + yOffset);
@@ -25,7 +24,11 @@ std::unique_ptr<PageLine> PageLine::deserialize(HalFile& file) {
   serialization::readPod(file, yPos);
 
   auto tb = TextBlock::deserialize(file);
-  return std::unique_ptr<PageLine>(new PageLine(std::move(tb), xPos, yPos));
+  auto line = makeUniqueNoThrow<PageLine>(std::move(tb), xPos, yPos);
+  if (!line) {
+    LOG_ERR("PGE", "OOM allocating PageLine during deserialize");
+  }
+  return line;
 }
 
 void PageImage::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset) {
@@ -48,7 +51,11 @@ std::unique_ptr<PageImage> PageImage::deserialize(HalFile& file) {
   serialization::readPod(file, yPos);
 
   auto ib = ImageBlock::deserialize(file);
-  return std::unique_ptr<PageImage>(new PageImage(std::move(ib), xPos, yPos));
+  auto img = makeUniqueNoThrow<PageImage>(std::move(ib), xPos, yPos);
+  if (!img) {
+    LOG_ERR("PGE", "OOM allocating PageImage during deserialize");
+  }
+  return img;
 }
 
 void PageHorizontalRule::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset) {
@@ -84,12 +91,11 @@ std::unique_ptr<PageHorizontalRule> PageHorizontalRule::deserialize(HalFile& fil
     return nullptr;
   }
 
-  auto* rule = new (std::nothrow) PageHorizontalRule(width, thickness, xPos, yPos);
+  auto rule = makeUniqueNoThrow<PageHorizontalRule>(width, thickness, xPos, yPos);
   if (!rule) {
     LOG_ERR("PGE", "Deserialization failed: could not allocate PageHorizontalRule");
-    return nullptr;
   }
-  return std::unique_ptr<PageHorizontalRule>(rule);
+  return rule;
 }
 
 void Page::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset) const {
@@ -127,7 +133,11 @@ bool Page::serialize(HalFile& file) const {
 }
 
 std::unique_ptr<Page> Page::deserialize(HalFile& file) {
-  auto page = std::unique_ptr<Page>(new Page());
+  auto page = makeUniqueNoThrow<Page>();
+  if (!page) {
+    LOG_ERR("PGE", "OOM allocating Page during deserialize");
+    return nullptr;
+  }
 
   uint16_t count;
   serialization::readPod(file, count);
