@@ -29,6 +29,9 @@ class FunctionRef<R(Args...)> {
  public:
   template <typename Fn, typename = std::enable_if_t<!std::is_same_v<std::remove_cvref_t<Fn>, FunctionRef> &&
                                                      std::is_invocable_r_v<R, Fn&, Args...>>>
+  // Implicit by design: callers pass lambdas / function objects directly,
+  // matching std::function's converting-constructor ergonomics.
+  // cppcheck-suppress noExplicitConstructor
   FunctionRef(Fn&& fn) noexcept
       : _obj(reinterpret_cast<intptr_t>(&fn)), _call(&trampoline<std::remove_reference_t<Fn>>) {}
 
