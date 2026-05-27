@@ -1,7 +1,7 @@
 #pragma once
 
 #include <FunctionRef.h>
-#include <Typesetter/FootnoteEntry.h>
+#include <Typesetter/LinkEntry.h>
 #include <Typesetter/Page.h>
 #include <Typesetter/ParsedText.h>
 #include <Typesetter/blocks/BlockStyle.h>
@@ -60,7 +60,11 @@ class Typesetter {
   // queues footnotes; Typesetter consumes them when laying out lines.
   void incrementXpathParagraphIndex() { ++xpathParagraphIndex; }
   void incrementXpathListItemIndex() { ++xpathListItemIndex; }
-  void addPendingFootnote(int wordIndex, const FootnoteEntry& entry) { pendingFootnotes.push_back({wordIndex, entry}); }
+  // Queue a per-page link target with the word index at which it appears
+  // within the current block. submitParagraph drains entries whose index
+  // has been emitted, attaching them to the page that contains that word.
+  // Used identically by EPUB (footnote refs) and Markdown (inline links).
+  void addPendingLink(int wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
   int getWordsExtractedInBlock() const { return wordsExtractedInBlock; }
   void resetWordsExtractedInBlock() { wordsExtractedInBlock = 0; }
   int getCompletedPageCount() const { return completedPageCount; }
@@ -79,7 +83,7 @@ class Typesetter {
 
   PageCompleteFn completePageFn;
 
-  std::vector<std::pair<int, FootnoteEntry>> pendingFootnotes;
+  std::vector<std::pair<int, LinkEntry>> pendingLinks;
   int wordsExtractedInBlock = 0;
   uint16_t xpathParagraphIndex = 0;
   uint16_t xpathListItemIndex = 0;

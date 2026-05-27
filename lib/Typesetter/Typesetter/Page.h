@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "FootnoteEntry.h"
+#include "LinkEntry.h"
 #include "blocks/ImageBlock.h"
 #include "blocks/TextBlock.h"
 
@@ -74,17 +74,23 @@ class Page {
  public:
   // the list of block index and line numbers on this page
   std::vector<std::shared_ptr<PageElement>> elements;
-  std::vector<FootnoteEntry> footnotes;
-  static constexpr uint16_t MAX_FOOTNOTES_PER_PAGE = 16;
+  // Interactive navigation targets on this page. EPUB footnotes and Markdown
+  // inline links share this vector -- structurally they are the same thing:
+  // a visible label tied to an href the reader can pick from the link
+  // picker. The parser chooses how the source text is styled (superscript
+  // marker for an EPUB footnote, underlined run for a Markdown link); the
+  // metadata stored here is format-agnostic.
+  std::vector<LinkEntry> links;
+  static constexpr uint16_t MAX_LINKS_PER_PAGE = 16;
 
-  void addFootnote(const char* number, const char* href) {
-    if (footnotes.size() >= MAX_FOOTNOTES_PER_PAGE) return;  // Cap per-page footnotes
-    FootnoteEntry entry;
-    strncpy(entry.number, number, sizeof(entry.number) - 1);
-    entry.number[sizeof(entry.number) - 1] = '\0';
+  void addLink(const char* label, const char* href) {
+    if (links.size() >= MAX_LINKS_PER_PAGE) return;  // Cap per-page links
+    LinkEntry entry;
+    strncpy(entry.label, label, sizeof(entry.label) - 1);
+    entry.label[sizeof(entry.label) - 1] = '\0';
     strncpy(entry.href, href, sizeof(entry.href) - 1);
     entry.href[sizeof(entry.href) - 1] = '\0';
-    footnotes.push_back(entry);
+    links.push_back(entry);
   }
 
   void render(GfxRenderer& renderer, int fontId, int xOffset, int yOffset) const;

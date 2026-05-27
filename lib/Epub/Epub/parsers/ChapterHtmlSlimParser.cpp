@@ -597,7 +597,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       self->footnoteLinkDepth = self->depth;
       strncpy(self->currentFootnote.href, href, sizeof(self->currentFootnote.href) - 1);
       self->currentFootnote.href[sizeof(self->currentFootnote.href) - 1] = '\0';
-      self->currentFootnote.number[0] = '\0';
+      self->currentFootnote.label[0] = '\0';
       self->currentFootnoteLinkTextLen = 0;
 
       // Apply underline style to visually indicate the link
@@ -827,11 +827,11 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
     }
 
     // Extract footnote link text
-    for (int i = start; (self->currentFootnoteLinkTextLen < sizeof(self->currentFootnote.number) - 1) && (i <= end);
+    for (int i = start; (self->currentFootnoteLinkTextLen < sizeof(self->currentFootnote.label) - 1) && (i <= end);
          ++i) {
-      self->currentFootnote.number[self->currentFootnoteLinkTextLen++] = s[i];
+      self->currentFootnote.label[self->currentFootnoteLinkTextLen++] = s[i];
     }
-    self->currentFootnote.number[self->currentFootnoteLinkTextLen] = '\0';
+    self->currentFootnote.label[self->currentFootnoteLinkTextLen] = '\0';
   }
 
   for (int i = 0; i < len; i++) {
@@ -1016,15 +1016,15 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
 
   // Closing a footnote link — create entry from collected text and href
   if (self->insideFootnoteLink && self->depth == self->footnoteLinkDepth) {
-    if (self->currentFootnote.number[0] != '\0' && self->currentFootnote.href[0] != '\0') {
-      FootnoteEntry entry;
-      strncpy(entry.number, self->currentFootnote.number, sizeof(entry.number) - 1);
-      entry.number[sizeof(entry.number) - 1] = '\0';
+    if (self->currentFootnote.label[0] != '\0' && self->currentFootnote.href[0] != '\0') {
+      LinkEntry entry;
+      strncpy(entry.label, self->currentFootnote.label, sizeof(entry.label) - 1);
+      entry.label[sizeof(entry.label) - 1] = '\0';
       strncpy(entry.href, self->currentFootnote.href, sizeof(entry.href) - 1);
       entry.href[sizeof(entry.href) - 1] = '\0';
       int wordIndex = self->typesetter.getWordsExtractedInBlock() +
                       (self->currentTextBlock ? static_cast<int>(self->currentTextBlock->size()) : 0);
-      self->typesetter.addPendingFootnote(wordIndex, entry);
+      self->typesetter.addPendingLink(wordIndex, entry);
     }
     self->insideFootnoteLink = false;
   }

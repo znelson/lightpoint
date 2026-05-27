@@ -19,10 +19,10 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "EpubReaderChapterSelectionActivity.h"
-#include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "EpubReaderUtils.h"
 #include "MappedInputManager.h"
+#include "ReaderLinkPickerActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -225,17 +225,17 @@ void EpubReaderActivity::loop() {
       bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
     }
     const int bookProgressPercent = clampPercent(static_cast<int>(bookProgress + 0.5f));
-    startActivityForResult(std::make_unique<EpubReaderMenuActivity>(
-                               renderer, mappedInput, epub->getTitle(), currentPage, totalPages, bookProgressPercent,
-                               SETTINGS.orientation, !currentPageFootnotes.empty()),
-                           [this](const ActivityResult& result) {
-                             // Always apply orientation change even if the menu was cancelled
-                             const auto& menu = std::get<MenuResult>(result.data);
-                             applyOrientation(menu.orientation);
-                             if (!result.isCancelled && menu.action) {
-                               onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(*menu.action));
-                             }
-                           });
+    startActivityForResult(
+        std::make_unique<EpubReaderMenuActivity>(renderer, mappedInput, epub->getTitle(), currentPage, totalPages,
+                                                 bookProgressPercent, SETTINGS.orientation, !currentPageLinks.empty()),
+        [this](const ActivityResult& result) {
+          // Always apply orientation change even if the menu was cancelled
+          const auto& menu = std::get<MenuResult>(result.data);
+          applyOrientation(menu.orientation);
+          if (!result.isCancelled && menu.action) {
+            onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(*menu.action));
+          }
+        });
   }
 
   // Long press BACK (1s+) goes to file selection
@@ -452,11 +452,12 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::FOOTNOTES: {
-      startActivityForResult(std::make_unique<EpubReaderFootnotesActivity>(renderer, mappedInput, currentPageFootnotes),
+      startActivityForResult(std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks,
+                                                                        tr(STR_FOOTNOTES), tr(STR_NO_FOOTNOTES)),
                              [this](const ActivityResult& result) {
                                if (!result.isCancelled) {
-                                 const auto& footnoteResult = std::get<FootnoteResult>(result.data);
-                                 navigateToHref(footnoteResult.href, true);
+                                 const auto& linkResult = std::get<LinkResult>(result.data);
+                                 navigateToHref(linkResult.href, true);
                                }
                                requestUpdate();
                              });
@@ -721,7 +722,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     }
 
     // Collect footnotes from the loaded page
-    currentPageFootnotes = std::move(p->footnotes);
+    currentPageLinks = std::move(p->links);
 
     const auto start = halPlatform.millis();
     renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
