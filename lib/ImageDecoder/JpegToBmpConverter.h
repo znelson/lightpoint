@@ -3,7 +3,6 @@
 #include <HalStorage.h>
 
 class Print;
-class ZipFile;
 
 class JpegToBmpConverter {
   static bool jpegFileToBmpStreamInternal(HalFile& jpegFile, Print& bmpOut, int targetWidth, int targetHeight,

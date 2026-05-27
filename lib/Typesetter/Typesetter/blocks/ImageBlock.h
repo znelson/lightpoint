@@ -6,6 +6,8 @@
 
 #include "Block.h"
 
+class GfxRenderer;
+
 class ImageBlock final : public Block {
  public:
   ImageBlock(const std::string& imagePath, int16_t width, int16_t height);
