@@ -35,14 +35,14 @@ class FunctionRef<R(Args...)> {
   FunctionRef() = default;
   FunctionRef(std::nullptr_t) noexcept {}
 
+  // Implicit converting constructor: callers pass lambdas / function objects
+  // directly, matching std::function's ergonomics. noExplicitConstructor is
+  // suppressed file-wide in platformio.ini (covers both this and the
+  // std::nullptr_t empty-state constructor above).
   template <typename Fn, typename = std::enable_if_t<!std::is_same_v<std::remove_cvref_t<Fn>, FunctionRef> &&
                                                      std::is_invocable_r_v<R, Fn&, Args...>>>
-  // Implicit by design: callers pass lambdas / function objects directly,
-  // matching std::function's converting-constructor ergonomics.
-  // cppcheck-suppress-begin noExplicitConstructor
   FunctionRef(Fn&& fn) noexcept
       : _obj(reinterpret_cast<intptr_t>(&fn)), _call(&trampoline<std::remove_reference_t<Fn>>) {}
-  // cppcheck-suppress-end noExplicitConstructor
 
   R operator()(Args... args) const { return _call(_obj, std::forward<Args>(args)...); }
 
