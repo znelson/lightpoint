@@ -4,6 +4,7 @@
 #include <GfxRenderer.h>
 #include <ImageDecoderFactory.h>
 #include <Logging.h>
+#include <Memory.h>
 #include <Serialization.h>
 
 // Cache file format:
@@ -167,5 +168,9 @@ std::unique_ptr<ImageBlock> ImageBlock::deserialize(HalFile& file) {
   int16_t w, h;
   serialization::readPod(file, w);
   serialization::readPod(file, h);
-  return std::unique_ptr<ImageBlock>(new ImageBlock(path, w, h));
+  auto block = makeUniqueNoThrow<ImageBlock>(path, w, h);
+  if (!block) {
+    LOG_ERR("IMB", "OOM allocating ImageBlock during deserialize");
+  }
+  return block;
 }
