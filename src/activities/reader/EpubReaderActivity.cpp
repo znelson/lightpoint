@@ -727,44 +727,11 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     LOG_DBG("ERS", "Rendered page in %dms", halPlatform.millis() - start);
   }
-  silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
   saveProgress(currentSpineIndex, spineItem->currentPage, spineItem->pageCount);
 
   if (pendingScreenshot) {
     pendingScreenshot = false;
     ScreenshotUtil::takeScreenshot(renderer);
-  }
-}
-
-void EpubReaderActivity::silentIndexNextChapterIfNeeded(const uint16_t viewportWidth, const uint16_t viewportHeight) {
-  if (!epub || !spineItem || spineItem->pageCount < 2) {
-    return;
-  }
-
-  // Build the next chapter cache while the penultimate page is on screen.
-  if (spineItem->currentPage != spineItem->pageCount - 2) {
-    return;
-  }
-
-  const int nextSpineIndex = currentSpineIndex + 1;
-  if (nextSpineIndex < 0 || nextSpineIndex >= epub->getSpineItemsCount()) {
-    return;
-  }
-
-  SpineItem nextSpineItem(epub, nextSpineIndex, renderer);
-  if (nextSpineItem.loadCacheFile(SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
-                                  SETTINGS.extraParagraphSpacing, SETTINGS.paragraphAlignment, viewportWidth,
-                                  viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
-                                  SETTINGS.imageRendering, SETTINGS.focusReadingEnabled)) {
-    return;
-  }
-
-  LOG_DBG("ERS", "Silently indexing next chapter: %d", nextSpineIndex);
-  if (!nextSpineItem.createCacheFile(SETTINGS.getReaderFontId(), SETTINGS.getReaderLineCompression(),
-                                     SETTINGS.extraParagraphSpacing, SETTINGS.paragraphAlignment, viewportWidth,
-                                     viewportHeight, SETTINGS.hyphenationEnabled, SETTINGS.embeddedStyle,
-                                     SETTINGS.imageRendering, SETTINGS.focusReadingEnabled)) {
-    LOG_ERR("ERS", "Failed silent indexing for chapter: %d", nextSpineIndex);
   }
 }
 
