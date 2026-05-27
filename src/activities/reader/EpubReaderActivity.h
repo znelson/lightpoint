@@ -1,6 +1,6 @@
 #pragma once
 #include <Epub.h>
-#include <Epub/Section.h>
+#include <Epub/SpineItem.h>
 #include <Typesetter/FootnoteEntry.h>
 
 #include <optional>
@@ -11,15 +11,15 @@
 
 class EpubReaderActivity final : public Activity {
   std::shared_ptr<Epub> epub;
-  std::unique_ptr<Section> section = nullptr;
+  std::unique_ptr<SpineItem> spineItem = nullptr;
   int currentSpineIndex = 0;
   int nextPageNumber = 0;
   // Set when navigating to a TOC entry in a different spine (chapter skip or chapter selector).
-  // Cleared on the next render after the new section loads and resolves it to a page.
+  // Cleared on the next render after the new spineItem loads and resolves it to a page.
   std::optional<int> pendingTocIndex;
   std::optional<uint16_t> pendingPageJump;
   // Set when navigating to a footnote href with a fragment (e.g. #note1).
-  // Cleared on the next render after the new section loads and resolves it to a page.
+  // Cleared on the next render after the new spineItem loads and resolves it to a page.
   std::string pendingAnchor;
   int pagesUntilFullRefresh = 0;
   int cachedSpineIndex = 0;
@@ -75,15 +75,15 @@ class EpubReaderActivity final : public Activity {
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
   void applyOrientation(uint8_t orientation);
-  // Load the current section and build caches for all spine items in its TOC chapter.
-  // Returns false if the current section could not be loaded or built.
+  // Load the current spineItem and build caches for all spine items in its TOC chapter.
+  // Returns false if the current spineItem could not be loaded or built.
   bool prepareSection(uint16_t viewportWidth, uint16_t viewportHeight);
   // Returns the chapter-relative page number for the current position. Computes a running
   // sum over chapterPageInfo.segments to find the segment matching currentSpineIndex, then
-  // adds the in-spine offset. Falls back to section->currentPage when no segment matches.
+  // adds the in-spine offset. Falls back to spineItem->currentPage when no segment matches.
   int getChapterRelativePage() const;
   // Returns the total page count of the current chapter (sum of segment ranges), or the
-  // current section's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
+  // current spineItem's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
   int getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
 

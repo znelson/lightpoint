@@ -27,7 +27,7 @@ All of these do file I/O to the BookMetadataCache on every call. Code that queri
 
 ## Section cache file format
 
-The section cache (`.bin`) stores pre-rendered page data for a spine item. The file layout:
+The section cache (`.bin`) stores pre-rendered page data for a spine item. It is owned by `Typesetter::Section` (format-agnostic) and produced/consumed via `Epub::SpineItem` (the EPUB-domain wrapper that adds TOC anchor logic). The file layout:
 
 ```
 [header: version, render parameters, pageCount, lutOffset, anchorMapOffset]
@@ -38,10 +38,10 @@ The section cache (`.bin`) stores pre-rendered page data for a spine item. The f
 
 The header size is defined by `HEADER_SIZE` (a constexpr computed via `sizeof` sum) and validated with a `static_assert`. Two functions read this header independently and must stay in sync:
 
-- `loadSectionFile` -- full section load, reads header + builds TOC boundaries from anchor map
-- `getPageForAnchor` -- seeks directly to anchor map offset from header
+- `Section::loadHeader` -- full header load, sets `pageCount`; called from `SpineItem::loadSectionFile`, which then builds TOC boundaries from the anchor map
+- `Section::getPageForAnchor` -- seeks directly to anchor map offset from header
 
-When modifying the header layout, bump `SECTION_FILE_VERSION` to invalidate stale caches and update both read paths plus `writeSectionFileHeader`.
+When modifying the header layout, bump `Section::FILE_VERSION` to invalidate stale caches and update both read paths plus `Section::writeHeader`.
 
 ## Anchor-to-page mapping
 
@@ -49,7 +49,7 @@ When modifying the header layout, bump `SECTION_FILE_VERSION` to invalidate stal
 
 `ChapterHtmlSlimParser` records every HTML `id` attribute and its corresponding page number into `anchorData` (a flat `std::vector<std::pair<std::string, uint16_t>>`). Recording is deferred via `pendingAnchorId` until `startNewTextBlock()`, after the previous text block is flushed to pages via `makePages()`. This ensures `completedPageCount` reflects the correct page.
 
-For TOC anchors specifically, `startNewTextBlock` also forces a page break before recording, so chapters start on fresh pages rather than mid-page. The parser receives the set of TOC anchor strings via `tocAnchors` (a `std::vector<std::string>`) from `Section::createSectionFile`.
+For TOC anchors specifically, `startNewTextBlock` also forces a page break before recording, so chapters start on fresh pages rather than mid-page. The parser receives the set of TOC anchor strings via `tocAnchors` (a `std::vector<std::string>`) from `SpineItem::createSectionFile`.
 
 ### On-disk format
 
@@ -70,15 +70,15 @@ This data serves two purposes:
 
 All anchor storage uses flat vectors, not `std::map` or `std::set`. On the ESP32-C3, each `std::map`/`std::set` node requires its own heap allocation, causing fragmentation. Vectors use a single contiguous allocation. The entry counts are small enough (typically 1-10 TOC anchors per spine, dozens to hundreds of total anchors) that linear scans are faster than tree lookups at these sizes.
 
-## TOC boundaries in Section
+## TOC boundaries in SpineItem
 
-When a section is loaded or created, `Section` builds an in-memory `tocBoundaries` vector mapping each TOC entry in that spine to its start page. This is a small vector (1-3 entries typically) that enables O(1) lookups without file I/O.
+When a section is loaded or created, `SpineItem` builds an in-memory `tocBoundaries` vector mapping each TOC entry in that spine to its start page. This is a small vector (1-3 entries typically) that enables O(1) lookups without file I/O.
 
 ### Two build paths
 
 **From in-memory anchors** (`buildTocBoundaries`): Called after `createSectionFile` when the parser's anchor vector is still in memory. Iterates TOC entries and does linear scans against the anchor vector.
 
-**From disk** (`buildTocBoundariesFromFile`): Called from `loadSectionFile` when loading a cached section. Caches the small set of TOC anchor strings first (since `getTocItem()` does file I/O to `BookMetadataCache`), then streams through on-disk anchors matching only those, stopping early once all are resolved. Uses a reusable `std::string` buffer to avoid per-entry heap allocation.
+**From disk** (`buildTocBoundariesFromFile`): Called from `loadSectionFile` when loading a cached section. Caches the small set of TOC anchor strings first (since `getTocItem()` does file I/O to `BookMetadataCache`), then iterates the anchor map via `Section::forEachAnchor`, matching only the relevant entries and stopping early once all are resolved. The length-aware predicate skips the string allocation for entries whose length cannot match any unresolved TOC anchor.
 
 The two functions are kept separate because their iteration patterns differ fundamentally: in-memory iterates TOC entries with inner scans of anchors, while the disk path iterates disk entries with inner scans of the small TOC anchor set.
 
