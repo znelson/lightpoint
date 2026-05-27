@@ -66,10 +66,14 @@ class Typesetter {
   // Used identically by EPUB (footnote refs) and Markdown (inline links).
   void addPendingLink(int wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
   int getWordsExtractedInBlock() const { return wordsExtractedInBlock; }
-  void resetWordsExtractedInBlock() { wordsExtractedInBlock = 0; }
   int getCompletedPageCount() const { return completedPageCount; }
 
  private:
+  // Resets per-paragraph word counter at the end of submitParagraph. Not
+  // exposed: parsers should treat submit/partialFlush as the only block
+  // lifecycle hooks; the typesetter owns its bookkeeping.
+  void resetWordsExtractedInBlock() { wordsExtractedInBlock = 0; }
+
   GfxRenderer& renderer;
   int fontId;
   float lineCompression;

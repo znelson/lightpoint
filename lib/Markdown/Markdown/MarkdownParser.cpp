@@ -5,11 +5,13 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <Typesetter.h>
+#include <Typesetter/LinkEntry.h>
 #include <Typesetter/ParsedText.h>
 #include <Typesetter/TextAlign.h>
 #include <Typesetter/blocks/BlockStyle.h>
 
 #include <algorithm>
+#include <cstring>
 
 namespace {
 constexpr size_t CHUNK_SIZE = 8 * 1024;  // 8KB chunk for reading
@@ -160,6 +162,10 @@ struct InlineState {
   std::string currentToken;
   ParsedText* block = nullptr;
   bool* hasPendingContent = nullptr;
+  // Used by tryLink to register each [text](target) as a pending link via
+  // typesetter->addPendingLink; the typesetter attaches it to the page
+  // that ends up containing the link's first word during submitParagraph.
+  Typesetter* typesetter = nullptr;
 
   EpdFontFamily::Style computeStyle() const {
     uint8_t s = EpdFontFamily::REGULAR;
@@ -286,6 +292,33 @@ bool tryLink(InlineState& s) {
     } else {
       linkText.push_back(s.text[i]);
     }
+  }
+
+  // De-escape link target the same way (`\)` inside the URL renders as `)`).
+  std::string linkTarget;
+  linkTarget.reserve(closeParen - closeBracket - 2);
+  for (size_t i = closeBracket + 2; i < closeParen; i++) {
+    if (s.text[i] == '\\' && i + 1 < closeParen) {
+      linkTarget.push_back(s.text[i + 1]);
+      i++;
+    } else {
+      linkTarget.push_back(s.text[i]);
+    }
+  }
+
+  // Register the link with the typesetter so it can be attached to the page
+  // that contains its first word. Word index is the position the first link
+  // word will land at within the paragraph -- block->size() reflects words
+  // submitted so far, and the next addWord call lands at exactly that index.
+  // Typesetter resets the per-paragraph word counter inside submitParagraph,
+  // so this index is paragraph-local.
+  if (s.typesetter != nullptr && !linkText.empty()) {
+    LinkEntry entry;
+    std::strncpy(entry.label, linkText.c_str(), sizeof(entry.label) - 1);
+    entry.label[sizeof(entry.label) - 1] = '\0';
+    std::strncpy(entry.href, linkTarget.c_str(), sizeof(entry.href) - 1);
+    entry.href[sizeof(entry.href) - 1] = '\0';
+    s.typesetter->addPendingLink(static_cast<int>(s.block->size()), entry);
   }
 
   size_t tp = 0;
@@ -642,6 +675,7 @@ void MarkdownParser::addStyledWords(const std::string& text, uint8_t baseStyle) 
       .currentToken = {},
       .block = state->currentBlock.get(),
       .hasPendingContent = &state->hasPendingContent,
+      .typesetter = &typesetter,
   };
 
   // Dispatch: each helper inspects text[pos], consumes some prefix, returns

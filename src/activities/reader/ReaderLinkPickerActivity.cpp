@@ -70,8 +70,9 @@ void ReaderLinkPickerActivity::render(RenderLock&&) {
   const int titleX = contentX + (contentWidth - renderer.getTextWidth(UI_12_FONT_ID, title, EpdFontFamily::BOLD)) / 2;
   renderer.drawText(UI_12_FONT_ID, titleX, 15 + contentY, title, true, EpdFontFamily::BOLD);
 
+  // Empty-entries case: callers contractually gate invocation. If we end
+  // up here anyway, render the title + Back hint and let Back unwind.
   if (entries.empty()) {
-    renderer.drawCenteredText(UI_10_FONT_ID, 90 + contentY, emptyMessage);
     const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();

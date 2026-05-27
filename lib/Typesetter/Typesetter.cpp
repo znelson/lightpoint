@@ -109,6 +109,13 @@ void Typesetter::submitParagraph(std::unique_ptr<ParsedText> paragraph) {
   if (extraParagraphSpacing) {
     currentPageNextY += lineHeight / 2;
   }
+
+  // submitParagraph represents a complete block: word-index references to
+  // this paragraph have all been resolved, and the next paragraph should
+  // start counting from zero. EPUB also resets externally before each
+  // block (belt-and-suspenders); Markdown / TxtReader rely solely on this
+  // internal reset.
+  resetWordsExtractedInBlock();
 }
 
 void Typesetter::partialFlush(ParsedText& block) {

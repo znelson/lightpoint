@@ -201,13 +201,16 @@ TEST_F(TypesetterFixture, XpathIncrementsAccumulateAcrossPages) {
 
 // --- link / wordsExtractedInBlock ------------------------------------------
 
-TEST_F(TypesetterFixture, WordsExtractedInBlockResetWorks) {
+TEST_F(TypesetterFixture, SubmitParagraphResetsWordsExtractedInBlock) {
+  // After a paragraph is submitted, the per-block counter must be 0 so the
+  // NEXT paragraph's word indices are paragraph-local. Markdown and
+  // TxtReader rely on this internal reset; EPUB used to reset externally
+  // but no longer does.
   auto ts = makeTypesetter();
+  ts.submitParagraph(makeParagraph(/*wordCount=*/10, /*wordLen=*/4));
   EXPECT_EQ(ts.getWordsExtractedInBlock(), 0);
-  ts.resetWordsExtractedInBlock();
+  ts.submitParagraph(makeParagraph(/*wordCount=*/5, /*wordLen=*/4));
   EXPECT_EQ(ts.getWordsExtractedInBlock(), 0);
-  // No public API to set wordsExtracted directly; submitParagraph would but
-  // that is Tier 2. We verify resetWordsExtractedInBlock leaves it at 0.
 }
 
 TEST_F(TypesetterFixture, AddPendingLinkDoesNotAffectAccessor) {
