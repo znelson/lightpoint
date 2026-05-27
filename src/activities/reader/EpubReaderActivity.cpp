@@ -452,15 +452,15 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
       break;
     }
     case EpubReaderMenuActivity::MenuAction::FOOTNOTES: {
-      startActivityForResult(std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks,
-                                                                        tr(STR_FOOTNOTES), tr(STR_NO_FOOTNOTES)),
-                             [this](const ActivityResult& result) {
-                               if (!result.isCancelled) {
-                                 const auto& linkResult = std::get<LinkResult>(result.data);
-                                 navigateToHref(linkResult.href, true);
-                               }
-                               requestUpdate();
-                             });
+      startActivityForResult(
+          std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks, tr(STR_FOOTNOTES)),
+          [this](const ActivityResult& result) {
+            if (!result.isCancelled) {
+              const auto& linkResult = std::get<LinkResult>(result.data);
+              navigateToHref(linkResult.href, true);
+            }
+            requestUpdate();
+          });
       break;
     }
     case EpubReaderMenuActivity::MenuAction::GO_TO_PERCENT: {

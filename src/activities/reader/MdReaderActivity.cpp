@@ -11,6 +11,7 @@
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ReaderLinkPickerActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -55,6 +56,29 @@ void MdReaderActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() < ReaderUtils::GO_HOME_MS) {
     onGoHome();
+    return;
+  }
+
+  // Confirm button opens the link picker for the current page, when there's
+  // anything to pick. Layer 3 entry point: ReaderLinkPickerActivity returns
+  // a LinkResult{href}; #anchor hrefs resolve to a page via the Section's
+  // anchor map. Non-anchor hrefs (e.g. http://...) are ignored for now;
+  // this device has no external network UX.
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) && !currentPageLinks.empty()) {
+    startActivityForResult(
+        std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks, tr(STR_LINKS)),
+        [this](const ActivityResult& result) {
+          if (!result.isCancelled) {
+            const auto& linkResult = std::get<LinkResult>(result.data);
+            if (!linkResult.href.empty() && linkResult.href[0] == '#') {
+              const auto resolved = cache.getPageForAnchor(linkResult.href.substr(1));
+              if (resolved) {
+                currentPage = *resolved;
+              }
+            }
+          }
+          requestUpdate();
+        });
     return;
   }
 
@@ -186,6 +210,10 @@ void MdReaderActivity::render(RenderLock&&) {
     LOG_ERR("MDR", "Failed to load page %d", currentPage);
     return;
   }
+
+  // Snapshot this page's interactive link targets for the Confirm-button
+  // picker; the unique_ptr<Page> goes away after renderContents() consumes it.
+  currentPageLinks = std::move(page->links);
 
   renderer.clearScreen();
   renderContents(std::move(page));

@@ -23,7 +23,7 @@ This is an opinionated, lightweight fork of [CrossPoint](https://github.com/cros
 
 - **TOC anchor navigation for multi-chapter spine files** -- chapter selection navigates to the correct anchor within a shared spine document, rather than always jumping to the top of the file (upstream issue [#383](https://github.com/crosspoint-reader/crosspoint-reader/issues/383))
 - **Multi-spine chapter page counting** -- TOC chapters that span multiple spine files now show accurate aggregated page counts in the status bar and reader menu, instead of the per-spine count. The last TOC entry is capped to its own spine so appendices and copyright pages do not inflate the final chapter's count (upstream issue [#1131](https://github.com/crosspoint-reader/crosspoint-reader/issues/1131))
-- **Markdown reader** -- `.md` files get a real Markdown reader instead of being rendered as plain text. Supports ATX headings, bold / italic / inline-code emphasis, unordered lists, blockquotes (nestable), fenced code blocks, and horizontal rules. Headings are recorded as anchors in the on-disk cache; `[text](url)` and `[text](#anchor)` links render as underlined text
+- **Markdown reader** -- `.md` files get a real Markdown reader instead of being rendered as plain text. Supports ATX headings, bold / italic / inline-code emphasis, unordered lists, blockquotes (nestable), fenced code blocks, and horizontal rules. Headings are recorded as anchors in the on-disk cache; `[text](#anchor)` links navigate via the Confirm-button link picker, and `[text](url)` links render underlined but are inert (no network on this device)
 
 ### Changed
 

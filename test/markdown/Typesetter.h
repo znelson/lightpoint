@@ -9,6 +9,7 @@
 // settable so anchor-recording tests can simulate pagination by bumping
 // the counter between submits.
 
+#include <Typesetter/LinkEntry.h>
 #include <Typesetter/ParsedText.h>
 
 #include <cstdint>
@@ -35,7 +36,16 @@ class Typesetter {
   // this paragraph filled a page." Call between submits.
   void setCompletedPageCount(int n) { completedPageCount = n; }
 
+  // Captures pending link registrations from MarkdownParser::tryLink so tests
+  // can verify label, href, and word-index against expectations.
+  struct CapturedLink {
+    int wordIndex;
+    LinkEntry entry;
+  };
+  void addPendingLink(int wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
+
   std::vector<std::unique_ptr<ParsedText>> submitted;
+  std::vector<CapturedLink> pendingLinks;
   bool finished = false;
   int completedPageCount = 0;
 };

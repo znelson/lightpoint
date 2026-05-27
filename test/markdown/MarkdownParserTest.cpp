@@ -274,6 +274,56 @@ TEST(MarkdownParser, BracketsWithoutParensStayLiteral) {
   }
 }
 
+// ---- Link registration with the typesetter (Layer 3) --------------------
+
+TEST(MarkdownParser, LinkRegistersPendingLinkWithTypesetter) {
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("see [docs](#chapter1) for details\n", t));
+  ASSERT_EQ(t.pendingLinks.size(), 1u);
+  const auto& [wordIndex, entry] = t.pendingLinks[0];
+  // Paragraph words: "see"(0), "docs"(1), "for"(2), "details"(3). Link is
+  // registered just before "docs" is added, so wordIndex == 1.
+  EXPECT_EQ(wordIndex, 1);
+  EXPECT_STREQ(entry.label, "docs");
+  EXPECT_STREQ(entry.href, "#chapter1");
+}
+
+TEST(MarkdownParser, MultiWordLinkLabelJoinedAndWordIndexAtFirstWord) {
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("[click here](http://example.com)\n", t));
+  ASSERT_EQ(t.pendingLinks.size(), 1u);
+  const auto& [wordIndex, entry] = t.pendingLinks[0];
+  // Link starts at the beginning of the paragraph.
+  EXPECT_EQ(wordIndex, 0);
+  // Label is the joined (de-escaped) link text exactly as the source wrote it.
+  EXPECT_STREQ(entry.label, "click here");
+  EXPECT_STREQ(entry.href, "http://example.com");
+}
+
+TEST(MarkdownParser, ImageSyntaxDoesNotRegisterLink) {
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("![alt](src)\n", t));
+  EXPECT_TRUE(t.pendingLinks.empty());
+}
+
+TEST(MarkdownParser, LinkLabelTruncatedToLinkEntryCap) {
+  // LINK_LABEL_LEN = 32; 31 chars + NUL fit. Use 50-char label to exercise
+  // strncpy truncation.
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa](url)\n", t));
+  ASSERT_EQ(t.pendingLinks.size(), 1u);
+  const auto& [_, entry] = t.pendingLinks[0];
+  // Verify truncation: the field is 32 bytes including the NUL, so 31 'a's.
+  EXPECT_EQ(std::strlen(entry.label), 31u);
+}
+
+TEST(MarkdownParser, LinkTargetWithEscapedParenIsDeEscaped) {
+  Typesetter t;
+  ASSERT_TRUE(parseMarkdown("[x](a\\)b)\n", t));
+  ASSERT_EQ(t.pendingLinks.size(), 1u);
+  EXPECT_STREQ(t.pendingLinks[0].entry.href, "a)b");
+}
+
 // ---- Backslash escapes ---------------------------------------------------
 
 TEST(MarkdownParser, BackslashEscapeOfEmphasisMarkerRendersLiteral) {

@@ -1,7 +1,10 @@
 #pragma once
 
 #include <Txt.h>
+#include <Typesetter/LinkEntry.h>
 #include <Typesetter/Section.h>
+
+#include <vector>
 
 #include "CrossPointSettings.h"
 #include "activities/Activity.h"
@@ -35,6 +38,12 @@ class MdReaderActivity final : public Activity {
   int cachedOrientedMarginRight = 0;
   int cachedOrientedMarginBottom = 0;
   int cachedOrientedMarginLeft = 0;
+
+  // Interactive link targets for the currently-rendered page. Populated
+  // from page->links after each loadPage; consumed by the Confirm-button
+  // handler to invoke ReaderLinkPickerActivity. Picker result resolves
+  // #anchor hrefs via cache.getPageForAnchor(...) to a page jump.
+  std::vector<LinkEntry> currentPageLinks;
 
   void renderContents(std::unique_ptr<Page> page);
   void renderStatusBar() const;
