@@ -6,7 +6,7 @@ add_executable(TypesetterTest
   # which run end-to-end through ParsedText + TextBlock + Hyphenation + Utf8.
   ${REPO_ROOT}/lib/Typesetter/Typesetter/ParsedText.cpp
   ${REPO_ROOT}/lib/Typesetter/Typesetter/blocks/TextBlock.cpp
-  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
+  ${REPO_ROOT}/lib/Utility/Utf8.cpp
   ${REPO_ROOT}/lib/Hyphenation/Hyphenator.cpp
   ${REPO_ROOT}/lib/Hyphenation/HyphenationCommon.cpp
   ${REPO_ROOT}/lib/Hyphenation/LanguageRegistry.cpp
@@ -21,13 +21,12 @@ target_include_directories(TypesetterTest PRIVATE
   ${REPO_ROOT}/lib/Typesetter
   # Required for EpdFontFamily.h (Style enum on layout method signatures).
   ${REPO_ROOT}/lib/EpdFont
-  # Typesetter.cpp uses makeUniqueNoThrow<Page>() from lib/Memory/Memory.h.
-  ${REPO_ROOT}/lib/Memory
-  # Hyphenator + Utf8 headers for the real layout pipeline.
+  # Typesetter.cpp uses makeUniqueNoThrow<Page>() from lib/Utility/Memory.h.
+  ${REPO_ROOT}/lib/Utility
+  # Hyphenator headers for the real layout pipeline; Utf8.h and the
+  # Serialization header (used by TextBlock.cpp) both come from lib/Utility,
+  # already on the include path above.
   ${REPO_ROOT}/lib/Hyphenation
-  ${REPO_ROOT}/lib/Utf8
-  # Serialization header (header-only) used by TextBlock.cpp.
-  ${REPO_ROOT}/lib/Serialization
 )
 
 target_link_libraries(TypesetterTest PRIVATE
