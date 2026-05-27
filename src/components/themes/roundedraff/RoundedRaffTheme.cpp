@@ -47,8 +47,7 @@ void drawScrollBar(const GfxRenderer& renderer, Rect rect, int itemCount, int pa
 int coverWidth = 0;
 
 void RoundedRaffTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* title,
-                                  const char* subtitle) const {
-  (void)subtitle;
+                                  [[maybe_unused]] const char* subtitle) const {
   // Home screen header is custom-rendered in drawRecentBookCover.
   if (title == nullptr) {
     return;
@@ -193,8 +192,7 @@ void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
 
 void RoundedRaffTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                                       FunctionRef<std::string(int index)> buttonLabel,
-                                      FunctionRef<UIIcon(int index)> rowIcon) const {
-  (void)rowIcon;
+                                      [[maybe_unused]] FunctionRef<UIIcon(int index)> rowIcon) const {
   const int sidePadding = RoundedRaffMetrics::values.contentSidePadding;
   const int rowX = rect.x + sidePadding;
   const int rowHeight = renderer.getLineHeight(kTitleFontId) + 20;  // 10px top + 10px bottom
@@ -303,12 +301,10 @@ void RoundedRaffTheme::drawKeyboardKey(const GfxRenderer& renderer, Rect rect, c
 
 void RoundedRaffTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
                                 FunctionRef<std::string(int index)> rowTitle,
-                                FunctionRef<std::string(int index)> rowSubtitle, FunctionRef<UIIcon(int index)> rowIcon,
-                                FunctionRef<std::string(int index)> rowValue, bool highlightValue,
-                                FunctionRef<bool(int index)> rowDimmed) const {
-  (void)rowIcon;
-  (void)highlightValue;
-  (void)rowDimmed;
+                                FunctionRef<std::string(int index)> rowSubtitle,
+                                [[maybe_unused]] FunctionRef<UIIcon(int index)> rowIcon,
+                                FunctionRef<std::string(int index)> rowValue, [[maybe_unused]] bool highlightValue,
+                                [[maybe_unused]] FunctionRef<bool(int index)> rowDimmed) const {
   const bool hasSubtitle = static_cast<bool>(rowSubtitle);
   const int titleLineHeight = renderer.getLineHeight(kTitleFontId);
   const int subtitleLineHeight = renderer.getLineHeight(kSubtitleFontId);

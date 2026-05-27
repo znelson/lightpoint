@@ -151,7 +151,7 @@ std::string HalStorage::readFile(const char* path) {
   return content;
 }
 
-bool HalStorage::mkdir(const char* path, const bool /*pFlag*/) {
+bool HalStorage::mkdir(const char* path, [[maybe_unused]] const bool pFlag) {
   const std::string fullPath = sdPath(path);
   return ::mkdir(fullPath.c_str(), 0777) == 0;
 }
@@ -220,7 +220,7 @@ HalFile HalStorage::open(const char* path, const oflag_t oflag) {
   return HalFile(std::move(newImpl));
 }
 
-bool HalStorage::openFileForRead(const char* /*moduleName*/, const char* path, HalFile& file) {
+bool HalStorage::openFileForRead([[maybe_unused]] const char* moduleName, const char* path, HalFile& file) {
   const std::string full = sdPath(path);
   auto newImpl = std::make_unique<HalFile::Impl>();
   newImpl->fp = fopen(full.c_str(), "r");
@@ -236,7 +236,7 @@ bool HalStorage::openFileForRead(const char* moduleName, const std::string& path
   return openFileForRead(moduleName, path.c_str(), file);
 }
 
-bool HalStorage::openFileForWrite(const char* /*moduleName*/, const char* path, HalFile& file) {
+bool HalStorage::openFileForWrite([[maybe_unused]] const char* moduleName, const char* path, HalFile& file) {
   const std::string full = sdPath(path);
   auto newImpl = std::make_unique<HalFile::Impl>();
   newImpl->fp = fopen(full.c_str(), "w");

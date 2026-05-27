@@ -100,7 +100,7 @@ void stateOnString(void* p, const char* v, size_t len) {
   ctx->currentKey = StateLoadCtx::Field::NONE;
 }
 
-void stateOnNumber(void* p, const char* v, size_t /*len*/) {
+void stateOnNumber(void* p, const char* v, [[maybe_unused]] size_t len) {
   auto* ctx = static_cast<StateLoadCtx*>(p);
   // Numbers inside the recentSleepImages array fill the buffer up to capacity.
   if (ctx->inImagesArray) {
@@ -363,7 +363,7 @@ void settingsOnString(void* p, const char* v, size_t len) {
   ctx->special = Sp::NONE;
 }
 
-void settingsOnNumber(void* p, const char* v, size_t /*len*/) {
+void settingsOnNumber(void* p, const char* v, [[maybe_unused]] size_t len) {
   auto* ctx = static_cast<SettingsLoadCtx*>(p);
   if (ctx->depth != 1) return;
   using Sp = SettingsLoadCtx::Special;
@@ -451,7 +451,7 @@ void settingsOnArrayStart(void* p) {
   ctx->special = SettingsLoadCtx::Special::NONE;
 }
 
-void settingsOnArrayEnd(void* /*p*/) {}
+void settingsOnArrayEnd([[maybe_unused]] void* p) {}
 
 }  // namespace
 

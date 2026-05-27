@@ -28,36 +28,42 @@ class GfxRenderer {
   static constexpr int kLineHeight = 20;
   static constexpr int kAscender = 15;
 
-  int getLineHeight(int /*fontId*/) const { return kLineHeight; }
-  int getFontAscenderSize(int /*fontId*/) const { return kAscender; }
+  int getLineHeight([[maybe_unused]] int fontId) const { return kLineHeight; }
+  int getFontAscenderSize([[maybe_unused]] int fontId) const { return kAscender; }
 
   // Width of `text` in pixels: kPxPerChar per byte.
-  int getTextWidth(int /*fontId*/, const char* text, EpdFontFamily::Style /*style*/ = EpdFontFamily::REGULAR) const {
+  int getTextWidth([[maybe_unused]] int fontId, const char* text,
+                   [[maybe_unused]] EpdFontFamily::Style style = EpdFontFamily::REGULAR) const {
     return text ? static_cast<int>(std::strlen(text)) * kPxPerChar : 0;
   }
 
   // Advance equals width for ASCII (no kerning).
-  int getTextAdvanceX(int /*fontId*/, const char* text, EpdFontFamily::Style /*style*/ = EpdFontFamily::REGULAR) const {
+  int getTextAdvanceX([[maybe_unused]] int fontId, const char* text,
+                      [[maybe_unused]] EpdFontFamily::Style style = EpdFontFamily::REGULAR) const {
     return getTextWidth(0, text);
   }
 
-  int getSpaceWidth(int /*fontId*/, EpdFontFamily::Style /*style*/ = EpdFontFamily::REGULAR) const {
+  int getSpaceWidth([[maybe_unused]] int fontId,
+                    [[maybe_unused]] EpdFontFamily::Style style = EpdFontFamily::REGULAR) const {
     return kSpaceAdvance;
   }
 
-  int getSpaceAdvance(int /*fontId*/, uint32_t /*leftCp*/, uint32_t /*rightCp*/, EpdFontFamily::Style /*style*/) const {
+  int getSpaceAdvance([[maybe_unused]] int fontId, [[maybe_unused]] uint32_t leftCp, [[maybe_unused]] uint32_t rightCp,
+                      [[maybe_unused]] EpdFontFamily::Style style) const {
     return kSpaceAdvance;
   }
 
-  int getKerning(int /*fontId*/, uint32_t /*leftCp*/, uint32_t /*rightCp*/, EpdFontFamily::Style /*style*/) const {
+  int getKerning([[maybe_unused]] int fontId, [[maybe_unused]] uint32_t leftCp, [[maybe_unused]] uint32_t rightCp,
+                 [[maybe_unused]] EpdFontFamily::Style style) const {
     return 0;
   }
 
   // No SD-card fonts in the stub; lay-out code skips the pre-warm path.
-  bool isSdCardFont(int /*fontId*/) const { return false; }
-  void ensureSdCardFontReady(int /*fontId*/, const char* /*utf8Text*/, uint8_t /*styleMask*/ = 0x0F) const {}
-  void ensureSdCardFontReady(int /*fontId*/, const std::vector<std::string>& /*words*/, bool /*includeHyphen*/,
-                             uint8_t /*styleMask*/ = 0x0F) const {}
+  bool isSdCardFont([[maybe_unused]] int fontId) const { return false; }
+  void ensureSdCardFontReady([[maybe_unused]] int fontId, [[maybe_unused]] const char* utf8Text,
+                             [[maybe_unused]] uint8_t styleMask = 0x0F) const {}
+  void ensureSdCardFontReady([[maybe_unused]] int fontId, [[maybe_unused]] const std::vector<std::string>& words,
+                             [[maybe_unused]] bool includeHyphen, [[maybe_unused]] uint8_t styleMask = 0x0F) const {}
 
   // Drawing operations: no-ops. Tests inspect emitted-page metadata, not pixels.
   void drawText(int, int, int, const char*, bool, EpdFontFamily::Style = EpdFontFamily::REGULAR) const {}
