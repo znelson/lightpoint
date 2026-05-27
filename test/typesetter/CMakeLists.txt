@@ -2,6 +2,15 @@ add_executable(TypesetterTest
   TypesetterTest.cpp
   PageStubs.cpp
   ${REPO_ROOT}/lib/Typesetter/Typesetter.cpp
+  # Real layout engine: Tier 2 tests exercise submitParagraph / partialFlush
+  # which run end-to-end through ParsedText + TextBlock + Hyphenation + Utf8.
+  ${REPO_ROOT}/lib/Typesetter/Typesetter/ParsedText.cpp
+  ${REPO_ROOT}/lib/Typesetter/Typesetter/blocks/TextBlock.cpp
+  ${REPO_ROOT}/lib/Utf8/Utf8.cpp
+  ${REPO_ROOT}/lib/Hyphenation/Hyphenator.cpp
+  ${REPO_ROOT}/lib/Hyphenation/HyphenationCommon.cpp
+  ${REPO_ROOT}/lib/Hyphenation/LanguageRegistry.cpp
+  ${REPO_ROOT}/lib/Hyphenation/LiangHyphenation.cpp
 )
 
 # Include order matters: this directory wins over ${REPO_ROOT}/lib/GfxRenderer/
@@ -10,11 +19,15 @@ add_executable(TypesetterTest
 target_include_directories(TypesetterTest PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${REPO_ROOT}/lib/Typesetter
-  # Transitively required by Typesetter/Page.h -> blocks/TextBlock.h -> EpdFontFamily.h.
-  # We only need the headers (no symbols linked) since tests don't instantiate fonts.
+  # Required for EpdFontFamily.h (Style enum on layout method signatures).
   ${REPO_ROOT}/lib/EpdFont
   # Typesetter.cpp uses makeUniqueNoThrow<Page>() from lib/Memory/Memory.h.
   ${REPO_ROOT}/lib/Memory
+  # Hyphenator + Utf8 headers for the real layout pipeline.
+  ${REPO_ROOT}/lib/Hyphenation
+  ${REPO_ROOT}/lib/Utf8
+  # Serialization header (header-only) used by TextBlock.cpp.
+  ${REPO_ROOT}/lib/Serialization
 )
 
 target_link_libraries(TypesetterTest PRIVATE

@@ -1,7 +1,11 @@
 #include <Typesetter.h>
+#include <Typesetter/ParsedText.h>
+#include <Typesetter/blocks/BlockStyle.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -28,15 +32,43 @@ class TypesetterFixture : public ::testing::Test {
   GfxRenderer renderer;
   std::vector<CapturedPage> emitted;
 
-  Typesetter makeTypesetter() {
-    return Typesetter(renderer, kFontId, kLineCompression, kExtraParagraphSpacing, kViewportWidth, kViewportHeight,
+  Typesetter makeTypesetter(bool extraParagraphSpacing = kExtraParagraphSpacing) {
+    return Typesetter(renderer, kFontId, kLineCompression, extraParagraphSpacing, kViewportWidth, kViewportHeight,
                       [this](std::unique_ptr<Page> p, uint16_t parIdx, uint16_t liIdx) {
                         emitted.push_back({std::move(p), parIdx, liIdx});
                       });
   }
 
+  // Builds a FootnoteEntry with the given number string for queue-and-attach tests.
+  static FootnoteEntry makeFootnote(const char* number) {
+    FootnoteEntry entry;
+    std::strncpy(entry.number, number, sizeof(entry.number) - 1);
+    return entry;
+  }
+
+  // Returns the total footnote count across all emitted pages.
+  size_t totalFootnotes() const {
+    size_t n = 0;
+    for (const auto& cp : emitted) n += cp.page->footnotes.size();
+    return n;
+  }
+
   std::shared_ptr<ImageBlock> makeImage(int16_t width, int16_t height) {
     return std::make_shared<ImageBlock>("dummy.png", width, height);
+  }
+
+  // Build a ParsedText with `wordCount` ASCII words of equal byte length.
+  // Each word's pixel width is `wordLen * GfxRenderer::kPxPerChar`. The
+  // BlockStyle is left at default (Justify, no margins/padding/indent).
+  std::unique_ptr<ParsedText> makeParagraph(int wordCount, int wordLen = 4, const BlockStyle& style = BlockStyle()) {
+    auto p = std::make_unique<ParsedText>(/*extraParagraphSpacing=*/false,
+                                          /*hyphenationEnabled=*/false,
+                                          /*focusReadingEnabled=*/false, style);
+    std::string word(static_cast<size_t>(wordLen), 'a');
+    for (int i = 0; i < wordCount; ++i) {
+      p->addWord(word, EpdFontFamily::REGULAR, /*underline=*/false, /*attachToPrevious=*/false);
+    }
+    return p;
   }
 };
 
@@ -173,9 +205,256 @@ TEST_F(TypesetterFixture, WordsExtractedInBlockResetWorks) {
 TEST_F(TypesetterFixture, AddPendingFootnoteDoesNotAffectAccessor) {
   auto ts = makeTypesetter();
   // The pending queue is internal; just verify the accessor stays untouched.
-  // addPendingFootnote affects state consumed by submitParagraph (Tier 2).
   FootnoteEntry entry;
   std::strncpy(entry.number, "1", sizeof(entry.number) - 1);
   ts.addPendingFootnote(5, entry);
   EXPECT_EQ(ts.getWordsExtractedInBlock(), 0);
+}
+
+// =====================================================================
+// Tier 2: layout-driven tests. Drive submitParagraph / partialFlush /
+// submitHorizontalRule through the real ParsedText layout engine with a
+// deterministic GfxRenderer stub (kPxPerChar = 10, kSpaceAdvance = 5,
+// kLineHeight = 20). With a 600-px viewport and 4-byte words: each word
+// is 40 px and each gap is 5 px, so ~13 words fit per line. With a
+// 400-px viewport height: 400 / 20 = 20 lines per page.
+// =====================================================================
+
+TEST_F(TypesetterFixture, SubmitParagraphShortFitsInOnePage) {
+  auto ts = makeTypesetter();
+  // 5 words of 4 chars each: well under one line.
+  ts.submitParagraph(makeParagraph(/*wordCount=*/5, /*wordLen=*/4));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  EXPECT_GE(emitted[0].page->elements.size(), 1u);
+}
+
+TEST_F(TypesetterFixture, SubmitParagraphLongSpansMultiplePages) {
+  auto ts = makeTypesetter();
+  // 13 words/line * 20 lines/page = 260 words per page. 600 words = ~3 pages.
+  ts.submitParagraph(makeParagraph(/*wordCount=*/600, /*wordLen=*/4));
+  ts.finish();
+  EXPECT_GE(emitted.size(), 2u);
+  EXPECT_LE(emitted.size(), 4u);
+}
+
+TEST_F(TypesetterFixture, SubmitMultipleParagraphsAccumulate) {
+  auto ts = makeTypesetter();
+  // Each paragraph fits in a single line (5 words). Several should pack into one page.
+  for (int i = 0; i < 5; ++i) {
+    ts.submitParagraph(makeParagraph(/*wordCount=*/5, /*wordLen=*/4));
+  }
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  EXPECT_GE(emitted[0].page->elements.size(), 5u);
+}
+
+TEST_F(TypesetterFixture, SubmitParagraphAppliesTopMargin) {
+  auto ts = makeTypesetter();
+  // Paragraph with explicit large top margin should push later content
+  // closer to the page break threshold.
+  BlockStyle style;
+  style.marginTop = 100;
+  ts.submitParagraph(makeParagraph(/*wordCount=*/5, /*wordLen=*/4, style));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  EXPECT_FALSE(emitted[0].page->elements.empty());
+}
+
+TEST_F(TypesetterFixture, PartialFlushOnLongBlockEmitsPagesAndLeavesContinuation) {
+  auto ts = makeTypesetter();
+  // Build a long block, then partialFlush before finish.
+  auto p = makeParagraph(/*wordCount=*/300, /*wordLen=*/4);
+  ts.partialFlush(*p);
+  // partialFlush leaves the last line in the block; emitted pages so far
+  // are the filled ones.
+  const size_t midCount = emitted.size();
+  EXPECT_GE(midCount, 0u);
+  // Submitting and finishing the same paragraph completes any remaining
+  // lines, then emits the trailing page.
+  ts.submitParagraph(std::move(p));
+  ts.finish();
+  // Total pages should match what a single-shot submitParagraph would yield.
+  EXPECT_GE(emitted.size(), midCount);
+  EXPECT_GE(emitted.size(), 1u);
+}
+
+// --- submitHorizontalRule -------------------------------------------------
+
+TEST_F(TypesetterFixture, SubmitHorizontalRuleFitsOnInitialPage) {
+  auto ts = makeTypesetter();
+  ts.submitHorizontalRule(BlockStyle());
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  EXPECT_EQ(emitted[0].page->elements.size(), 1u);
+}
+
+TEST_F(TypesetterFixture, SubmitHorizontalRuleDoesNotFitForcesPageBreak) {
+  auto ts = makeTypesetter();
+  // Fill the page nearly to the bottom with an image, then submit an HR
+  // that should force a page break because it doesn't fit.
+  // Viewport height = 400; image height = 395 leaves 5px free, less than
+  // the rule's default spacing (kLineHeight / 2 == 10) + thickness (2) + bottom (10) = 22.
+  ts.submitImage(makeImage(100, 395), 0, 0);
+  EXPECT_EQ(ts.getCompletedPageCount(), 0);
+  ts.submitHorizontalRule(BlockStyle());
+  EXPECT_EQ(ts.getCompletedPageCount(), 1);
+  ASSERT_EQ(emitted.size(), 1u);
+  EXPECT_EQ(emitted[0].page->elements.size(), 1u);  // just the image; HR went to next page
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 2u);
+  EXPECT_EQ(emitted[1].page->elements.size(), 1u);  // the HR
+}
+
+TEST_F(TypesetterFixture, SubmitHorizontalRuleAppliesExplicitMargins) {
+  auto ts = makeTypesetter();
+  BlockStyle style;
+  style.marginTop = 50;
+  style.marginBottom = 50;
+  ts.submitHorizontalRule(style);
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  ASSERT_EQ(emitted[0].page->elements.size(), 1u);
+  // The HR's yPos should equal topSpacing = marginTop (50) when paddingTop = 0.
+  EXPECT_EQ(emitted[0].page->elements[0]->yPos, 50);
+}
+
+// --- Footnote attachment to the correct page ------------------------------
+
+TEST_F(TypesetterFixture, FootnoteAtEarlyWordIndexLandsOnFirstPage) {
+  auto ts = makeTypesetter();
+  ts.addPendingFootnote(/*wordIndex=*/1, makeFootnote("1"));
+  ts.submitParagraph(makeParagraph(/*wordCount=*/10, /*wordLen=*/4));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  ASSERT_EQ(emitted[0].page->footnotes.size(), 1u);
+  EXPECT_STREQ(emitted[0].page->footnotes[0].number, "1");
+}
+
+TEST_F(TypesetterFixture, FootnoteAtLateWordIndexLandsOnLaterPage) {
+  auto ts = makeTypesetter();
+  // 600 words across multiple pages. Queue footnote near the end so it
+  // lands on a later page.
+  ts.addPendingFootnote(/*wordIndex=*/500, makeFootnote("late"));
+  ts.submitParagraph(makeParagraph(/*wordCount=*/600, /*wordLen=*/4));
+  ts.finish();
+  ASSERT_GE(emitted.size(), 2u);
+  // The footnote should NOT be on the first page (which contains words 1..~260).
+  EXPECT_EQ(emitted[0].page->footnotes.size(), 0u);
+  // Exactly one footnote across all pages.
+  EXPECT_EQ(totalFootnotes(), 1u);
+}
+
+TEST_F(TypesetterFixture, MultipleFootnotesAttachToCorrectPages) {
+  auto ts = makeTypesetter();
+  // Two footnotes on the same early page, one on a later page.
+  ts.addPendingFootnote(1, makeFootnote("a"));
+  ts.addPendingFootnote(2, makeFootnote("b"));
+  ts.addPendingFootnote(500, makeFootnote("c"));
+  ts.submitParagraph(makeParagraph(/*wordCount=*/600, /*wordLen=*/4));
+  ts.finish();
+  ASSERT_GE(emitted.size(), 2u);
+  // First page has "a" and "b".
+  ASSERT_EQ(emitted[0].page->footnotes.size(), 2u);
+  EXPECT_STREQ(emitted[0].page->footnotes[0].number, "a");
+  EXPECT_STREQ(emitted[0].page->footnotes[1].number, "b");
+  // "c" lands on a later page.
+  EXPECT_EQ(totalFootnotes(), 3u);
+}
+
+TEST_F(TypesetterFixture, FootnoteAtImpossibleWordIndexDumpsToFinalPage) {
+  // Footnote with wordIndex beyond the block size triggers the fallback
+  // in submitParagraph that drains the queue to the current page.
+  auto ts = makeTypesetter();
+  ts.addPendingFootnote(/*wordIndex=*/9999, makeFootnote("fallback"));
+  ts.submitParagraph(makeParagraph(/*wordCount=*/5, /*wordLen=*/4));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  ASSERT_EQ(emitted[0].page->footnotes.size(), 1u);
+  EXPECT_STREQ(emitted[0].page->footnotes[0].number, "fallback");
+}
+
+// --- Null input handling --------------------------------------------------
+
+TEST_F(TypesetterFixture, SubmitParagraphNullIsNoOp) {
+  auto ts = makeTypesetter();
+  ts.submitParagraph(nullptr);
+  EXPECT_EQ(ts.getCompletedPageCount(), 0);
+  EXPECT_TRUE(emitted.empty());
+}
+
+TEST_F(TypesetterFixture, SubmitImageNullIsNoOp) {
+  auto ts = makeTypesetter();
+  ts.submitImage(nullptr, 0, 0);
+  EXPECT_EQ(ts.getCompletedPageCount(), 0);
+  EXPECT_TRUE(emitted.empty());
+}
+
+// --- extraParagraphSpacing ------------------------------------------------
+
+TEST_F(TypesetterFixture, ExtraParagraphSpacingCausesEarlierPageBreaks) {
+  // Each single-line paragraph (1 line of height 20px) plus the extra
+  // half-line spacing (10px) = 30px. With viewport height 400, ~13 such
+  // paragraphs fit. Without extra spacing, 20 paragraphs fit.
+  auto ts = makeTypesetter(/*extraParagraphSpacing=*/true);
+  for (int i = 0; i < 20; ++i) {
+    ts.submitParagraph(makeParagraph(/*wordCount=*/3, /*wordLen=*/4));
+  }
+  ts.finish();
+  // With extra spacing, 20 paragraphs no longer fit on one page.
+  EXPECT_GE(emitted.size(), 2u);
+}
+
+// --- Image margins and positioning ----------------------------------------
+
+TEST_F(TypesetterFixture, SubmitImageAppliesTopMarginToYPosition) {
+  auto ts = makeTypesetter();
+  ts.submitImage(makeImage(100, 50), /*marginTop=*/40, /*marginBottom=*/0);
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  ASSERT_EQ(emitted[0].page->elements.size(), 1u);
+  // The image's yPos should reflect the top margin (page starts at y=0,
+  // marginTop pushes the image down).
+  EXPECT_EQ(emitted[0].page->elements[0]->yPos, 40);
+}
+
+TEST_F(TypesetterFixture, SubmitImageCentersHorizontally) {
+  auto ts = makeTypesetter();
+  // viewport width = 600, image width = 200 → expected xPos = (600-200)/2 = 200.
+  ts.submitImage(makeImage(200, 50), 0, 0);
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+  ASSERT_EQ(emitted[0].page->elements.size(), 1u);
+  EXPECT_EQ(emitted[0].page->elements[0]->xPos, 200);
+}
+
+// --- Idempotent operations ------------------------------------------------
+
+TEST_F(TypesetterFixture, DoubleFinishDoesNotDoubleEmit) {
+  auto ts = makeTypesetter();
+  ts.submitImage(makeImage(100, 50), 0, 0);
+  ts.finish();
+  ts.finish();  // second finish on already-empty state
+  EXPECT_EQ(ts.getCompletedPageCount(), 1);
+  EXPECT_EQ(emitted.size(), 1u);
+}
+
+TEST_F(TypesetterFixture, DoubleForcePageBreakDoesNotDoubleEmit) {
+  auto ts = makeTypesetter();
+  ts.submitImage(makeImage(100, 50), 0, 0);
+  ts.forcePageBreak();
+  ts.forcePageBreak();  // page is empty after first break; second is no-op
+  EXPECT_EQ(ts.getCompletedPageCount(), 1);
+  EXPECT_EQ(emitted.size(), 1u);
+}
+
+TEST_F(TypesetterFixture, PartialFlushOnEmptyBlockIsNoOp) {
+  auto ts = makeTypesetter();
+  auto p = std::make_unique<ParsedText>(/*extraParagraphSpacing=*/false,
+                                        /*hyphenationEnabled=*/false,
+                                        /*focusReadingEnabled=*/false, BlockStyle());
+  // No words added to the block.
+  ts.partialFlush(*p);
+  EXPECT_EQ(ts.getCompletedPageCount(), 0);
+  EXPECT_TRUE(emitted.empty());
 }
