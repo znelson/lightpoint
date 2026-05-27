@@ -302,6 +302,23 @@ TEST_F(SectionTest, GetPageForListItemIndex) {
 
 // --- clearCache -----------------------------------------------------------
 
+TEST_F(SectionTest, CloseAndRemoveAbandonsMidWrite) {
+  // Simulates a build that fails partway through (e.g. parser OOM): open
+  // for write, lay down some bytes, then bail. The cache file must NOT
+  // survive on disk -- a partial cache could load with a valid header and
+  // crash later on a truncated page.
+  Section sec(kPath);
+  Params p;
+  ASSERT_TRUE(sec.openForWrite());
+  writeHeaderFrom(sec, p);
+  const uint32_t off = sec.writePage(makePage(0));
+  ASSERT_NE(off, 0u);
+  // file_ still open at this point; clearCache() alone wouldn't be enough
+  // in production (open handle would prevent FatFS unlink).
+  EXPECT_TRUE(sec.closeAndRemove());
+  EXPECT_FALSE(halStorage.exists(kPath));
+}
+
 TEST_F(SectionTest, ClearCacheRemovesFile) {
   Section sec(kPath);
   Params p;

@@ -387,6 +387,20 @@ std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex)
   return resultPage;
 }
 
+bool Section::closeAndRemove() {
+  if (file_) {
+    file_.close();
+  }
+  if (!halStorage.exists(filePath_.c_str())) {
+    return true;
+  }
+  if (!halStorage.remove(filePath_.c_str())) {
+    LOG_ERR("SCT", "closeAndRemove: failed to remove cache");
+    return false;
+  }
+  return true;
+}
+
 bool Section::clearCache() const {
   if (!halStorage.exists(filePath_.c_str())) {
     LOG_DBG("SCT", "Cache does not exist, no action needed");
