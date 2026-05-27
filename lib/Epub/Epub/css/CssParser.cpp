@@ -191,15 +191,15 @@ std::vector<std::string> CssParser::splitWhitespace(std::string_view s) {
 
 // Property value interpreters
 
-CssTextAlign CssParser::interpretAlignment(std::string_view val) {
+TextAlign CssParser::interpretAlignment(std::string_view val) {
   val = trimCssWhitespace(val);
 
-  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return CssTextAlign::Left;
-  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return CssTextAlign::Right;
-  if (iequalsAscii(val, "center")) return CssTextAlign::Center;
-  if (iequalsAscii(val, "justify")) return CssTextAlign::Justify;
+  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return TextAlign::Left;
+  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return TextAlign::Right;
+  if (iequalsAscii(val, "center")) return TextAlign::Center;
+  if (iequalsAscii(val, "justify")) return TextAlign::Justify;
 
-  return CssTextAlign::Left;
+  return TextAlign::Left;
 }
 
 CssFontStyle CssParser::interpretFontStyle(std::string_view val) {
@@ -871,7 +871,7 @@ bool CssParser::loadFromCache() {
       rulesBySelector_.clear();
       return false;
     }
-    style.textAlign = static_cast<CssTextAlign>(enumVal);
+    style.textAlign = static_cast<TextAlign>(enumVal);
 
     if (file.read(&enumVal, 1) != 1) {
       rulesBySelector_.clear();

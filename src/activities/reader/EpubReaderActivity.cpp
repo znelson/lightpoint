@@ -1,7 +1,5 @@
 #include "EpubReaderActivity.h"
 
-#include <Epub/Page.h>
-#include <Epub/blocks/TextBlock.h>
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
@@ -10,6 +8,8 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <Typesetter/Page.h>
+#include <Typesetter/blocks/TextBlock.h>
 
 #include <functional>
 #include <iterator>

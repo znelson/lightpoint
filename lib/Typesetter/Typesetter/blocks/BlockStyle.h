@@ -1,12 +1,17 @@
 #pragma once
 
+#include <Typesetter/TextAlign.h>
+
 #include <algorithm>
 #include <cstdint>
 
-#include "Epub/css/CssStyle.h"
-
 /**
- * BlockStyle - Block-level styling properties
+ * BlockStyle - Block-level styling properties.
+ *
+ * Layout-only struct: padding, margins, alignment, text-indent. Free of any
+ * format-specific concepts (CSS, HTML, Markdown). Construction from a CSS
+ * style lives in lib/Epub/Epub/css/BlockStyleFactory.h since it depends on
+ * CssLength/CssStyle types.
  */
 struct BlockStyle {
   // Upper bound (in em) for any single side's horizontal margin or padding.
@@ -15,7 +20,7 @@ struct BlockStyle {
   // the remaining space into a single gap.
   static constexpr float MAX_HORIZONTAL_INSET_EM = 2.0f;
 
-  CssTextAlign alignment = CssTextAlign::Justify;
+  TextAlign alignment = TextAlign::Justify;
 
   // Spacing (in pixels)
   int16_t marginTop = 0;
@@ -85,40 +90,5 @@ struct BlockStyle {
     }
 
     return result;
-  }
-
-  // Create a BlockStyle from CSS style properties, resolving CssLength values to pixels
-  // emSize is the current font line height, used for em/rem unit conversion
-  // paragraphAlignment is the user's paragraphAlignment setting preference
-  static BlockStyle fromCssStyle(const CssStyle& cssStyle, const float emSize, const CssTextAlign paragraphAlignment,
-                                 const uint16_t viewportWidth = 0) {
-    BlockStyle blockStyle;
-    const float vw = viewportWidth;
-    const auto maxHorizontalInsetPx = static_cast<int16_t>(emSize * MAX_HORIZONTAL_INSET_EM);
-    // Resolve all CssLength values to pixels using the current font's em size and viewport width
-    blockStyle.marginTop = cssStyle.marginTop.toPixelsInt16(emSize, vw);
-    blockStyle.marginBottom = cssStyle.marginBottom.toPixelsInt16(emSize, vw);
-    blockStyle.marginLeft = std::min(cssStyle.marginLeft.toPixelsInt16(emSize, vw), maxHorizontalInsetPx);
-    blockStyle.marginRight = std::min(cssStyle.marginRight.toPixelsInt16(emSize, vw), maxHorizontalInsetPx);
-
-    blockStyle.paddingTop = cssStyle.paddingTop.toPixelsInt16(emSize, vw);
-    blockStyle.paddingBottom = cssStyle.paddingBottom.toPixelsInt16(emSize, vw);
-    blockStyle.paddingLeft = std::min(cssStyle.paddingLeft.toPixelsInt16(emSize, vw), maxHorizontalInsetPx);
-    blockStyle.paddingRight = std::min(cssStyle.paddingRight.toPixelsInt16(emSize, vw), maxHorizontalInsetPx);
-
-    // For textIndent: if it's a percentage we can't resolve (no viewport width),
-    // leave textIndentDefined=false so the EmSpace fallback in applyParagraphIndent() is used
-    if (cssStyle.hasTextIndent() && cssStyle.textIndent.isResolvable(vw)) {
-      blockStyle.textIndent = cssStyle.textIndent.toPixelsInt16(emSize, vw);
-      blockStyle.textIndentDefined = true;
-    }
-    blockStyle.textAlignDefined = cssStyle.hasTextAlign();
-    // User setting overrides CSS, unless "Book's Style" alignment setting is selected
-    if (paragraphAlignment == CssTextAlign::None) {
-      blockStyle.alignment = blockStyle.textAlignDefined ? cssStyle.textAlign : CssTextAlign::Justify;
-    } else {
-      blockStyle.alignment = paragraphAlignment;
-    }
-    return blockStyle;
   }
 };

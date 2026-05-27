@@ -7,6 +7,7 @@
 #include <ImageDecoderFactory.h>
 #include <ImageToFramebufferDecoder.h>
 #include <Logging.h>
+#include <Typesetter/Page.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
 #include <expat.h>
@@ -16,7 +17,7 @@
 #include <new>
 
 #include "Epub.h"
-#include "Epub/Page.h"
+#include "Epub/css/BlockStyleFactory.h"
 #include "Epub/htmlEntities.h"
 
 // Minimum file size (in bytes) to show indexing popup - smaller chapters don't benefit from it
@@ -273,7 +274,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
 
   auto centeredBlockStyle = BlockStyle();
   centeredBlockStyle.textAlignDefined = true;
-  centeredBlockStyle.alignment = CssTextAlign::Center;
+  centeredBlockStyle.alignment = TextAlign::Center;
 
   // Compute CSS style for this element early so display:none can short-circuit
   // before tag-specific branches emit any content or metadata.
@@ -326,9 +327,9 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
 
     auto tableCellBlockStyle = BlockStyle();
     tableCellBlockStyle.textAlignDefined = true;
-    const auto align = (self->paragraphAlignment == static_cast<uint8_t>(CssTextAlign::None))
-                           ? CssTextAlign::Justify
-                           : static_cast<CssTextAlign>(self->paragraphAlignment);
+    const auto align = (self->paragraphAlignment == static_cast<uint8_t>(TextAlign::None))
+                           ? TextAlign::Justify
+                           : static_cast<TextAlign>(self->paragraphAlignment);
     tableCellBlockStyle.alignment = align;
     self->startNewTextBlock(tableCellBlockStyle);
 
@@ -592,9 +593,9 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
                 // re-apply the same margins to the next text paragraph.
                 if (self->currentTextBlock && self->currentTextBlock->isEmpty()) {
                   BlockStyle resetStyle;
-                  resetStyle.alignment = (self->paragraphAlignment == static_cast<uint8_t>(CssTextAlign::None))
-                                             ? CssTextAlign::Justify
-                                             : static_cast<CssTextAlign>(self->paragraphAlignment);
+                  resetStyle.alignment = (self->paragraphAlignment == static_cast<uint8_t>(TextAlign::None))
+                                             ? TextAlign::Justify
+                                             : static_cast<TextAlign>(self->paragraphAlignment);
                   self->currentTextBlock->setBlockStyle(resetStyle);
                 }
 
@@ -696,11 +697,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
   }
 
   const float emSize = static_cast<float>(self->renderer.getFontAscenderSize(self->fontId));
-  const auto userAlignmentBlockStyle = BlockStyle::fromCssStyle(
-      cssStyle, emSize, static_cast<CssTextAlign>(self->paragraphAlignment), self->viewportWidth);
+  const auto userAlignmentBlockStyle =
+      blockStyleFromCssStyle(cssStyle, emSize, static_cast<TextAlign>(self->paragraphAlignment), self->viewportWidth);
 
   if (strcmp(name, "hr") == 0) {
-    auto hrBlockStyle = BlockStyle::fromCssStyle(cssStyle, emSize, CssTextAlign::Left, self->viewportWidth);
+    auto hrBlockStyle = blockStyleFromCssStyle(cssStyle, emSize, TextAlign::Left, self->viewportWidth);
     if (!self->embeddedStyle) {
       hrBlockStyle.marginLeft = 0;
       hrBlockStyle.marginRight = 0;
@@ -720,7 +721,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
 
   if (matches(name, HEADER_TAGS, std::size(HEADER_TAGS))) {
     self->currentCssStyle = cssStyle;
-    auto headerBlockStyle = BlockStyle::fromCssStyle(cssStyle, emSize, CssTextAlign::Center, self->viewportWidth);
+    auto headerBlockStyle = blockStyleFromCssStyle(cssStyle, emSize, TextAlign::Center, self->viewportWidth);
     headerBlockStyle.textAlignDefined = true;
     if (self->embeddedStyle && cssStyle.hasTextAlign()) {
       headerBlockStyle.alignment = cssStyle.textAlign;
@@ -1181,9 +1182,9 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   // The user's paragraph alignment is set as the default so child elements without explicit
   // text-align inherit it correctly through getCombinedBlockStyle.
   BlockStyle rootBlockStyle;
-  rootBlockStyle.alignment = (this->paragraphAlignment == static_cast<uint8_t>(CssTextAlign::None))
-                                 ? CssTextAlign::Justify
-                                 : static_cast<CssTextAlign>(this->paragraphAlignment);
+  rootBlockStyle.alignment = (this->paragraphAlignment == static_cast<uint8_t>(TextAlign::None))
+                                 ? TextAlign::Justify
+                                 : static_cast<TextAlign>(this->paragraphAlignment);
   blockStyleStack.clear();
   blockStyleStack.reserve(8);
   blockStyleStack.push_back(rootBlockStyle);

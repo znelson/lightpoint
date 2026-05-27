@@ -28,23 +28,23 @@ em { font-style: italic; }
 // ---- text-align (interpretAlignment via parseInlineStyle) --------------------
 
 TEST(CssParser, AlignmentKeywords) {
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: left").textAlign, CssTextAlign::Left);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: right").textAlign, CssTextAlign::Right);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: center").textAlign, CssTextAlign::Center);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: justify").textAlign, CssTextAlign::Justify);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: start").textAlign, CssTextAlign::Left);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: end").textAlign, CssTextAlign::Right);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: left").textAlign, TextAlign::Left);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: right").textAlign, TextAlign::Right);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: center").textAlign, TextAlign::Center);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: justify").textAlign, TextAlign::Justify);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: start").textAlign, TextAlign::Left);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: end").textAlign, TextAlign::Right);
 }
 
 TEST(CssParser, AlignmentCaseInsensitive) {
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: LEFT").textAlign, CssTextAlign::Left);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: Center").textAlign, CssTextAlign::Center);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align: JuStIfY").textAlign, CssTextAlign::Justify);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: LEFT").textAlign, TextAlign::Left);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: Center").textAlign, TextAlign::Center);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align: JuStIfY").textAlign, TextAlign::Justify);
 }
 
 TEST(CssParser, AlignmentTrimsWhitespace) {
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align:   left  ").textAlign, CssTextAlign::Left);
-  EXPECT_EQ(CssParser::parseInlineStyle("text-align:\tcenter\n").textAlign, CssTextAlign::Center);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align:   left  ").textAlign, TextAlign::Left);
+  EXPECT_EQ(CssParser::parseInlineStyle("text-align:\tcenter\n").textAlign, TextAlign::Center);
 }
 
 TEST(CssParser, AlignmentUnknownDefaultsLeft) {
@@ -52,7 +52,7 @@ TEST(CssParser, AlignmentUnknownDefaultsLeft) {
   // unrecognized keyword -- it just falls back to Left.
   const CssStyle s = CssParser::parseInlineStyle("text-align: nonsense");
   EXPECT_TRUE(s.hasTextAlign());
-  EXPECT_EQ(s.textAlign, CssTextAlign::Left);
+  EXPECT_EQ(s.textAlign, TextAlign::Left);
 }
 
 // ---- font-style --------------------------------------------------------------
@@ -180,7 +180,7 @@ TEST(CssParser, LengthRejectsNonNumericForWidthHeight) {
 TEST(CssParser, ParseInlineStyleMultipleProperties) {
   const CssStyle s = CssParser::parseInlineStyle("text-align: right; font-weight: bold; margin-top: 2em");
   EXPECT_TRUE(s.hasTextAlign());
-  EXPECT_EQ(s.textAlign, CssTextAlign::Right);
+  EXPECT_EQ(s.textAlign, TextAlign::Right);
   EXPECT_TRUE(s.hasFontWeight());
   EXPECT_EQ(s.fontWeight, CssFontWeight::Bold);
   EXPECT_TRUE(s.hasMarginTop());
@@ -267,7 +267,7 @@ TEST(CssParser, ResolveStyleTagOnly) {
   loadCss(parser, CASCADE_CSS);
   const CssStyle s = parser.resolveStyle("p", "");
   EXPECT_TRUE(s.hasTextAlign());
-  EXPECT_EQ(s.textAlign, CssTextAlign::Left);
+  EXPECT_EQ(s.textAlign, TextAlign::Left);
   EXPECT_TRUE(s.hasMarginTop());
   EXPECT_FLOAT_EQ(s.marginTop.value, 1.0f);
   EXPECT_EQ(s.marginTop.unit, CssUnit::Em);
@@ -279,7 +279,7 @@ TEST(CssParser, ResolveStyleClassOnly) {
   loadCss(parser, CASCADE_CSS);
   const CssStyle s = parser.resolveStyle("div", "highlight");
   EXPECT_TRUE(s.hasTextAlign());
-  EXPECT_EQ(s.textAlign, CssTextAlign::Center);
+  EXPECT_EQ(s.textAlign, TextAlign::Center);
   EXPECT_TRUE(s.hasFontWeight());
   EXPECT_EQ(s.fontWeight, CssFontWeight::Bold);
 }
@@ -290,7 +290,7 @@ TEST(CssParser, ResolveStyleCascade) {
   loadCss(parser, CASCADE_CSS);
   const CssStyle s = parser.resolveStyle("p", "highlight");
   ASSERT_TRUE(s.hasTextAlign());
-  EXPECT_EQ(s.textAlign, CssTextAlign::Right);  // p.highlight wins
+  EXPECT_EQ(s.textAlign, TextAlign::Right);  // p.highlight wins
   // font-weight only defined on .highlight; flows through.
   ASSERT_TRUE(s.hasFontWeight());
   EXPECT_EQ(s.fontWeight, CssFontWeight::Bold);
@@ -327,7 +327,7 @@ TEST(CssParser, ResolveStyleTagDotClassWinsOverClass) {
 .x { text-align: left; }
 p.x { text-align: right; }
 )");
-  EXPECT_EQ(parser.resolveStyle("p", "x").textAlign, CssTextAlign::Right);
+  EXPECT_EQ(parser.resolveStyle("p", "x").textAlign, TextAlign::Right);
 }
 
 TEST(CssParser, ResolveStyleLooksUpCaseInsensitive) {
@@ -337,7 +337,7 @@ TEST(CssParser, ResolveStyleLooksUpCaseInsensitive) {
   // std::string keys.
   CssParser parser("");
   loadCss(parser, "p { text-align: center; } .CLS { font-weight: bold; }");
-  EXPECT_EQ(parser.resolveStyle("P", "").textAlign, CssTextAlign::Center);
+  EXPECT_EQ(parser.resolveStyle("P", "").textAlign, TextAlign::Center);
   EXPECT_EQ(parser.resolveStyle("div", "Cls").fontWeight, CssFontWeight::Bold);
 }
 
@@ -350,7 +350,7 @@ TEST(CssParser, LoadFromStreamAccumulatesAcrossCalls) {
 
   EXPECT_EQ(parser.ruleCount(), 2u);
   const CssStyle s = parser.resolveStyle("p", "bold");
-  EXPECT_EQ(s.textAlign, CssTextAlign::Justify);
+  EXPECT_EQ(s.textAlign, TextAlign::Justify);
   EXPECT_EQ(s.fontWeight, CssFontWeight::Bold);
 }
 
@@ -364,7 +364,7 @@ p:first-child { text-align: right; }
 p > em { font-style: italic; }
 p { text-align: justify; }
 )");
-  EXPECT_EQ(parser.resolveStyle("p", "").textAlign, CssTextAlign::Justify);
+  EXPECT_EQ(parser.resolveStyle("p", "").textAlign, TextAlign::Justify);
 }
 
 TEST(CssParser, LoadFromStreamSkipsCommentsAndAtRules) {
