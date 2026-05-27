@@ -187,7 +187,7 @@ bool TxtReaderActivity::buildSectionCache(uint16_t viewportWidth, uint16_t viewp
           offset += wordStart;
           goto next_chunk;
         }
-        std::string token(reinterpret_cast<char*>(buffer.get() + wordStart), pos - wordStart);
+        std::string token(reinterpret_cast<char*>(&buffer[wordStart]), pos - wordStart);
         currentBlock->addWord(std::move(token), EpdFontFamily::REGULAR);
       }
 
