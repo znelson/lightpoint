@@ -47,17 +47,17 @@ class TypesetterFixture : public ::testing::Test {
                       emit);
   }
 
-  // Builds a FootnoteEntry with the given number string for queue-and-attach tests.
-  static FootnoteEntry makeFootnote(const char* number) {
-    FootnoteEntry entry;
-    std::strncpy(entry.number, number, sizeof(entry.number) - 1);
+  // Builds a LinkEntry with the given label for queue-and-attach tests.
+  static LinkEntry makeLink(const char* label) {
+    LinkEntry entry;
+    std::strncpy(entry.label, label, sizeof(entry.label) - 1);
     return entry;
   }
 
-  // Returns the total footnote count across all emitted pages.
-  size_t totalFootnotes() const {
+  // Returns the total link count across all emitted pages.
+  size_t totalLinks() const {
     size_t n = 0;
-    for (const auto& cp : emitted) n += cp.page->footnotes.size();
+    for (const auto& cp : emitted) n += cp.page->links.size();
     return n;
   }
 
@@ -199,7 +199,7 @@ TEST_F(TypesetterFixture, XpathIncrementsAccumulateAcrossPages) {
   EXPECT_EQ(emitted[1].xpathParagraphIndex, 5);
 }
 
-// --- footnote / wordsExtractedInBlock --------------------------------------
+// --- link / wordsExtractedInBlock ------------------------------------------
 
 TEST_F(TypesetterFixture, WordsExtractedInBlockResetWorks) {
   auto ts = makeTypesetter();
@@ -210,12 +210,12 @@ TEST_F(TypesetterFixture, WordsExtractedInBlockResetWorks) {
   // that is Tier 2. We verify resetWordsExtractedInBlock leaves it at 0.
 }
 
-TEST_F(TypesetterFixture, AddPendingFootnoteDoesNotAffectAccessor) {
+TEST_F(TypesetterFixture, AddPendingLinkDoesNotAffectAccessor) {
   auto ts = makeTypesetter();
   // The pending queue is internal; just verify the accessor stays untouched.
-  FootnoteEntry entry;
-  std::strncpy(entry.number, "1", sizeof(entry.number) - 1);
-  ts.addPendingFootnote(5, entry);
+  LinkEntry entry;
+  std::strncpy(entry.label, "1", sizeof(entry.label) - 1);
+  ts.addPendingLink(5, entry);
   EXPECT_EQ(ts.getWordsExtractedInBlock(), 0);
 }
 
@@ -327,59 +327,59 @@ TEST_F(TypesetterFixture, SubmitHorizontalRuleAppliesExplicitMargins) {
   EXPECT_EQ(emitted[0].page->elements[0]->yPos, 50);
 }
 
-// --- Footnote attachment to the correct page ------------------------------
+// --- Per-page link attachment to the correct page -------------------------
 
-TEST_F(TypesetterFixture, FootnoteAtEarlyWordIndexLandsOnFirstPage) {
+TEST_F(TypesetterFixture, LinkAtEarlyWordIndexLandsOnFirstPage) {
   auto ts = makeTypesetter();
-  ts.addPendingFootnote(/*wordIndex=*/1, makeFootnote("1"));
+  ts.addPendingLink(/*wordIndex=*/1, makeLink("1"));
   ts.submitParagraph(makeParagraph(/*wordCount=*/10, /*wordLen=*/4));
   ts.finish();
   ASSERT_EQ(emitted.size(), 1u);
-  ASSERT_EQ(emitted[0].page->footnotes.size(), 1u);
-  EXPECT_STREQ(emitted[0].page->footnotes[0].number, "1");
+  ASSERT_EQ(emitted[0].page->links.size(), 1u);
+  EXPECT_STREQ(emitted[0].page->links[0].label, "1");
 }
 
-TEST_F(TypesetterFixture, FootnoteAtLateWordIndexLandsOnLaterPage) {
+TEST_F(TypesetterFixture, LinkAtLateWordIndexLandsOnLaterPage) {
   auto ts = makeTypesetter();
-  // 600 words across multiple pages. Queue footnote near the end so it
+  // 600 words across multiple pages. Queue a link near the end so it
   // lands on a later page.
-  ts.addPendingFootnote(/*wordIndex=*/500, makeFootnote("late"));
+  ts.addPendingLink(/*wordIndex=*/500, makeLink("late"));
   ts.submitParagraph(makeParagraph(/*wordCount=*/600, /*wordLen=*/4));
   ts.finish();
   ASSERT_GE(emitted.size(), 2u);
-  // The footnote should NOT be on the first page (which contains words 1..~260).
-  EXPECT_EQ(emitted[0].page->footnotes.size(), 0u);
-  // Exactly one footnote across all pages.
-  EXPECT_EQ(totalFootnotes(), 1u);
+  // The link should NOT be on the first page (which contains words 1..~260).
+  EXPECT_EQ(emitted[0].page->links.size(), 0u);
+  // Exactly one link across all pages.
+  EXPECT_EQ(totalLinks(), 1u);
 }
 
-TEST_F(TypesetterFixture, MultipleFootnotesAttachToCorrectPages) {
+TEST_F(TypesetterFixture, MultipleLinksAttachToCorrectPages) {
   auto ts = makeTypesetter();
-  // Two footnotes on the same early page, one on a later page.
-  ts.addPendingFootnote(1, makeFootnote("a"));
-  ts.addPendingFootnote(2, makeFootnote("b"));
-  ts.addPendingFootnote(500, makeFootnote("c"));
+  // Two links on the same early page, one on a later page.
+  ts.addPendingLink(1, makeLink("a"));
+  ts.addPendingLink(2, makeLink("b"));
+  ts.addPendingLink(500, makeLink("c"));
   ts.submitParagraph(makeParagraph(/*wordCount=*/600, /*wordLen=*/4));
   ts.finish();
   ASSERT_GE(emitted.size(), 2u);
   // First page has "a" and "b".
-  ASSERT_EQ(emitted[0].page->footnotes.size(), 2u);
-  EXPECT_STREQ(emitted[0].page->footnotes[0].number, "a");
-  EXPECT_STREQ(emitted[0].page->footnotes[1].number, "b");
+  ASSERT_EQ(emitted[0].page->links.size(), 2u);
+  EXPECT_STREQ(emitted[0].page->links[0].label, "a");
+  EXPECT_STREQ(emitted[0].page->links[1].label, "b");
   // "c" lands on a later page.
-  EXPECT_EQ(totalFootnotes(), 3u);
+  EXPECT_EQ(totalLinks(), 3u);
 }
 
-TEST_F(TypesetterFixture, FootnoteAtImpossibleWordIndexDumpsToFinalPage) {
-  // Footnote with wordIndex beyond the block size triggers the fallback
-  // in submitParagraph that drains the queue to the current page.
+TEST_F(TypesetterFixture, LinkAtImpossibleWordIndexDumpsToFinalPage) {
+  // A link with wordIndex beyond the block size triggers the fallback in
+  // submitParagraph that drains the queue to the current page.
   auto ts = makeTypesetter();
-  ts.addPendingFootnote(/*wordIndex=*/9999, makeFootnote("fallback"));
+  ts.addPendingLink(/*wordIndex=*/9999, makeLink("fallback"));
   ts.submitParagraph(makeParagraph(/*wordCount=*/5, /*wordLen=*/4));
   ts.finish();
   ASSERT_EQ(emitted.size(), 1u);
-  ASSERT_EQ(emitted[0].page->footnotes.size(), 1u);
-  EXPECT_STREQ(emitted[0].page->footnotes[0].number, "fallback");
+  ASSERT_EQ(emitted[0].page->links.size(), 1u);
+  EXPECT_STREQ(emitted[0].page->links[0].label, "fallback");
 }
 
 // --- Null input handling --------------------------------------------------

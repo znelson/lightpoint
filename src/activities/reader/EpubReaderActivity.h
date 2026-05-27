@@ -1,7 +1,7 @@
 #pragma once
 #include <Epub.h>
 #include <Epub/SpineItem.h>
-#include <Typesetter/FootnoteEntry.h>
+#include <Typesetter/LinkEntry.h>
 
 #include <optional>
 #include <vector>
@@ -57,7 +57,11 @@ class EpubReaderActivity final : public Activity {
   ChapterPageInfo chapterPageInfo;
 
   // Footnote support
-  std::vector<FootnoteEntry> currentPageFootnotes;
+  // Interactive targets on the currently-rendered page. Sourced from
+  // page->links; populated in render() after each loadPageFromSectionFile.
+  // Footnote refs and any in-document anchor links share this vector
+  // (parser-side classification doesn't matter to the picker).
+  std::vector<LinkEntry> currentPageLinks;
   struct SavedPosition {
     int spineIndex;
     int pageNumber;

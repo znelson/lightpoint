@@ -2,7 +2,7 @@
 
 #include <FunctionRef.h>
 #include <Typesetter.h>
-#include <Typesetter/FootnoteEntry.h>
+#include <Typesetter/LinkEntry.h>
 #include <Typesetter/ParsedText.h>
 #include <Typesetter/blocks/ImageBlock.h>
 #include <Typesetter/blocks/TextBlock.h>
@@ -84,7 +84,7 @@ class ChapterHtmlSlimParser {
   // Footnote link tracking
   bool insideFootnoteLink = false;
   int footnoteLinkDepth = -1;
-  FootnoteEntry currentFootnote = {};
+  LinkEntry currentFootnote = {};
   int currentFootnoteLinkTextLen = 0;
 
   void updateEffectiveInlineStyle();

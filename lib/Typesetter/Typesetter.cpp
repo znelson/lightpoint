@@ -39,14 +39,14 @@ void Typesetter::addLineToPage(std::shared_ptr<TextBlock> line) {
     currentPageNextY = 0;
   }
 
-  // Track cumulative words to assign footnotes to the page containing their anchor
+  // Track cumulative words to attach per-page links to the page containing their anchor word.
   wordsExtractedInBlock += line->wordCount();
-  auto footnoteIt = pendingFootnotes.begin();
-  while (footnoteIt != pendingFootnotes.end() && footnoteIt->first <= wordsExtractedInBlock) {
-    currentPage->addFootnote(footnoteIt->second.number, footnoteIt->second.href);
-    ++footnoteIt;
+  auto linkIt = pendingLinks.begin();
+  while (linkIt != pendingLinks.end() && linkIt->first <= wordsExtractedInBlock) {
+    currentPage->addLink(linkIt->second.label, linkIt->second.href);
+    ++linkIt;
   }
-  pendingFootnotes.erase(pendingFootnotes.begin(), footnoteIt);
+  pendingLinks.erase(pendingLinks.begin(), linkIt);
 
   // Apply horizontal left inset (margin + padding) as x position offset
   const int16_t xOffset = line->getBlockStyle().leftInset();
@@ -88,14 +88,14 @@ void Typesetter::submitParagraph(std::unique_ptr<ParsedText> paragraph) {
   paragraph->layoutAndExtractLines(renderer, fontId, effectiveWidth,
                                    [this](const std::shared_ptr<TextBlock>& textBlock) { addLineToPage(textBlock); });
 
-  // Fallback: transfer any remaining pending footnotes to current page.
+  // Fallback: transfer any remaining pending links to current page.
   // Normally addLineToPage handles this via word-index tracking, but this catches
-  // edge cases where a footnote's word index equals the exact block size.
-  if (!pendingFootnotes.empty() && currentPage) {
-    for (const auto& [idx, fn] : pendingFootnotes) {
-      currentPage->addFootnote(fn.number, fn.href);
+  // edge cases where a link's word index equals the exact block size.
+  if (!pendingLinks.empty() && currentPage) {
+    for (const auto& [idx, link] : pendingLinks) {
+      currentPage->addLink(link.label, link.href);
     }
-    pendingFootnotes.clear();
+    pendingLinks.clear();
   }
 
   // Apply bottom spacing after the paragraph (stored in pixels)

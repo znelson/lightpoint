@@ -117,14 +117,14 @@ bool Page::serialize(HalFile& file) const {
     }
   }
 
-  // Serialize footnotes (clamp to MAX_FOOTNOTES_PER_PAGE to match addFootnote/deserialize limits)
-  const uint16_t fnCount = std::min<uint16_t>(footnotes.size(), MAX_FOOTNOTES_PER_PAGE);
-  serialization::writePod(file, fnCount);
-  for (uint16_t i = 0; i < fnCount; i++) {
-    const auto& fn = footnotes[i];
-    if (file.write(fn.number, sizeof(fn.number)) != sizeof(fn.number) ||
-        file.write(fn.href, sizeof(fn.href)) != sizeof(fn.href)) {
-      LOG_ERR("PGE", "Failed to write footnote");
+  // Serialize per-page links (clamp to MAX_LINKS_PER_PAGE to match addLink/deserialize limits)
+  const uint16_t linkCount = std::min<uint16_t>(links.size(), MAX_LINKS_PER_PAGE);
+  serialization::writePod(file, linkCount);
+  for (uint16_t i = 0; i < linkCount; i++) {
+    const auto& link = links[i];
+    if (file.write(link.label, sizeof(link.label)) != sizeof(link.label) ||
+        file.write(link.href, sizeof(link.href)) != sizeof(link.href)) {
+      LOG_ERR("PGE", "Failed to write link");
       return false;
     }
   }
@@ -164,22 +164,22 @@ std::unique_ptr<Page> Page::deserialize(HalFile& file) {
     }
   }
 
-  // Deserialize footnotes
-  uint16_t fnCount;
-  serialization::readPod(file, fnCount);
-  if (fnCount > MAX_FOOTNOTES_PER_PAGE) {
-    LOG_ERR("PGE", "Invalid footnote count %u", fnCount);
+  // Deserialize per-page links
+  uint16_t linkCount;
+  serialization::readPod(file, linkCount);
+  if (linkCount > MAX_LINKS_PER_PAGE) {
+    LOG_ERR("PGE", "Invalid link count %u", linkCount);
     return nullptr;
   }
-  page->footnotes.resize(fnCount);
-  for (uint16_t i = 0; i < fnCount; i++) {
-    auto& entry = page->footnotes[i];
-    if (file.read(entry.number, sizeof(entry.number)) != sizeof(entry.number) ||
+  page->links.resize(linkCount);
+  for (uint16_t i = 0; i < linkCount; i++) {
+    auto& entry = page->links[i];
+    if (file.read(entry.label, sizeof(entry.label)) != sizeof(entry.label) ||
         file.read(entry.href, sizeof(entry.href)) != sizeof(entry.href)) {
-      LOG_ERR("PGE", "Failed to read footnote %u", i);
+      LOG_ERR("PGE", "Failed to read link %u", i);
       return nullptr;
     }
-    entry.number[sizeof(entry.number) - 1] = '\0';
+    entry.label[sizeof(entry.label) - 1] = '\0';
     entry.href[sizeof(entry.href) - 1] = '\0';
   }
 

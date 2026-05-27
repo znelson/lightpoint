@@ -1,4 +1,4 @@
-#include "EpubReaderFootnotesActivity.h"
+#include "ReaderLinkPickerActivity.h"
 
 #include <GfxRenderer.h>
 #include <I18n.h>
@@ -9,15 +9,15 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
-void EpubReaderFootnotesActivity::onEnter() {
+void ReaderLinkPickerActivity::onEnter() {
   Activity::onEnter();
   selectedIndex = 0;
   requestUpdate();
 }
 
-void EpubReaderFootnotesActivity::onExit() { Activity::onExit(); }
+void ReaderLinkPickerActivity::onExit() { Activity::onExit(); }
 
-void EpubReaderFootnotesActivity::loop() {
+void ReaderLinkPickerActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;
     result.isCancelled = true;
@@ -27,29 +27,29 @@ void EpubReaderFootnotesActivity::loop() {
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(footnotes.size())) {
-      setResult(FootnoteResult{footnotes[selectedIndex].href});
+    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
+      setResult(LinkResult{entries[selectedIndex].href});
       finish();
     }
     return;
   }
 
   buttonNavigator.onNext([this] {
-    if (!footnotes.empty()) {
-      selectedIndex = (selectedIndex + 1) % footnotes.size();
+    if (!entries.empty()) {
+      selectedIndex = (selectedIndex + 1) % entries.size();
       requestUpdate();
     }
   });
 
   buttonNavigator.onPrevious([this] {
-    if (!footnotes.empty()) {
-      selectedIndex = (selectedIndex - 1 + footnotes.size()) % footnotes.size();
+    if (!entries.empty()) {
+      selectedIndex = (selectedIndex - 1 + entries.size()) % entries.size();
       requestUpdate();
     }
   });
 }
 
-void EpubReaderFootnotesActivity::render(RenderLock&&) {
+void ReaderLinkPickerActivity::render(RenderLock&&) {
   renderer.clearScreen();
 
   const auto pageWidth = renderer.getScreenWidth();
@@ -67,12 +67,11 @@ void EpubReaderFootnotesActivity::render(RenderLock&&) {
   const int contentY = hintGutterHeight;
 
   // Manual centering to honor content gutters.
-  const int titleX =
-      contentX + (contentWidth - renderer.getTextWidth(UI_12_FONT_ID, tr(STR_FOOTNOTES), EpdFontFamily::BOLD)) / 2;
-  renderer.drawText(UI_12_FONT_ID, titleX, 15 + contentY, tr(STR_FOOTNOTES), true, EpdFontFamily::BOLD);
+  const int titleX = contentX + (contentWidth - renderer.getTextWidth(UI_12_FONT_ID, title, EpdFontFamily::BOLD)) / 2;
+  renderer.drawText(UI_12_FONT_ID, titleX, 15 + contentY, title, true, EpdFontFamily::BOLD);
 
-  if (footnotes.empty()) {
-    renderer.drawCenteredText(UI_10_FONT_ID, 90 + contentY, tr(STR_NO_FOOTNOTES));
+  if (entries.empty()) {
+    renderer.drawCenteredText(UI_10_FONT_ID, 90 + contentY, emptyMessage);
     const auto labels = mappedInput.mapLabels(tr(STR_BACK), "", "", "");
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
     renderer.displayBuffer();
@@ -87,7 +86,7 @@ void EpubReaderFootnotesActivity::render(RenderLock&&) {
   if (selectedIndex < scrollOffset) scrollOffset = selectedIndex;
   if (selectedIndex >= scrollOffset + visibleCount) scrollOffset = selectedIndex - visibleCount + 1;
 
-  for (int i = scrollOffset; i < static_cast<int>(footnotes.size()) && i < scrollOffset + visibleCount; i++) {
+  for (int i = scrollOffset; i < static_cast<int>(entries.size()) && i < scrollOffset + visibleCount; i++) {
     const int y = 60 + contentY + (i - scrollOffset) * lineHeight;
     const bool isSelected = (i == selectedIndex);
 
@@ -95,8 +94,10 @@ void EpubReaderFootnotesActivity::render(RenderLock&&) {
       renderer.fillRect(0, y, screenWidth, lineHeight, true);
     }
 
-    // Show footnote number and abbreviated href
-    std::string label = footnotes[i].number;
+    // Show the entry's label; fall back to a generic placeholder when the
+    // label is empty (parser couldn't extract a visible text run, e.g.
+    // an EPUB anchor that wraps non-text content).
+    std::string label = entries[i].label;
     if (label.empty()) {
       label = tr(STR_LINK);
     }
