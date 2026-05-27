@@ -13,8 +13,8 @@ struct Chapter {
   uint16_t endPage;    // exclusive
 };
 
-// A navigation target whose page range has not yet been resolved (the section
-// for the target spine has not been loaded, so its page count is unknown).
+// A navigation target whose page range has not yet been resolved (the spine
+// item has not been loaded, so its page count is unknown).
 // Used for chapter-selector results and pending cross-spine navigation.
 struct ChapterTarget {
   std::optional<int> tocIndex;

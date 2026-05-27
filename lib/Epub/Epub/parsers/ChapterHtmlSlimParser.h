@@ -27,7 +27,7 @@ class ChapterHtmlSlimParser {
   const std::string& filepath;
   GfxRenderer& renderer;
   Typesetter typesetter;
-  FunctionRef<void()> popupFn;  // Popup callback (lifetime: caller's frame; see SpineItem::createSectionFile)
+  FunctionRef<void()> popupFn;  // Popup callback (lifetime: caller's frame; see SpineItem::createCacheFile)
   int depth = 0;
   int skipUntilDepth = INT_MAX;
   int boldUntilDepth = INT_MAX;

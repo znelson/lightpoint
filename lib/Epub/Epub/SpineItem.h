@@ -62,16 +62,16 @@ class SpineItem {
   // render parameters, populates pageCount, and builds tocBoundaries by
   // scanning the on-disk anchor map. Returns false if the cache is missing,
   // stale, or has mismatched render parameters.
-  bool loadSectionFile(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
-                       uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled, bool embeddedStyle,
-                       uint8_t imageRendering, bool focusReadingEnabled);
+  bool loadCacheFile(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
+                     uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled, bool embeddedStyle,
+                     uint8_t imageRendering, bool focusReadingEnabled);
 
   // High-level orchestration: parses the spine's HTML via Epub, lays it out
   // through ChapterHtmlSlimParser + Typesetter, and persists the result via
   // Section. Returns false on parse / I/O failure.
-  bool createSectionFile(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
-                         uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled, bool embeddedStyle,
-                         uint8_t imageRendering, bool focusReadingEnabled, FunctionRef<void()> popupFn = nullptr);
+  bool createCacheFile(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
+                       uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled, bool embeddedStyle,
+                       uint8_t imageRendering, bool focusReadingEnabled, FunctionRef<void()> popupFn = nullptr);
 
   bool clearCache() const { return section_.clearCache(); }
   std::unique_ptr<Page> loadPageFromSectionFile();
