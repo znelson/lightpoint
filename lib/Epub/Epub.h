@@ -12,8 +12,6 @@
 #include "Epub/Chapter.h"
 #include "Epub/css/CssParser.h"
 
-class ZipFile;
-
 class Epub {
   // the ncx file (EPUB 2)
   std::string tocNcxItem;

@@ -853,8 +853,8 @@ std::optional<int> Epub::getSpineIndexForTocIndex(const int tocIndex) const {
 
 std::optional<int> Epub::getTocIndexForSpineIndex(const int spineIndex) const {
   const int stored = getSpineItem(spineIndex).tocIndex;
-  // The on-disk int16_t storage uses -1 as the no-TOC sentinel (see sentinel-audit.md
-  // Category 5). Convert at the API boundary so callers don't propagate the sentinel.
+  // The on-disk int16_t storage uses -1 as the no-TOC sentinel, convert at the API
+  // boundary so callers don't propagate the sentinel.
   if (stored < 0) return std::nullopt;
   return stored;
 }

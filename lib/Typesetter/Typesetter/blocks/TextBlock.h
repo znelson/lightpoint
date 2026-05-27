@@ -9,6 +9,8 @@
 #include "Block.h"
 #include "BlockStyle.h"
 
+class GfxRenderer;
+
 // Represents a line of text on a page
 class TextBlock final : public Block {
  private:

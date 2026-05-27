@@ -7,7 +7,6 @@
 #include "util/ButtonNavigator.h"
 
 struct RecentBook;
-struct Rect;
 
 class HomeActivity final : public Activity {
   ButtonNavigator buttonNavigator;
