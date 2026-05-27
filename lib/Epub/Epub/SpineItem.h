@@ -1,8 +1,8 @@
 #pragma once
 
+#include <FunctionRef.h>
 #include <Typesetter/Section.h>
 
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -71,8 +71,7 @@ class SpineItem {
   // Section. Returns false on parse / I/O failure.
   bool createSectionFile(int fontId, float lineCompression, bool extraParagraphSpacing, uint8_t paragraphAlignment,
                          uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled, bool embeddedStyle,
-                         uint8_t imageRendering, bool focusReadingEnabled,
-                         const std::function<void()>& popupFn = nullptr);
+                         uint8_t imageRendering, bool focusReadingEnabled, FunctionRef<void()> popupFn = nullptr);
 
   bool clearCache() const { return section_.clearCache(); }
   std::unique_ptr<Page> loadPageFromSectionFile();

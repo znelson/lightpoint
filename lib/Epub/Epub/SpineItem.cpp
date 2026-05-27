@@ -31,7 +31,7 @@ bool SpineItem::createSectionFile(const int fontId, const float lineCompression,
                                   const uint8_t paragraphAlignment, const uint16_t viewportWidth,
                                   const uint16_t viewportHeight, const bool hyphenationEnabled,
                                   const bool embeddedStyle, const uint8_t imageRendering,
-                                  const bool focusReadingEnabled, const std::function<void()>& popupFn) {
+                                  const bool focusReadingEnabled, FunctionRef<void()> popupFn) {
   const auto localPath = epub->getSpineItem(spineIndex).href;
   const auto tmpHtmlPath = epub->getCachePath() + "/.tmp_" + std::to_string(spineIndex) + ".html";
 
@@ -118,13 +118,17 @@ bool SpineItem::createSectionFile(const int fontId, const float lineCompression,
   }
   const uint16_t tocUnresolvedCount = static_cast<uint16_t>(tocAnchors.size());
 
-  ChapterHtmlSlimParser visitor(
-      epub, tmpHtmlPath, renderer, fontId, lineCompression, extraParagraphSpacing, paragraphAlignment, viewportWidth,
-      viewportHeight, hyphenationEnabled, focusReadingEnabled,
-      [this, &lut](std::unique_ptr<Page> page, const uint16_t paragraphIndex, const uint16_t listItemIndex) {
-        lut.push_back({section_.writePage(std::move(page)), paragraphIndex, listItemIndex});
-      },
-      embeddedStyle, contentBase, imageBasePath, imageRendering, std::move(tocAnchors), popupFn, cssParser);
+  // Named local so the lambda outlives `visitor` -- ChapterHtmlSlimParser
+  // stores a FunctionRef pointing at this closure, so it must live in this
+  // frame, not as a temporary in the constructor call.
+  auto onPageComplete = [this, &lut](std::unique_ptr<Page> page, const uint16_t paragraphIndex,
+                                     const uint16_t listItemIndex) {
+    lut.push_back({section_.writePage(std::move(page)), paragraphIndex, listItemIndex});
+  };
+  ChapterHtmlSlimParser visitor(epub, tmpHtmlPath, renderer, fontId, lineCompression, extraParagraphSpacing,
+                                paragraphAlignment, viewportWidth, viewportHeight, hyphenationEnabled,
+                                focusReadingEnabled, onPageComplete, embeddedStyle, contentBase, imageBasePath,
+                                imageRendering, std::move(tocAnchors), popupFn, cssParser);
   Hyphenator::setPreferredLanguage(epub->getLanguage());
   success = visitor.parseAndBuildPages();
 

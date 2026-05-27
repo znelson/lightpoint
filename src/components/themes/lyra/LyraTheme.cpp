@@ -197,11 +197,9 @@ void LyraTheme::drawTabBar(const GfxRenderer& renderer, Rect rect, const std::ve
 }
 
 void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
-                         const std::function<std::string(int index)>& rowTitle,
-                         const std::function<std::string(int index)>& rowSubtitle,
-                         const std::function<UIIcon(int index)>& rowIcon,
-                         const std::function<std::string(int index)>& rowValue, bool highlightValue,
-                         const std::function<bool(int index)>& rowDimmed) const {
+                         FunctionRef<std::string(int index)> rowTitle, FunctionRef<std::string(int index)> rowSubtitle,
+                         FunctionRef<UIIcon(int index)> rowIcon, FunctionRef<std::string(int index)> rowValue,
+                         bool highlightValue, FunctionRef<bool(int index)> rowDimmed) const {
   int rowHeight =
       (rowSubtitle != nullptr) ? LyraMetrics::values.listWithSubtitleRowHeight : LyraMetrics::values.listRowHeight;
   int pageItems = rect.height / rowHeight;
@@ -393,7 +391,7 @@ void LyraTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
 
 void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                                     const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                    bool& bufferRestored, std::function<bool()> storeCoverBuffer) const {
+                                    bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
   const int tileWidth = rect.width - 2 * LyraMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
   const int tileY = rect.y;
@@ -496,8 +494,8 @@ void LyraTheme::drawEmptyRecents(const GfxRenderer& renderer, const Rect rect) c
 }
 
 void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
-                               const std::function<std::string(int index)>& buttonLabel,
-                               const std::function<UIIcon(int index)>& rowIcon) const {
+                               FunctionRef<std::string(int index)> buttonLabel,
+                               FunctionRef<UIIcon(int index)> rowIcon) const {
   for (int i = 0; i < buttonCount; ++i) {
     int tileWidth = rect.width - LyraMetrics::values.contentSidePadding * 2;
     Rect tileRect = Rect{rect.x + LyraMetrics::values.contentSidePadding,

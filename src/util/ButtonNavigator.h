@@ -1,13 +1,14 @@
 #pragma once
 
-#include <functional>
+#include <FunctionRef.h>
+
 #include <optional>
 #include <vector>
 
 #include "MappedInputManager.h"
 
 class ButtonNavigator final {
-  using Callback = std::function<void()>;
+  using Callback = FunctionRef<void()>;
   using Buttons = std::vector<MappedInputManager::Button>;
 
   const uint16_t continuousStartMs;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <type_traits>
 #include <utility>
@@ -20,6 +21,10 @@
 //     for (const Item& it : items) visit(it);
 //   }
 //   forEachItem([&](const Item& it) { total += it.size; });
+//
+// Null state: default-constructed or nullptr-constructed FunctionRefs are
+// empty; `if (cb) cb(...)` is the safe-call idiom. Calling operator() on
+// an empty FunctionRef is undefined behavior.
 
 template <typename Signature>
 class FunctionRef;
@@ -27,15 +32,22 @@ class FunctionRef;
 template <typename R, typename... Args>
 class FunctionRef<R(Args...)> {
  public:
+  FunctionRef() = default;
+  FunctionRef(std::nullptr_t) noexcept {}
+
+  // Implicit converting constructor: callers pass lambdas / function objects
+  // directly, matching std::function's ergonomics. noExplicitConstructor is
+  // suppressed file-wide in platformio.ini (covers both this and the
+  // std::nullptr_t empty-state constructor above).
   template <typename Fn, typename = std::enable_if_t<!std::is_same_v<std::remove_cvref_t<Fn>, FunctionRef> &&
                                                      std::is_invocable_r_v<R, Fn&, Args...>>>
-  // Implicit by design: callers pass lambdas / function objects directly,
-  // matching std::function's converting-constructor ergonomics.
-  // cppcheck-suppress noExplicitConstructor
   FunctionRef(Fn&& fn) noexcept
       : _obj(reinterpret_cast<intptr_t>(&fn)), _call(&trampoline<std::remove_reference_t<Fn>>) {}
 
   R operator()(Args... args) const { return _call(_obj, std::forward<Args>(args)...); }
+
+  explicit operator bool() const noexcept { return _call != nullptr; }
+  bool operator==(std::nullptr_t) const noexcept { return _call == nullptr; }
 
  private:
   template <typename Fn>
@@ -43,6 +55,6 @@ class FunctionRef<R(Args...)> {
     return (*reinterpret_cast<Fn*>(obj))(std::forward<Args>(args)...);
   }
 
-  intptr_t _obj;
-  R (*_call)(intptr_t, Args...);
+  intptr_t _obj = 0;
+  R (*_call)(intptr_t, Args...) = nullptr;
 };
