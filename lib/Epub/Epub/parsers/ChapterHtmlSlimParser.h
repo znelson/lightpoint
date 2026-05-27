@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Typesetter.h>
 #include <Typesetter/FootnoteEntry.h>
 #include <Typesetter/ParsedText.h>
 #include <Typesetter/blocks/ImageBlock.h>
@@ -25,7 +26,7 @@ class ChapterHtmlSlimParser {
   std::shared_ptr<Epub> epub;
   const std::string& filepath;
   GfxRenderer& renderer;
-  std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t)> completePageFn;
+  Typesetter typesetter;
   std::function<void()> popupFn;  // Popup callback
   int depth = 0;
   int skipUntilDepth = INT_MAX;
@@ -38,8 +39,6 @@ class ChapterHtmlSlimParser {
   int partWordBufferIndex = 0;
   bool nextWordContinues = false;  // true when next flushed word attaches to previous (inline element boundary)
   std::unique_ptr<ParsedText> currentTextBlock = nullptr;
-  std::unique_ptr<Page> currentPage = nullptr;
-  int16_t currentPageNextY = 0;
   int fontId;
   float lineCompression;
   bool extraParagraphSpacing;
@@ -76,27 +75,22 @@ class ChapterHtmlSlimParser {
   int tableRowIndex = 0;
   int tableColIndex = 0;
 
-  // Anchor-to-page mapping: tracks which page each HTML id attribute lands on
-  int completedPageCount = 0;
+  // Anchor-to-page mapping: tracks which page each HTML id attribute lands on.
+  // Page counter and xpath indices live in `typesetter` -- query via accessors.
   std::vector<std::pair<std::string, uint16_t>> anchorData;
   std::string pendingAnchorId;          // deferred until after previous text block is flushed
   std::vector<std::string> tocAnchors;  // the list of anchors that are TOC chapter boundaries
-  uint16_t xpathParagraphIndex = 0;
-  uint16_t xpathListItemIndex = 0;
 
   // Footnote link tracking
   bool insideFootnoteLink = false;
   int footnoteLinkDepth = -1;
   FootnoteEntry currentFootnote = {};
   int currentFootnoteLinkTextLen = 0;
-  std::vector<std::pair<int, FootnoteEntry>> pendingFootnotes;  // <wordIndex, entry>
-  int wordsExtractedInBlock = 0;
 
   void updateEffectiveInlineStyle();
   void startNewTextBlock(const BlockStyle& blockStyle);
   void flushPendingAnchor();
   void flushPartWordBuffer();
-  void makePages();
   void emitHorizontalRule(const BlockStyle& blockStyle);
   // XML callbacks
   static void XMLCALL startElement(void* userData, const XML_Char* name, const XML_Char** atts);
@@ -119,7 +113,8 @@ class ChapterHtmlSlimParser {
       : epub(epub),
         filepath(filepath),
         renderer(renderer),
-        completePageFn(completePageFn),
+        typesetter(renderer, fontId, lineCompression, extraParagraphSpacing, viewportWidth, viewportHeight,
+                   completePageFn),
         popupFn(popupFn),
         fontId(fontId),
         lineCompression(lineCompression),
@@ -138,6 +133,5 @@ class ChapterHtmlSlimParser {
 
   ~ChapterHtmlSlimParser() = default;
   bool parseAndBuildPages();
-  void addLineToPage(std::shared_ptr<TextBlock> line);
   const std::vector<std::pair<std::string, uint16_t>>& getAnchors() const { return anchorData; }
 };
