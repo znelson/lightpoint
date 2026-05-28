@@ -53,6 +53,14 @@ class MdReaderActivity final : public Activity {
   void saveProgress() const;
   void loadProgress();
 
+  // Dispatches a MdReaderMenuActivity result -- LINKS opens the link
+  // picker, GO_TO_PERCENT opens the percent selector. Defined separately
+  // so the Confirm-button binding stays a single callback.
+  void onMenuResult(const ActivityResult& result);
+
+  // Maps a 0-100 book percentage to a page in `cache` and jumps to it.
+  void jumpToPercent(int percent);
+
  public:
   explicit MdReaderActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::unique_ptr<Txt> md)
       : Activity("MdReader", renderer, mappedInput),

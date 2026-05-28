@@ -32,6 +32,10 @@ class TxtReaderActivity final : public Activity {
   void saveProgress() const;
   void loadProgress();
 
+  // Maps a 0-100 file progress percentage to a page in `cache` and jumps to
+  // it. Triggered by the Confirm-button → percent selector flow.
+  void jumpToPercent(int percent);
+
  public:
   explicit TxtReaderActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::unique_ptr<Txt> txt)
       : Activity("TxtReader", renderer, mappedInput),

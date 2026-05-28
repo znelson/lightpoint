@@ -12,9 +12,12 @@
 #include <Typesetter/blocks/BlockStyle.h>
 #include <Utf8.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "ReaderPercentSelectionActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -71,6 +74,21 @@ void TxtReaderActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() < ReaderUtils::GO_HOME_MS) {
     onGoHome();
+    return;
+  }
+
+  // Confirm opens the percent selector. No menu wraps it -- this is the
+  // only Confirm-bound action in TxtReader; if more arrive, factor in a
+  // TxtReaderMenuActivity sibling to MdReaderMenuActivity.
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) && cache.pageCount > 0) {
+    const int initialPercent = static_cast<int>((currentPage + 1) * 100.0f / cache.pageCount + 0.5f);
+    startActivityForResult(std::make_unique<ReaderPercentSelectionActivity>(renderer, mappedInput, initialPercent),
+                           [this](const ActivityResult& result) {
+                             if (!result.isCancelled) {
+                               jumpToPercent(std::get<PercentResult>(result.data).percent);
+                             }
+                             requestUpdate();
+                           });
     return;
   }
 
@@ -349,6 +367,16 @@ void TxtReaderActivity::loadProgress() {
       LOG_DBG("TRS", "Loaded progress: page %d/%d", currentPage, cache.pageCount);
     }
   }
+}
+
+void TxtReaderActivity::jumpToPercent(int percent) {
+  // Single-file format: percent maps directly to a page within the section
+  // cache. Same logic as MdReader; both clamp to [0, pageCount-1].
+  if (cache.pageCount == 0) return;
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+  const int targetPage = static_cast<int>(percent * (cache.pageCount - 1) / 100.0f + 0.5f);
+  currentPage = std::clamp(targetPage, 0, static_cast<int>(cache.pageCount) - 1);
 }
 
 ScreenshotInfo TxtReaderActivity::getScreenshotInfo() const {
