@@ -8,10 +8,14 @@
 #include <Typesetter.h>
 #include <Typesetter/Page.h>
 
+#include <algorithm>
+
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "MappedInputManager.h"
+#include "MdReaderMenuActivity.h"
 #include "ReaderLinkPickerActivity.h"
+#include "ReaderPercentSelectionActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
@@ -59,26 +63,18 @@ void MdReaderActivity::loop() {
     return;
   }
 
-  // Confirm button opens the link picker for the current page, when there's
-  // anything to pick. Layer 3 entry point: ReaderLinkPickerActivity returns
-  // a LinkResult{href}; #anchor hrefs resolve to a page via the Section's
-  // anchor map. Non-anchor hrefs (e.g. http://...) are ignored for now;
-  // this device has no external network UX.
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) && !currentPageLinks.empty()) {
+  // Confirm opens the reader menu. The menu dispatches to LinkPicker
+  // (when the current page has interactive link targets) or the percent
+  // selector. Direct activity bindings would work for a single-action
+  // reader, but with two actions the menu makes the activity stack
+  // explicit and leaves room for future items (rotation, etc.).
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+    const int progressPercent =
+        cache.pageCount > 0 ? static_cast<int>((currentPage + 1) * 100.0f / cache.pageCount + 0.5f) : 0;
     startActivityForResult(
-        std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks, tr(STR_LINKS)),
-        [this](const ActivityResult& result) {
-          if (!result.isCancelled) {
-            const auto& linkResult = std::get<LinkResult>(result.data);
-            if (!linkResult.href.empty() && linkResult.href[0] == '#') {
-              const auto resolved = cache.getPageForAnchor(linkResult.href.substr(1));
-              if (resolved) {
-                currentPage = *resolved;
-              }
-            }
-          }
-          requestUpdate();
-        });
+        std::make_unique<MdReaderMenuActivity>(renderer, mappedInput, md->getTitle(), currentPage + 1, cache.pageCount,
+                                               progressPercent, !currentPageLinks.empty()),
+        [this](const ActivityResult& menuResult) { onMenuResult(menuResult); });
     return;
   }
 
@@ -274,6 +270,59 @@ void MdReaderActivity::loadProgress() {
       LOG_DBG("MDR", "Loaded progress: page %d/%d", currentPage, cache.pageCount);
     }
   }
+}
+
+void MdReaderActivity::onMenuResult(const ActivityResult& result) {
+  if (result.isCancelled) {
+    requestUpdate();
+    return;
+  }
+  const auto& menuResult = std::get<MenuResult>(result.data);
+  if (!menuResult.action) {
+    requestUpdate();
+    return;
+  }
+  const auto action = static_cast<MdReaderMenuActivity::MenuAction>(*menuResult.action);
+  switch (action) {
+    case MdReaderMenuActivity::MenuAction::LINKS:
+      startActivityForResult(
+          std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks, tr(STR_LINKS)),
+          [this](const ActivityResult& linkPickerResult) {
+            if (!linkPickerResult.isCancelled) {
+              const auto& linkResult = std::get<LinkResult>(linkPickerResult.data);
+              if (!linkResult.href.empty() && linkResult.href[0] == '#') {
+                const auto resolved = cache.getPageForAnchor(linkResult.href.substr(1));
+                if (resolved) {
+                  currentPage = *resolved;
+                }
+              }
+            }
+            requestUpdate();
+          });
+      return;
+    case MdReaderMenuActivity::MenuAction::GO_TO_PERCENT: {
+      const int initialPercent =
+          cache.pageCount > 0 ? static_cast<int>((currentPage + 1) * 100.0f / cache.pageCount + 0.5f) : 0;
+      startActivityForResult(std::make_unique<ReaderPercentSelectionActivity>(renderer, mappedInput, initialPercent),
+                             [this](const ActivityResult& percentResult) {
+                               if (!percentResult.isCancelled) {
+                                 jumpToPercent(std::get<PercentResult>(percentResult.data).percent);
+                               }
+                               requestUpdate();
+                             });
+      return;
+    }
+  }
+}
+
+void MdReaderActivity::jumpToPercent(int percent) {
+  // Single-file format: percent maps directly to a page within the section
+  // cache. Round to the nearest page index, clamped to [0, pageCount-1].
+  if (cache.pageCount == 0) return;
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+  const int targetPage = static_cast<int>(percent * (cache.pageCount - 1) / 100.0f + 0.5f);
+  currentPage = std::clamp(targetPage, 0, static_cast<int>(cache.pageCount) - 1);
 }
 
 ScreenshotInfo MdReaderActivity::getScreenshotInfo() const {
