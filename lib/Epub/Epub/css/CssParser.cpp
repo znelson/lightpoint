@@ -417,6 +417,11 @@ void CssParser::processRuleBlockWithStyle(const std::string& selectorGroup, cons
     return;
   }
 
+  // Drop rules whose declarations are all unrecognized (color, background, font-family, etc.).
+  // The CssStyle would store as default-constructed with zero defined flags, contributing nothing
+  // during resolveStyle but costing ~140 bytes of DRAM per entry plus a slot in MAX_RULES.
+  if (!style.defined.anySet()) return;
+
   // Handle comma-separated selectors
   const auto selectors = splitOnChar(selectorGroup, ',');
 
@@ -951,6 +956,10 @@ bool CssParser::loadFromCache() {
     style.defined.imageWidth = (definedBits & 1 << 14) != 0;
     style.defined.display = (definedBits & 1 << 15) != 0;
     style.defined.verticalAlign = (definedBits & 1 << 16) != 0;
+
+    // Guard against pre-bump caches or future-corrupted records that contain rules with
+    // no usable properties. Mirrors the check in processRuleBlockWithStyle.
+    if (!style.defined.anySet()) continue;
 
     rulesBySelector_[selector] = style;
   }
