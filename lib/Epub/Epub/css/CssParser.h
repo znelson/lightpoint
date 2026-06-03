@@ -40,6 +40,8 @@ class CssParser {
   // Non-copyable
   CssParser(const CssParser&) = delete;
   CssParser& operator=(const CssParser&) = delete;
+  CssParser(CssParser&&) = delete;
+  CssParser& operator=(CssParser&&) = delete;
 
   /**
    * Load and parse CSS from a file stream.

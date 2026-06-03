@@ -43,6 +43,8 @@ class InflateReader {
 
   InflateReader(const InflateReader&) = delete;
   InflateReader& operator=(const InflateReader&) = delete;
+  InflateReader(InflateReader&&) = delete;
+  InflateReader& operator=(InflateReader&&) = delete;
 
   // Initialise decompressor. streaming=true allocates a 32KB ring buffer needed
   // when read() or readAtMost() will be called multiple times.

@@ -32,6 +32,8 @@ class JsonWriter {
 
   JsonWriter(const JsonWriter&) = delete;
   JsonWriter& operator=(const JsonWriter&) = delete;
+  JsonWriter(JsonWriter&&) = delete;
+  JsonWriter& operator=(JsonWriter&&) = delete;
 
   void beginObject();
   void endObject();

@@ -14,6 +14,8 @@ class I18n {
   // Disable copy
   I18n(const I18n&) = delete;
   I18n& operator=(const I18n&) = delete;
+  I18n(I18n&&) = delete;
+  I18n& operator=(I18n&&) = delete;
 
   // Get localized string by ID
   const char* get(StrId id) const;
