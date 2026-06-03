@@ -196,7 +196,7 @@ void SpineItem::buildTocBoundaries(const std::vector<std::pair<std::string, uint
 
   // endPage of each entry is the next entry's startPage; the last entry runs to pageCount.
   for (size_t i = 0; i < tocBoundaries.size(); i++) {
-    tocBoundaries[i].endPage = (i + 1 < tocBoundaries.size()) ? tocBoundaries[i + 1].startPage : pageCount;
+    tocBoundaries[i].endPage = (i + 1 < tocBoundaries.size()) ? tocBoundaries[i + 1].startPage : getPageCount();
   }
 }
 
@@ -274,7 +274,7 @@ void SpineItem::buildTocBoundariesFromFile() {
 
   // endPage of each entry is the next entry's startPage; the last entry runs to pageCount.
   for (size_t i = 0; i < tocBoundaries.size(); i++) {
-    tocBoundaries[i].endPage = (i + 1 < tocBoundaries.size()) ? tocBoundaries[i + 1].startPage : pageCount;
+    tocBoundaries[i].endPage = (i + 1 < tocBoundaries.size()) ? tocBoundaries[i + 1].startPage : getPageCount();
   }
 }
 

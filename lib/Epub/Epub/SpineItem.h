@@ -44,22 +44,15 @@ class SpineItem {
   void buildTocBoundariesFromFile();
 
  public:
-  // pageCount is a reference to section_.pageCount so callers can read
-  // `spineItem.pageCount` without an extra accessor; the source of truth
-  // lives in Section (set by loadHeader, incremented by writePage).
-  uint16_t& pageCount;
   int currentPage = 0;
 
   explicit SpineItem(const std::shared_ptr<Epub>& epub, const int spineIndex, GfxRenderer& renderer)
       : epub(epub),
         spineIndex(spineIndex),
         renderer(renderer),
-        section_(epub->getCachePath() + "/sections/" + std::to_string(spineIndex) + ".bin"),
-        pageCount(section_.pageCount) {}
+        section_(epub->getCachePath() + "/sections/" + std::to_string(spineIndex) + ".bin") {}
   ~SpineItem() = default;
 
-  // pageCount is a reference to section_.pageCount; copying or moving would
-  // leave the destination's pageCount bound to the source's section_.
   SpineItem(const SpineItem&) = delete;
   SpineItem& operator=(const SpineItem&) = delete;
   SpineItem(SpineItem&&) = delete;
@@ -97,6 +90,7 @@ class SpineItem {
   std::optional<Chapter> getPageRangeForTocIndex(int tocIndex) const;
 
   // --- Cache queries (delegated to Section) -----------------------------
+  uint16_t getPageCount() const { return section_.getPageCount(); }
   std::optional<uint16_t> getPageForAnchor(const std::string& anchor) const {
     return section_.getPageForAnchor(anchor);
   }
