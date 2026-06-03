@@ -6,7 +6,14 @@ class CrossPointState {
   // Static instance
   static CrossPointState instance;
 
+  CrossPointState() = default;
+
  public:
+  CrossPointState(const CrossPointState&) = delete;
+  CrossPointState& operator=(const CrossPointState&) = delete;
+  CrossPointState(CrossPointState&&) = delete;
+  CrossPointState& operator=(CrossPointState&&) = delete;
+
   static constexpr uint8_t SLEEP_RECENT_COUNT = 16;
 
   std::string openEpubPath;

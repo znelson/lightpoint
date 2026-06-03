@@ -20,6 +20,8 @@ struct PixelCache {
   PixelCache() : buffer(nullptr), width(0), height(0), bytesPerRow(0), originX(0), originY(0) {}
   PixelCache(const PixelCache&) = delete;
   PixelCache& operator=(const PixelCache&) = delete;
+  PixelCache(PixelCache&&) = delete;
+  PixelCache& operator=(PixelCache&&) = delete;
 
   static constexpr size_t MAX_CACHE_BYTES = 256 * 1024;  // 256KB limit for embedded targets
 
