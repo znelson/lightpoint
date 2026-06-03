@@ -72,6 +72,12 @@ bool sanitizeLogHead();
 
 class MySerialImpl : public Print {
  public:
+  MySerialImpl() = default;
+  MySerialImpl(const MySerialImpl&) = delete;
+  MySerialImpl& operator=(const MySerialImpl&) = delete;
+  MySerialImpl(MySerialImpl&&) = delete;
+  MySerialImpl& operator=(MySerialImpl&&) = delete;
+
   void begin(unsigned long baud);
   operator bool() const;
   int available();

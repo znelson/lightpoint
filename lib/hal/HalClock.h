@@ -15,6 +15,12 @@ class HalClock {
   static constexpr uint32_t CLOCK_POLL_MS = 10000;  // 10 seconds
 
  public:
+  HalClock() = default;
+  HalClock(const HalClock&) = delete;
+  HalClock& operator=(const HalClock&) = delete;
+  HalClock(HalClock&&) = delete;
+  HalClock& operator=(HalClock&&) = delete;
+
   // Call after halGPIO.begin() (I2C bus initialised there for X3)
   void begin();
 

@@ -73,6 +73,11 @@ class ActivityManager {
   }
   ~ActivityManager() { assert(false); /* should never be called */ };
 
+  ActivityManager(const ActivityManager&) = delete;
+  ActivityManager& operator=(const ActivityManager&) = delete;
+  ActivityManager(ActivityManager&&) = delete;
+  ActivityManager& operator=(ActivityManager&&) = delete;
+
   void begin();
   void loop();
 

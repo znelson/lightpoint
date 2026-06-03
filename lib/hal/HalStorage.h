@@ -20,6 +20,11 @@ class HalFile;
 class HalStorage {
  public:
   HalStorage();
+  HalStorage(const HalStorage&) = delete;
+  HalStorage& operator=(const HalStorage&) = delete;
+  HalStorage(HalStorage&&) = delete;
+  HalStorage& operator=(HalStorage&&) = delete;
+
   bool begin();
   bool ready() const;
   std::vector<std::string> listFiles(const char* path = "/", int maxFiles = 200);

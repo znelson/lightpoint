@@ -23,9 +23,16 @@ class RecentBooksStore {
 
   std::vector<RecentBook> recentBooks;
 
+  RecentBooksStore() = default;
+
   friend bool JsonSettingsIO::loadRecentBooksFromFile(RecentBooksStore&, HalFile&);
 
  public:
+  RecentBooksStore(const RecentBooksStore&) = delete;
+  RecentBooksStore& operator=(const RecentBooksStore&) = delete;
+  RecentBooksStore(RecentBooksStore&&) = delete;
+  RecentBooksStore& operator=(RecentBooksStore&&) = delete;
+
   ~RecentBooksStore() = default;
 
   // Get singleton instance

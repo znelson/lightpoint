@@ -62,6 +62,10 @@ class HalGPIO {
 
  public:
   HalGPIO() = default;
+  HalGPIO(const HalGPIO&) = delete;
+  HalGPIO& operator=(const HalGPIO&) = delete;
+  HalGPIO(HalGPIO&&) = delete;
+  HalGPIO& operator=(HalGPIO&&) = delete;
 
   // Inline device type helpers for cleaner downstream checks
   inline bool deviceIsX3() const { return _deviceType == DeviceType::X3; }

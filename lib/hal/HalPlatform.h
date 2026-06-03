@@ -4,6 +4,12 @@
 
 class HalPlatform {
  public:
+  HalPlatform() = default;
+  HalPlatform(const HalPlatform&) = delete;
+  HalPlatform& operator=(const HalPlatform&) = delete;
+  HalPlatform(HalPlatform&&) = delete;
+  HalPlatform& operator=(HalPlatform&&) = delete;
+
   // Uptime since boot
   uint32_t millis() const;
   uint32_t micros() const;

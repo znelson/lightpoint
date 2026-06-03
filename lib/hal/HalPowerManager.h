@@ -31,6 +31,12 @@ class HalPowerManager {
   static constexpr uint32_t IDLE_POWER_SAVING_MS = 3000;  // ms
   static constexpr uint32_t BATTERY_POLL_MS = 1500;       // ms
 
+  HalPowerManager() = default;
+  HalPowerManager(const HalPowerManager&) = delete;
+  HalPowerManager& operator=(const HalPowerManager&) = delete;
+  HalPowerManager(HalPowerManager&&) = delete;
+  HalPowerManager& operator=(HalPowerManager&&) = delete;
+
   void begin();
 
   // Control CPU frequency for power saving
