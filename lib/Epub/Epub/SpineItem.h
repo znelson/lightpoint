@@ -103,4 +103,10 @@ class SpineItem {
   std::optional<uint16_t> getParagraphIndexForPage(uint16_t page) const {
     return section_.getParagraphIndexForPage(page);
   }
+  std::optional<uint16_t> getListItemIndexForPage(uint16_t page) const {
+    return section_.getListItemIndexForPage(page);
+  }
+  bool forEachWordOnCurrentPage(FunctionRef<bool(std::string_view)> visit) {
+    return section_.forEachWordOnPage(currentPage, visit);
+  }
 };

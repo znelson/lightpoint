@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -91,6 +92,19 @@ class Section {
   // missing, or deserialization fails.
   std::unique_ptr<Page> loadPage(int pageIndex);
 
+  // Visit each word on pageIndex in document order. The visitor receives a
+  // non-owning view valid for the duration of the call; return false to stop
+  // early. Returns true if iteration completed, false if the page failed to
+  // load or the visitor returned false. No per-word allocations.
+  bool forEachWordOnPage(int pageIndex, FunctionRef<bool(std::string_view word)> visit);
+
+  // Read just the pageCount field from the header without validating render
+  // params. Returns nullopt if the file is missing or the version doesn't
+  // match. The returned count is from whatever render settings produced the
+  // cache -- caller should treat it as a best-guess that may be stale under
+  // settings changes.
+  std::optional<uint16_t> getCachedPageCount() const;
+
   // Iterate the on-disk anchor map. Length-aware so callers can skip
   // allocating the key string for entries that can't match anything they
   // care about.
@@ -108,6 +122,7 @@ class Section {
   std::optional<uint16_t> getPageForParagraphIndex(uint16_t pIndex) const;
   std::optional<uint16_t> getPageForListItemIndex(uint16_t liIndex) const;
   std::optional<uint16_t> getParagraphIndexForPage(uint16_t page) const;
+  std::optional<uint16_t> getListItemIndexForPage(uint16_t page) const;
 
   // --- File management --------------------------------------------------
   // Remove the cache file from disk. Returns true if the file was removed

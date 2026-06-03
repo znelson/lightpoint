@@ -219,6 +219,35 @@ std::unique_ptr<Page> Section::loadPage(const int pageIndex) {
   return page;
 }
 
+bool Section::forEachWordOnPage(const int pageIndex, FunctionRef<bool(std::string_view)> visit) {
+  const auto page = loadPage(pageIndex);
+  if (!page) return false;
+  for (const auto& el : page->elements) {
+    if (el->getTag() != TAG_PageLine) continue;
+    const auto& line = static_cast<const PageLine&>(*el);
+    const auto& block = line.getBlock();
+    if (!block) continue;
+    for (const auto& w : block->getWords()) {
+      if (!visit(w)) return false;
+    }
+  }
+  return true;
+}
+
+std::optional<uint16_t> Section::getCachedPageCount() const {
+  HalFile f;
+  if (!halStorage.openFileForRead("SCT", filePath_, f)) {
+    return std::nullopt;
+  }
+  uint8_t version;
+  serialization::readPod(f, version);
+  if (version != FILE_VERSION) return std::nullopt;
+  f.seek(header::kPageCount);
+  uint16_t count;
+  serialization::readPod(f, count);
+  return count;
+}
+
 bool Section::forEachAnchor(FunctionRef<bool(uint32_t keyLen)> predicate,
                             FunctionRef<bool(const std::string& key, uint16_t page)> consumer) const {
   HalFile f;
@@ -337,6 +366,46 @@ std::optional<uint16_t> Section::getParagraphIndexForPage(const uint16_t page) c
   f.seek(paragraphLutOffset + sizeof(count) + page * sizeof(pIdx));
   serialization::readPod(f, pIdx);
   return pIdx;
+}
+
+std::optional<uint16_t> Section::getListItemIndexForPage(const uint16_t page) const {
+  HalFile f;
+  if (!halStorage.openFileForRead("SCT", filePath_, f)) {
+    return std::nullopt;
+  }
+
+  const uint32_t fileSize = f.size();
+  f.seek(header::kListItemLut);
+  uint32_t liLutOffset;
+  serialization::readPod(f, liLutOffset);
+  if (liLutOffset == 0 || liLutOffset >= fileSize) {
+    return std::nullopt;
+  }
+
+  // The list-item LUT shares count with the paragraph LUT; read count from paragraphLutOffset.
+  f.seek(header::kParagraphLut);
+  uint32_t paragraphLutOffset;
+  serialization::readPod(f, paragraphLutOffset);
+  if (paragraphLutOffset == 0 || paragraphLutOffset >= fileSize) {
+    return std::nullopt;
+  }
+
+  f.seek(paragraphLutOffset);
+  uint16_t count;
+  serialization::readPod(f, count);
+  if (count == 0 || page >= count) {
+    return std::nullopt;
+  }
+
+  uint16_t liIdx;
+  const uint32_t entryEnd = liLutOffset + (page + 1) * sizeof(liIdx);
+  if (entryEnd > fileSize) {
+    return std::nullopt;
+  }
+
+  f.seek(liLutOffset + page * sizeof(liIdx));
+  serialization::readPod(f, liIdx);
+  return liIdx;
 }
 
 std::optional<uint16_t> Section::getPageForListItemIndex(const uint16_t liIndex) const {

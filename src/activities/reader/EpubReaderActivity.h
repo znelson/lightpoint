@@ -31,9 +31,12 @@ class EpubReaderActivity final : public Activity {
   float pendingSpineProgress = 0.0f;
   bool pendingScreenshot = false;
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
+  bool showBookmarkMessage = false;
+  bool ignoreNextConfirmRelease = false;
   // Tracks whether this book is currently removed from Recent Books by the
   // removeReadBooksFromRecents feature (set at End-of-Book, cleared if paged back in).
   bool recentsEntryRemoved = false;
+  uint32_t bookmarkMessageTime = 0UL;
   // Set when the reader is left at end-of-book and SETTINGS.moveFinishedToReadFolder is on.
   // Consumed in onExit() to relocate the finished book into /Read/.
   bool pendingReadFolderMove = false;
@@ -89,6 +92,7 @@ class EpubReaderActivity final : public Activity {
   // current spineItem's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
   int getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
+  void addBookmark();
 
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);

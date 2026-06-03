@@ -11,6 +11,8 @@ namespace ReaderUtils {
 
 constexpr uint32_t GO_HOME_MS = 1000;
 constexpr uint32_t SKIP_HOLD_MS = 700;
+constexpr uint32_t BOOKMARK_HOLD_MS = 400;
+constexpr uint32_t BOOKMARK_MESSAGE_DURATION_MS = 2500;
 
 inline void applyOrientation(GfxRenderer& renderer, const uint8_t orientation) {
   switch (orientation) {

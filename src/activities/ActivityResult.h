@@ -33,6 +33,11 @@ struct PageResult {
   uint32_t page = 0;
 };
 
+struct PositionResult {
+  int spineIndex = 0;
+  int page = 0;
+};
+
 struct LinkResult {
   std::string href;
 };
@@ -42,7 +47,7 @@ struct FilePathResult {
 };
 
 using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterTarget, PercentResult,
-                                   PageResult, LinkResult, FilePathResult>;
+                                   PageResult, PositionResult, LinkResult, FilePathResult>;
 
 struct ActivityResult {
   bool isCancelled = false;
