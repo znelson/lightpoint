@@ -15,7 +15,7 @@
 
 namespace {
 // Hold threshold for the long-press "remove from list" action (firmware convention).
-constexpr unsigned long LONG_PRESS_MS = 1000;
+constexpr uint32_t LONG_PRESS_MS = 1000;
 }  // namespace
 
 void RecentBooksActivity::loadRecentBooks() { recentBooks = RECENT_BOOKS.getBooks(); }

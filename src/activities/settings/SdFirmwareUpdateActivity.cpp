@@ -1,7 +1,7 @@
 #include "SdFirmwareUpdateActivity.h"
 
-#include <Arduino.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
@@ -67,7 +67,7 @@ void SdFirmwareUpdateActivity::onPickerResult(const ActivityResult& result) {
 
 bool SdFirmwareUpdateActivity::validateFirmware() {
   HalFile file;
-  if (!Storage.openFileForRead("FW", firmwarePath.c_str(), file) || !file) {
+  if (!halStorage.openFileForRead("FW", firmwarePath.c_str(), file) || !file) {
     errorMessage = tr(STR_FIRMWARE_FILE_OPEN_FAILED);
     return false;
   }
@@ -180,8 +180,8 @@ void SdFirmwareUpdateActivity::performUpdate() {
     state = State::SUCCESS;
   }
   requestUpdateAndWait();
-  delay(1500);
-  ESP.restart();
+  halPlatform.delay(1500);
+  halPlatform.hardRestart();
 }
 
 void SdFirmwareUpdateActivity::loop() {

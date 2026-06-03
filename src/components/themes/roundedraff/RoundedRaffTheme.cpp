@@ -47,10 +47,9 @@ void drawScrollBar(const GfxRenderer& renderer, Rect rect, int itemCount, int pa
 int coverWidth = 0;
 
 void RoundedRaffTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* title,
-                                  const char* subtitle) const {
-  (void)subtitle;
+                                  [[maybe_unused]] const char* subtitle) const {
   // Home screen header is custom-rendered in drawRecentBookCover.
-  if (title == nullptr) {
+  if (!title) {
     return;
   }
   const int sidePadding = RoundedRaffMetrics::values.contentSidePadding;
@@ -114,7 +113,7 @@ void RoundedRaffTheme::drawTabBar(const GfxRenderer& renderer, Rect rect, const 
 
 void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                                            const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                           bool& bufferRestored, std::function<bool()> storeCoverBuffer) const {
+                                           bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
   const int tileWidth = rect.width - 2 * RoundedRaffMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
   const int tileY = rect.y;
@@ -141,7 +140,7 @@ void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
 
         // First time: load cover from SD and render
         HalFile file;
-        if (Storage.openFileForRead("HOME", coverBmpPath, file)) {
+        if (halStorage.openFileForRead("HOME", coverBmpPath, file)) {
           Bitmap bitmap(file);
           if (bitmap.parseHeaders() == BmpReaderError::Ok) {
             coverWidth = bitmap.getWidth();
@@ -192,9 +191,8 @@ void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
 }
 
 void RoundedRaffTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
-                                      const std::function<std::string(int index)>& buttonLabel,
-                                      const std::function<UIIcon(int index)>& rowIcon) const {
-  (void)rowIcon;
+                                      FunctionRef<std::string(int index)> buttonLabel,
+                                      [[maybe_unused]] FunctionRef<UIIcon(int index)> rowIcon) const {
   const int sidePadding = RoundedRaffMetrics::values.contentSidePadding;
   const int rowX = rect.x + sidePadding;
   const int rowHeight = renderer.getLineHeight(kTitleFontId) + 20;  // 10px top + 10px bottom
@@ -302,14 +300,11 @@ void RoundedRaffTheme::drawKeyboardKey(const GfxRenderer& renderer, Rect rect, c
 }
 
 void RoundedRaffTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
-                                const std::function<std::string(int index)>& rowTitle,
-                                const std::function<std::string(int index)>& rowSubtitle,
-                                const std::function<UIIcon(int index)>& rowIcon,
-                                const std::function<std::string(int index)>& rowValue, bool highlightValue,
-                                const std::function<bool(int index)>& rowDimmed) const {
-  (void)rowIcon;
-  (void)highlightValue;
-  (void)rowDimmed;
+                                FunctionRef<std::string(int index)> rowTitle,
+                                FunctionRef<std::string(int index)> rowSubtitle,
+                                [[maybe_unused]] FunctionRef<UIIcon(int index)> rowIcon,
+                                FunctionRef<std::string(int index)> rowValue, [[maybe_unused]] bool highlightValue,
+                                [[maybe_unused]] FunctionRef<bool(int index)> rowDimmed) const {
   const bool hasSubtitle = static_cast<bool>(rowSubtitle);
   const int titleLineHeight = renderer.getLineHeight(kTitleFontId);
   const int subtitleLineHeight = renderer.getLineHeight(kSubtitleFontId);
