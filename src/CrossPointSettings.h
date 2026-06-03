@@ -16,6 +16,8 @@ class CrossPointSettings {
   // Delete copy constructor and assignment
   CrossPointSettings(const CrossPointSettings&) = delete;
   CrossPointSettings& operator=(const CrossPointSettings&) = delete;
+  CrossPointSettings(CrossPointSettings&&) = delete;
+  CrossPointSettings& operator=(CrossPointSettings&&) = delete;
 
   enum SLEEP_SCREEN_MODE {
     DARK = 0,

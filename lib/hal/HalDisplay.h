@@ -11,6 +11,11 @@ class HalDisplay {
   // Destructor
   ~HalDisplay();
 
+  HalDisplay(const HalDisplay&) = delete;
+  HalDisplay& operator=(const HalDisplay&) = delete;
+  HalDisplay(HalDisplay&&) = delete;
+  HalDisplay& operator=(HalDisplay&&) = delete;
+
   // Refresh modes
   enum RefreshMode {
     FULL_REFRESH,  // Full refresh with complete waveform

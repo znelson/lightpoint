@@ -112,6 +112,10 @@ class HalStorage::StorageLock {
  public:
   StorageLock() { xSemaphoreTake(storageMutex, portMAX_DELAY); }
   ~StorageLock() { xSemaphoreGive(storageMutex); }
+  StorageLock(const StorageLock&) = delete;
+  StorageLock& operator=(const StorageLock&) = delete;
+  StorageLock(StorageLock&&) = delete;
+  StorageLock& operator=(StorageLock&&) = delete;
 };
 
 std::vector<std::string> HalStorage::listFiles(const char* path, int maxFiles) {

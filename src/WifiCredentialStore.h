@@ -38,6 +38,8 @@ class WifiCredentialStore {
   // Delete copy constructor and assignment
   WifiCredentialStore(const WifiCredentialStore&) = delete;
   WifiCredentialStore& operator=(const WifiCredentialStore&) = delete;
+  WifiCredentialStore(WifiCredentialStore&&) = delete;
+  WifiCredentialStore& operator=(WifiCredentialStore&&) = delete;
 
   // Get singleton instance
   static WifiCredentialStore& getInstance() { return instance; }

@@ -64,6 +64,11 @@ class HalFileSink final : public JsonSink {
   explicit HalFileSink(HalFile& file) : file_(file), used_(0), ok_(true), closed_(false) {}
   ~HalFileSink() override;
 
+  HalFileSink(const HalFileSink&) = delete;
+  HalFileSink& operator=(const HalFileSink&) = delete;
+  HalFileSink(HalFileSink&&) = delete;
+  HalFileSink& operator=(HalFileSink&&) = delete;
+
   void write(const char* data, size_t len) override;
   bool ok() const override { return ok_; }
 

@@ -58,6 +58,13 @@ class SpineItem {
         pageCount(section_.pageCount) {}
   ~SpineItem() = default;
 
+  // pageCount is a reference to section_.pageCount; copying or moving would
+  // leave the destination's pageCount bound to the source's section_.
+  SpineItem(const SpineItem&) = delete;
+  SpineItem& operator=(const SpineItem&) = delete;
+  SpineItem(SpineItem&&) = delete;
+  SpineItem& operator=(SpineItem&&) = delete;
+
   // High-level orchestration: validates the cache header against the given
   // render parameters, populates pageCount, and builds tocBoundaries by
   // scanning the on-disk anchor map. Returns false if the cache is missing,

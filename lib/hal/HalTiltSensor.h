@@ -65,6 +65,12 @@ class HalTiltSensor {
   bool readGyro(float& gx, float& gy, float& gz) const;
 
  public:
+  HalTiltSensor() = default;
+  HalTiltSensor(const HalTiltSensor&) = delete;
+  HalTiltSensor& operator=(const HalTiltSensor&) = delete;
+  HalTiltSensor(HalTiltSensor&&) = delete;
+  HalTiltSensor& operator=(HalTiltSensor&&) = delete;
+
   // Call after halGPIO.begin() (I2C bus initialised there for X3)
   void begin();
 

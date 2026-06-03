@@ -11,6 +11,8 @@ class ReleaseJsonParser {
 
   ReleaseJsonParser(const ReleaseJsonParser&) = delete;
   ReleaseJsonParser& operator=(const ReleaseJsonParser&) = delete;
+  ReleaseJsonParser(ReleaseJsonParser&&) = delete;
+  ReleaseJsonParser& operator=(ReleaseJsonParser&&) = delete;
 
   void reset();
   void feed(const char* data, size_t len);

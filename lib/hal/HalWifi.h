@@ -14,6 +14,12 @@ class HalWifi {
 
   enum class ConnectionState { Idle, Connecting, Connected, Failed };
 
+  HalWifi() = default;
+  HalWifi(const HalWifi&) = delete;
+  HalWifi& operator=(const HalWifi&) = delete;
+  HalWifi(HalWifi&&) = delete;
+  HalWifi& operator=(HalWifi&&) = delete;
+
   // Initialize WiFi driver (idempotent). Returns false on fatal error.
   bool init();
 
