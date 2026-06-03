@@ -52,12 +52,6 @@ class Section {
   // to fail and the cache is regenerated from source.
   static constexpr uint8_t FILE_VERSION = 25;
 
-  // Number of pages persisted to the file. Public field so SpineItem can
-  // expose `pageCount` as a reference to this without an extra accessor.
-  // Written by loadHeader (reads back from file) and incremented by
-  // writePage during build.
-  uint16_t pageCount = 0;
-
   explicit Section(std::string filePath) : filePath_(std::move(filePath)) {}
   ~Section() = default;
 
@@ -109,6 +103,7 @@ class Section {
   bool forEachAnchor(FunctionRef<bool(uint32_t keyLen)> predicate,
                      FunctionRef<bool(const std::string& key, uint16_t page)> consumer) const;
 
+  uint16_t getPageCount() const { return pageCount_; }
   std::optional<uint16_t> getPageForAnchor(const std::string& anchor) const;
   std::optional<uint16_t> getPageForParagraphIndex(uint16_t pIndex) const;
   std::optional<uint16_t> getPageForListItemIndex(uint16_t liIndex) const;
@@ -131,4 +126,5 @@ class Section {
  private:
   std::string filePath_;
   HalFile file_;
+  uint16_t pageCount_ = 0;
 };

@@ -74,7 +74,7 @@ TEST_F(SectionTest, EmptySectionRoundTrips) {
 
   Section reader(kPath);
   ASSERT_TRUE(loadHeaderFrom(reader, p));
-  EXPECT_EQ(reader.pageCount, 0u);
+  EXPECT_EQ(reader.getPageCount(), 0u);
 }
 
 TEST_F(SectionTest, LoadHeaderRejectsVersionMismatch) {
@@ -132,11 +132,11 @@ TEST_F(SectionTest, MultiPageRoundTrip) {
                    /*listItemIndex=*/static_cast<uint16_t>(i * 5)});
   }
   ASSERT_TRUE(sec.finalize(lut, /*anchors=*/{}));
-  EXPECT_EQ(sec.pageCount, 3u);
+  EXPECT_EQ(sec.getPageCount(), 3u);
 
   Section reader(kPath);
   ASSERT_TRUE(loadHeaderFrom(reader, p));
-  EXPECT_EQ(reader.pageCount, 3u);
+  EXPECT_EQ(reader.getPageCount(), 3u);
 
   for (int i = 0; i < 3; i++) {
     auto page = reader.loadPage(i);

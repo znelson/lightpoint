@@ -80,8 +80,9 @@ void TxtReaderActivity::loop() {
   // Confirm opens the percent selector. No menu wraps it -- this is the
   // only Confirm-bound action in TxtReader; if more arrive, factor in a
   // TxtReaderMenuActivity sibling to MdReaderMenuActivity.
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) && cache.pageCount > 0) {
-    const int initialPercent = static_cast<int>((currentPage + 1) * 100.0f / cache.pageCount + 0.5f);
+  const auto pageCount = cache.getPageCount();
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) && pageCount > 0) {
+    const int initialPercent = static_cast<int>((currentPage + 1) * 100.0f / pageCount + 0.5f);
     startActivityForResult(std::make_unique<ReaderPercentSelectionActivity>(renderer, mappedInput, initialPercent),
                            [this](const ActivityResult& result) {
                              if (!result.isCancelled) {
@@ -101,7 +102,7 @@ void TxtReaderActivity::loop() {
     currentPage--;
     requestUpdate();
   } else if (nextTriggered) {
-    if (currentPage < static_cast<int>(cache.pageCount) - 1) {
+    if (currentPage < static_cast<int>(pageCount) - 1) {
       currentPage++;
       requestUpdate();
     } else {
@@ -235,7 +236,7 @@ bool TxtReaderActivity::buildSectionCache(uint16_t viewportWidth, uint16_t viewp
     return false;
   }
 
-  LOG_DBG("TRS", "Built section cache: %d pages from %d paragraphs", cache.pageCount, paragraphCount);
+  LOG_DBG("TRS", "Built section cache: %d pages from %d paragraphs", cache.getPageCount(), paragraphCount);
   return true;
 }
 
@@ -286,7 +287,8 @@ void TxtReaderActivity::render(RenderLock&&) {
     initializeReader();
   }
 
-  if (cache.pageCount == 0) {
+  const auto pageCount = cache.getPageCount();
+  if (pageCount == 0) {
     renderer.clearScreen();
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_EMPTY_FILE), true, EpdFontFamily::BOLD);
     renderer.displayBuffer();
@@ -295,7 +297,7 @@ void TxtReaderActivity::render(RenderLock&&) {
 
   // Bounds check
   if (currentPage < 0) currentPage = 0;
-  if (currentPage >= static_cast<int>(cache.pageCount)) currentPage = cache.pageCount - 1;
+  if (currentPage >= static_cast<int>(pageCount)) currentPage = pageCount - 1;
 
   // Load current page from section cache
   auto page = cache.loadPage(currentPage);
@@ -332,12 +334,13 @@ void TxtReaderActivity::renderContents(std::unique_ptr<Page> page) {
 }
 
 void TxtReaderActivity::renderStatusBar() const {
-  const float progress = cache.pageCount > 0 ? (currentPage + 1) * 100.0f / cache.pageCount : 0;
+  const auto pageCount = cache.getPageCount();
+  const float progress = pageCount > 0 ? (currentPage + 1) * 100.0f / pageCount : 0;
   std::string title;
   if (SETTINGS.statusBarTitle != CrossPointSettings::STATUS_BAR_TITLE::HIDE_TITLE) {
     title = txt->getTitle();
   }
-  GUI.drawStatusBar(renderer, progress, currentPage + 1, cache.pageCount, title);
+  GUI.drawStatusBar(renderer, progress, currentPage + 1, pageCount, title);
 }
 
 void TxtReaderActivity::saveProgress() const {
@@ -358,13 +361,14 @@ void TxtReaderActivity::loadProgress() {
     uint8_t data[4];
     if (f.read(data, 4) == 4) {
       currentPage = data[0] + (data[1] << 8);
-      if (currentPage >= static_cast<int>(cache.pageCount)) {
-        currentPage = cache.pageCount - 1;
+      const auto pageCount = cache.getPageCount();
+      if (currentPage >= static_cast<int>(pageCount)) {
+        currentPage = pageCount - 1;
       }
       if (currentPage < 0) {
         currentPage = 0;
       }
-      LOG_DBG("TRS", "Loaded progress: page %d/%d", currentPage, cache.pageCount);
+      LOG_DBG("TRS", "Loaded progress: page %d/%d", currentPage, pageCount);
     }
   }
 }
@@ -372,11 +376,12 @@ void TxtReaderActivity::loadProgress() {
 void TxtReaderActivity::jumpToPercent(int percent) {
   // Single-file format: percent maps directly to a page within the section
   // cache. Same logic as MdReader; both clamp to [0, pageCount-1].
-  if (cache.pageCount == 0) return;
+  const auto pageCount = cache.getPageCount();
+  if (pageCount == 0) return;
   if (percent < 0) percent = 0;
   if (percent > 100) percent = 100;
-  const int targetPage = static_cast<int>(percent * (cache.pageCount - 1) / 100.0f + 0.5f);
-  currentPage = std::clamp(targetPage, 0, static_cast<int>(cache.pageCount) - 1);
+  const int targetPage = static_cast<int>(percent * (pageCount - 1) / 100.0f + 0.5f);
+  currentPage = std::clamp(targetPage, 0, static_cast<int>(pageCount) - 1);
 }
 
 ScreenshotInfo TxtReaderActivity::getScreenshotInfo() const {
@@ -387,9 +392,9 @@ ScreenshotInfo TxtReaderActivity::getScreenshotInfo() const {
     snprintf(info.title, sizeof(info.title), "%s", t.c_str());
   }
   info.currentPage = currentPage + 1;
-  info.totalPages = cache.pageCount;
+  info.totalPages = cache.getPageCount();
   info.progressPercent =
-      cache.pageCount > 0 ? static_cast<int>((currentPage + 1) * 100.0f / cache.pageCount + 0.5f) : 0;
+      info.totalPages > 0 ? static_cast<int>((currentPage + 1) * 100.0f / info.totalPages + 0.5f) : 0;
   if (info.progressPercent > 100) info.progressPercent = 100;
   return info;
 }

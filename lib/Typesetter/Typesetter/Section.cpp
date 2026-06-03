@@ -39,7 +39,7 @@ bool Section::openForWrite() {
   if (!halStorage.openFileForWrite("SCT", filePath_, file_)) {
     return false;
   }
-  pageCount = 0;
+  pageCount_ = 0;
   return true;
 }
 
@@ -53,7 +53,7 @@ void Section::writeHeader(const int fontId, const float lineCompression, const b
   }
   static_assert(header::kSize == sizeof(FILE_VERSION) + sizeof(fontId) + sizeof(lineCompression) +
                                      sizeof(extraParagraphSpacing) + sizeof(paragraphAlignment) +
-                                     sizeof(viewportWidth) + sizeof(viewportHeight) + sizeof(pageCount) +
+                                     sizeof(viewportWidth) + sizeof(viewportHeight) + sizeof(pageCount_) +
                                      sizeof(hyphenationEnabled) + sizeof(embeddedStyle) + sizeof(imageRendering) +
                                      sizeof(focusReadingEnabled) + sizeof(uint32_t) + sizeof(uint32_t) +
                                      sizeof(uint32_t) + sizeof(uint32_t),
@@ -69,7 +69,7 @@ void Section::writeHeader(const int fontId, const float lineCompression, const b
   serialization::writePod(file_, embeddedStyle);
   serialization::writePod(file_, imageRendering);
   serialization::writePod(file_, focusReadingEnabled);
-  serialization::writePod(file_, pageCount);                 // Placeholder; patched by finalize.
+  serialization::writePod(file_, pageCount_);                // Placeholder; patched by finalize.
   serialization::writePod(file_, static_cast<uint32_t>(0));  // Page LUT offset placeholder.
   serialization::writePod(file_, static_cast<uint32_t>(0));  // Anchor map offset placeholder.
   serialization::writePod(file_, static_cast<uint32_t>(0));  // Paragraph LUT offset placeholder.
@@ -78,16 +78,16 @@ void Section::writeHeader(const int fontId, const float lineCompression, const b
 
 uint32_t Section::writePage(std::unique_ptr<Page> page) {
   if (!file_) {
-    LOG_ERR("SCT", "File not open for writing page %d", pageCount);
+    LOG_ERR("SCT", "File not open for writing page %d", pageCount_);
     return 0;
   }
   const uint32_t position = file_.position();
   if (!page->serialize(file_)) {
-    LOG_ERR("SCT", "Failed to serialize page %d", pageCount);
+    LOG_ERR("SCT", "Failed to serialize page %d", pageCount_);
     return 0;
   }
-  LOG_DBG("SCT", "Page %d processed", pageCount);
-  pageCount++;
+  LOG_DBG("SCT", "Page %d processed", pageCount_);
+  pageCount_++;
   return position;
 }
 
@@ -133,7 +133,7 @@ bool Section::finalize(const std::vector<PageLutEntry>& lut,
 
   // Patch header placeholders.
   file_.seek(header::kPageCount);
-  serialization::writePod(file_, pageCount);
+  serialization::writePod(file_, pageCount_);
   serialization::writePod(file_, lutOffset);
   serialization::writePod(file_, anchorMapOffset);
   serialization::writePod(file_, paragraphLutOffset);
@@ -195,9 +195,9 @@ bool Section::loadHeader(const int fontId, const float lineCompression, const bo
     return false;
   }
 
-  serialization::readPod(file_, pageCount);
+  serialization::readPod(file_, pageCount_);
   file_.close();
-  LOG_DBG("SCT", "Deserialization succeeded: %d pages", pageCount);
+  LOG_DBG("SCT", "Deserialization succeeded: %d pages", pageCount_);
   return true;
 }
 
