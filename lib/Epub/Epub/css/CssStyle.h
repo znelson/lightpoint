@@ -1,9 +1,11 @@
 #pragma once
 
+#include <Typesetter/TextAlign.h>
+
 #include <cstdint>
 
-// Matches order of PARAGRAPH_ALIGNMENT in CrossPointSettings
-enum class CssTextAlign : uint8_t { Justify = 0, Left = 1, Center = 2, Right = 3, None = 4 };
+// `TextAlign` is defined in <Typesetter/TextAlign.h> -- format-agnostic, used
+// by the layout BlockStyle. The CSS parser maps the `text-align` keyword to it.
 enum class CssUnit : uint8_t { Pixels = 0, Em = 1, Rem = 2, Points = 3, Percent = 4 };
 enum class CssTextDirection : uint8_t { Ltr = 0, Rtl = 1 };
 
@@ -124,7 +126,7 @@ static_assert(sizeof(CssPropertyFlags) <= sizeof(uint32_t),
 // Only stores properties relevant to e-ink text rendering
 // Length values are stored as CssLength (value + unit) for deferred resolution
 struct CssStyle {
-  CssTextAlign textAlign = CssTextAlign::Left;
+  TextAlign textAlign = TextAlign::Left;
   CssFontStyle fontStyle = CssFontStyle::Normal;
   CssFontWeight fontWeight = CssFontWeight::Normal;
   CssTextDecoration textDecoration = CssTextDecoration::None;
@@ -243,7 +245,7 @@ struct CssStyle {
   [[nodiscard]] bool hasVerticalAlign() const { return defined.verticalAlign; }
 
   void reset() {
-    textAlign = CssTextAlign::Left;
+    textAlign = TextAlign::Left;
     fontStyle = CssFontStyle::Normal;
     fontWeight = CssFontWeight::Normal;
     textDecoration = CssTextDecoration::None;

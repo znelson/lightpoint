@@ -80,39 +80,39 @@ ruby -rdigest -e 'puts [
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
 
-echo "#define OPENDYSLEXIC_8_FONT_ID ($(
+echo "#define COURIERPRIME_12_FONT_ID ($(
 ruby -rdigest -e 'puts [
-  "./opendyslexic_8_regular.h",
-  "./opendyslexic_8_bold.h",
-  "./opendyslexic_8_bolditalic.h",
-  "./opendyslexic_8_italic.h",
+  "./courierprime_12_regular.h",
+  "./courierprime_12_bold.h",
+  "./courierprime_12_bolditalic.h",
+  "./courierprime_12_italic.h",
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
 
-echo "#define OPENDYSLEXIC_10_FONT_ID ($(
+echo "#define COURIERPRIME_14_FONT_ID ($(
 ruby -rdigest -e 'puts [
-  "./opendyslexic_10_regular.h",
-  "./opendyslexic_10_bold.h",
-  "./opendyslexic_10_bolditalic.h",
-  "./opendyslexic_10_italic.h",
+  "./courierprime_14_regular.h",
+  "./courierprime_14_bold.h",
+  "./courierprime_14_bolditalic.h",
+  "./courierprime_14_italic.h",
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
 
-echo "#define OPENDYSLEXIC_12_FONT_ID ($(
+echo "#define COURIERPRIME_16_FONT_ID ($(
 ruby -rdigest -e 'puts [
-  "./opendyslexic_12_regular.h",
-  "./opendyslexic_12_bold.h",
-  "./opendyslexic_12_bolditalic.h",
-  "./opendyslexic_12_italic.h",
+  "./courierprime_16_regular.h",
+  "./courierprime_16_bold.h",
+  "./courierprime_16_bolditalic.h",
+  "./courierprime_16_italic.h",
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
 
-echo "#define OPENDYSLEXIC_14_FONT_ID ($(
+echo "#define COURIERPRIME_18_FONT_ID ($(
 ruby -rdigest -e 'puts [
-  "./opendyslexic_14_regular.h",
-  "./opendyslexic_14_bold.h",
-  "./opendyslexic_14_bolditalic.h",
-  "./opendyslexic_14_italic.h",
+  "./courierprime_18_regular.h",
+  "./courierprime_18_bold.h",
+  "./courierprime_18_bolditalic.h",
+  "./courierprime_18_italic.h",
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
 

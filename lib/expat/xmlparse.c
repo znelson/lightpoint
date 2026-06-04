@@ -141,6 +141,8 @@
 #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 // #if !defined(HAVE_GETRANDOM) && !defined(HAVE_SYSCALL_GETRANDOM) && !defined(HAVE_ARC4RANDOM_BUF) && \
 //     !defined(HAVE_ARC4RANDOM) && !defined(XML_DEV_URANDOM) && !defined(_WIN32) && !defined(XML_POOR_ENTROPY)
 // #error You do not have support for any sources of high quality entropy \
@@ -162,6 +164,7 @@
 //     If you have reasons to patch this detection code away or need changes \
 //     to the build system, please open a bug.  Thank you!
 // #endif
+#pragma GCC diagnostic pop
 
 #ifdef XML_UNICODE
 #define XML_ENCODE_MAX XML_UTF16_ENCODE_MAX

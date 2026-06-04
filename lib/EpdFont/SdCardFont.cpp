@@ -1,5 +1,6 @@
 #include "SdCardFont.h"
 
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
 #include <Utf8.h>
@@ -169,7 +170,7 @@ bool SdCardFont::loadStyleKernLigatureData(PerStyle& s) {
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("SDCF", filePath_, file)) {
+  if (!halStorage.openFileForRead("SDCF", filePath_, file)) {
     LOG_ERR("SDCF", "Failed to open .cpfont for kern/lig: %s", filePath_);
     return false;
   }
@@ -346,7 +347,7 @@ bool SdCardFont::buildMiniKernMatrix(PerStyle& s, const uint32_t* codepoints, ui
   // columns for used right classes. One SD seek + one read per used left class;
   // a row is kernRightClassCount bytes (~200 for Literata).
   HalFile file;
-  if (!Storage.openFileForRead("SDCF", filePath_, file)) {
+  if (!halStorage.openFileForRead("SDCF", filePath_, file)) {
     LOG_ERR("SDCF", "Failed to open .cpfont for mini kern: %s", filePath_);
     freeStyleMiniKern(s);
     return false;
@@ -426,7 +427,7 @@ bool SdCardFont::load(const char* path) {
   filePath_[sizeof(filePath_) - 1] = '\0';
 
   HalFile file;
-  if (!Storage.openFileForRead("SDCF", path, file)) {
+  if (!halStorage.openFileForRead("SDCF", path, file)) {
     LOG_ERR("SDCF", "Failed to open .cpfont: %s", path);
     return false;
   }
@@ -622,7 +623,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
 
-  unsigned long startMs = millis();
+  const uint32_t startMs = halPlatform.millis();
 
   // Step 1: Extract unique codepoints from UTF-8 text (shared across all styles).
   // Dedup uses O(n^2) linear scan — worst case is MAX_PAGE_GLYPHS (512) unique codepoints
@@ -717,7 +718,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
     totalMissed += prewarmStyle(si, codepoints.get(), cpCount, metadataOnly);
   }
 
-  stats_.prewarmTotalMs = millis() - startMs;
+  stats_.prewarmTotalMs = halPlatform.millis() - startMs;
   return totalMissed;
 }
 
@@ -799,7 +800,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
             [&](uint32_t a, uint32_t b) { return mappings[a].globalIndex < mappings[b].globalIndex; });
 
   HalFile file;
-  if (!Storage.openFileForRead("SDCF", filePath_, file)) {
+  if (!halStorage.openFileForRead("SDCF", filePath_, file)) {
     LOG_ERR("SDCF", "Failed to reopen .cpfont for prewarm (style %u)", styleIdx);
     delete[] readOrder;
     delete[] mappings;
@@ -807,7 +808,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     return static_cast<int>(cpCount);
   }
 
-  unsigned long sdStart = millis();
+  const uint32_t sdStart = halPlatform.millis();
   uint32_t seekCount = 0;
 
   // Read glyph metadata. lastReadIndex tracks sequential reads to skip redundant
@@ -901,7 +902,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     }
   }
 
-  uint32_t sdTime = millis() - sdStart;
+  uint32_t sdTime = halPlatform.millis() - sdStart;
   delete[] readOrder;
   delete[] mappings;
 
@@ -1105,7 +1106,7 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
 
     // Open file once and read advanceX for each needed glyph.
     HalFile file;
-    if (!Storage.openFileForRead("SDCF", filePath_, file)) {
+    if (!halStorage.openFileForRead("SDCF", filePath_, file)) {
       LOG_ERR("SDCF", "buildAdvanceTable: failed to open .cpfont for style %u", si);
       continue;
     }
@@ -1160,7 +1161,7 @@ int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, 
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
 
-  unsigned long startMs = millis();
+  const uint32_t startMs = halPlatform.millis();
 
   // +2 reserved slots for space and hyphen injected after the main scan.
   static constexpr uint32_t MAX_UNIQUE_CODEPOINTS = 4096;
@@ -1188,7 +1189,7 @@ int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, 
   std::sort(codepoints, codepoints + cpCount);
   int totalMissed = fetchAdvancesForCodepoints(codepoints, cpCount, styleMask);
   delete[] codepoints;
-  stats_.prewarmTotalMs = millis() - startMs;
+  stats_.prewarmTotalMs = halPlatform.millis() - startMs;
   return totalMissed;
 }
 
@@ -1278,7 +1279,7 @@ const EpdGlyph* SdCardFont::onGlyphMiss(void* ctx, uint32_t codepoint) {
 
   // Read glyph metadata into temporary
   HalFile file;
-  if (!Storage.openFileForRead("SDCF", self->filePath_, file)) {
+  if (!halStorage.openFileForRead("SDCF", self->filePath_, file)) {
     LOG_ERR("SDCF", "Overflow: failed to open .cpfont");
     return nullptr;
   }

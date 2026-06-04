@@ -13,7 +13,7 @@ process() {
 
   python scripts/generate_hyphenation_trie.py \
     --input "build/$lang.bin" \
-    --output "lib/Epub/Epub/hyphenation/generated/hyph-${lang}.trie.h"
+    --output "lib/Hyphenation/generated/hyph-${lang}.trie.h"
 }
 
 process en
