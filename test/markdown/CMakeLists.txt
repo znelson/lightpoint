@@ -15,6 +15,10 @@ add_executable(MarkdownParserTest
   ${REPO_ROOT}/lib/Hyphenation/HyphenationCommon.cpp
   ${REPO_ROOT}/lib/Hyphenation/LanguageRegistry.cpp
   ${REPO_ROOT}/lib/Hyphenation/LiangHyphenation.cpp
+  # ParsedText.cpp / TextBlock.cpp pull BidiUtils symbols at link time even
+  # though MarkdownParserTest doesn't drive RTL inputs.
+  ${REPO_ROOT}/lib/MiniBidi/BidiUtils.cpp
+  ${REPO_ROOT}/lib/MiniBidi/minibidi.c
 )
 
 # Include order matters: ${CMAKE_CURRENT_SOURCE_DIR} wins so MarkdownParser.cpp
@@ -33,6 +37,7 @@ target_include_directories(MarkdownParserTest PRIVATE
   ${REPO_ROOT}/lib/Utility
   ${REPO_ROOT}/lib/EpdFont
   ${REPO_ROOT}/lib/Hyphenation
+  ${REPO_ROOT}/lib/MiniBidi
 )
 
 target_link_libraries(MarkdownParserTest PRIVATE

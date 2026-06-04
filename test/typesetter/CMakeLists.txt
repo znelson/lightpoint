@@ -11,6 +11,11 @@ add_executable(TypesetterTest
   ${REPO_ROOT}/lib/Hyphenation/HyphenationCommon.cpp
   ${REPO_ROOT}/lib/Hyphenation/LanguageRegistry.cpp
   ${REPO_ROOT}/lib/Hyphenation/LiangHyphenation.cpp
+  # ParsedText.cpp and TextBlock.cpp call BidiUtils::startsWithRtl /
+  # detectParagraphLevel / computeVisualWordOrder; link the real impl so
+  # English-only test inputs go down the same code paths as production.
+  ${REPO_ROOT}/lib/MiniBidi/BidiUtils.cpp
+  ${REPO_ROOT}/lib/MiniBidi/minibidi.c
 )
 
 # Include order matters: this directory wins over ${REPO_ROOT}/lib/GfxRenderer/
@@ -27,6 +32,9 @@ target_include_directories(TypesetterTest PRIVATE
   # Serialization header (used by TextBlock.cpp) both come from lib/Utility,
   # already on the include path above.
   ${REPO_ROOT}/lib/Hyphenation
+  # BidiUtils.h / minibidi.h for the RTL detection path that ParsedText
+  # and TextBlock now call into.
+  ${REPO_ROOT}/lib/MiniBidi
 )
 
 target_link_libraries(TypesetterTest PRIVATE

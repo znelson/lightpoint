@@ -13,6 +13,12 @@
 // results when test code drives Typesetter through ParsedText. Methods are
 // inline so the linker resolves everything from this header alone -- no
 // stub .cpp needed.
+
+// Mirror the production GfxRenderer.h placement of BidiBaseDir so TextBlock.cpp's
+// `BidiUtils::BidiBaseDir` reference resolves against the test stub.
+namespace BidiUtils {
+enum class BidiBaseDir : signed char { AUTO = -1, LTR = 0, RTL = 1 };
+}  // namespace BidiUtils
 //
 // Width model: kPxPerChar pixels per byte for ASCII strings, plus a fixed
 // space advance. The model is intentionally simple so tests can predict line
@@ -33,7 +39,8 @@ class GfxRenderer {
 
   // Width of `text` in pixels: kPxPerChar per byte.
   int getTextWidth([[maybe_unused]] int fontId, const char* text,
-                   [[maybe_unused]] EpdFontFamily::Style style = EpdFontFamily::REGULAR) const {
+                   [[maybe_unused]] EpdFontFamily::Style style = EpdFontFamily::REGULAR,
+                   [[maybe_unused]] BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const {
     return text ? static_cast<int>(std::strlen(text)) * kPxPerChar : 0;
   }
 
@@ -66,7 +73,8 @@ class GfxRenderer {
                              [[maybe_unused]] bool includeHyphen, [[maybe_unused]] uint8_t styleMask = 0x0F) const {}
 
   // Drawing operations: no-ops. Tests inspect emitted-page metadata, not pixels.
-  void drawText(int, int, int, const char*, bool, EpdFontFamily::Style = EpdFontFamily::REGULAR) const {}
+  void drawText(int, int, int, const char*, bool, EpdFontFamily::Style = EpdFontFamily::REGULAR,
+                BidiUtils::BidiBaseDir = BidiUtils::BidiBaseDir::AUTO) const {}
   void drawLine(int, int, int, int, int, bool) const {}
   void drawLine(int, int, int, int, bool) const {}
 

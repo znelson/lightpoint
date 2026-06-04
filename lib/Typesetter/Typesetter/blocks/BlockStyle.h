@@ -34,6 +34,8 @@ struct BlockStyle {
   int16_t textIndent = 0;
   bool textIndentDefined = false;  // true if text-indent was explicitly set in CSS
   bool textAlignDefined = false;   // true if text-align was explicitly set in CSS
+  bool isRtl = false;              // true if resolved direction is RTL
+  bool directionDefined = false;   // true if direction was explicitly set in CSS/HTML
 
   // Combined insets (margin + padding)
   [[nodiscard]] int16_t leftInset() const { return marginLeft + paddingLeft; }
@@ -87,6 +89,12 @@ struct BlockStyle {
       result.marginBottom = std::max(child.marginBottom, marginBottom);
       result.paddingTop = static_cast<int16_t>(child.paddingTop + paddingTop);
       result.paddingBottom = static_cast<int16_t>(child.paddingBottom + paddingBottom);
+    }
+
+    // Direction is not axis-specific. Inherit from parent when child doesn't define it.
+    if (!child.directionDefined && directionDefined) {
+      result.isRtl = isRtl;
+      result.directionDefined = true;
     }
 
     return result;

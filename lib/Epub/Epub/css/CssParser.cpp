@@ -378,6 +378,15 @@ void CssParser::parseDeclarationIntoStyle(std::string_view decl, CssStyle& style
     const std::string_view displayValue = stripTrailingImportant(value);
     style.display = iequalsAscii(displayValue, "none") ? CssDisplay::None : CssDisplay::Block;
     style.defined.display = 1;
+  } else if (iequalsAscii(name, "direction")) {
+    const std::string_view directionValue = stripTrailingImportant(value);
+    if (iequalsAscii(directionValue, "rtl")) {
+      style.direction = CssTextDirection::Rtl;
+      style.defined.direction = 1;
+    } else if (iequalsAscii(directionValue, "ltr")) {
+      style.direction = CssTextDirection::Ltr;
+      style.defined.direction = 1;
+    }
   } else if (iequalsAscii(name, "vertical-align")) {
     if (iequalsAscii(value, "super")) {
       style.verticalAlign = CssVerticalAlign::Super;
@@ -744,6 +753,7 @@ bool CssParser::saveToCache() const {
     file.write(static_cast<uint8_t>(style.fontStyle));
     file.write(static_cast<uint8_t>(style.fontWeight));
     file.write(static_cast<uint8_t>(style.textDecoration));
+    file.write(static_cast<uint8_t>(style.direction));
 
     // Write CssLength fields (value + unit)
     auto writeLength = [&file](const CssLength& len) {
@@ -765,7 +775,7 @@ bool CssParser::saveToCache() const {
     file.write(static_cast<uint8_t>(style.display));
     file.write(static_cast<uint8_t>(style.verticalAlign));
 
-    // Write defined flags as uint16_t
+    // Write defined flags as uint32_t
     uint32_t definedBits = 0;
     if (style.defined.textAlign) definedBits |= 1 << 0;
     if (style.defined.fontStyle) definedBits |= 1 << 1;
@@ -783,7 +793,8 @@ bool CssParser::saveToCache() const {
     if (style.defined.imageHeight) definedBits |= 1 << 13;
     if (style.defined.imageWidth) definedBits |= 1 << 14;
     if (style.defined.display) definedBits |= 1 << 15;
-    if (style.defined.verticalAlign) definedBits |= 1 << 16;
+    if (style.defined.direction) definedBits |= 1 << 16;
+    if (style.defined.verticalAlign) definedBits |= 1 << 17;
     file.write(reinterpret_cast<const uint8_t*>(&definedBits), sizeof(definedBits));
   }
 
@@ -896,6 +907,12 @@ bool CssParser::loadFromCache() {
     }
     style.textDecoration = static_cast<CssTextDecoration>(enumVal);
 
+    if (file.read(&enumVal, 1) != 1) {
+      rulesBySelector_.clear();
+      return false;
+    }
+    style.direction = static_cast<CssTextDirection>(enumVal);
+
     // Read CssLength fields
     auto readLength = [&file](CssLength& len) -> bool {
       if (file.read(&len.value, sizeof(len.value)) != sizeof(len.value)) {
@@ -955,7 +972,8 @@ bool CssParser::loadFromCache() {
     style.defined.imageHeight = (definedBits & 1 << 13) != 0;
     style.defined.imageWidth = (definedBits & 1 << 14) != 0;
     style.defined.display = (definedBits & 1 << 15) != 0;
-    style.defined.verticalAlign = (definedBits & 1 << 16) != 0;
+    style.defined.direction = (definedBits & 1 << 16) != 0;
+    style.defined.verticalAlign = (definedBits & 1 << 17) != 0;
 
     // Guard against pre-bump caches or future-corrupted records that contain rules with
     // no usable properties. Mirrors the check in processRuleBlockWithStyle.

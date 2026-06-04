@@ -40,5 +40,10 @@ inline BlockStyle blockStyleFromCssStyle(const CssStyle& cssStyle, const float e
   } else {
     blockStyle.alignment = paragraphAlignment;
   }
+  // RTL direction from CSS/HTML
+  if (cssStyle.hasDirection()) {
+    blockStyle.isRtl = (cssStyle.direction == CssTextDirection::Rtl);
+    blockStyle.directionDefined = true;
+  }
   return blockStyle;
 }
