@@ -1,4 +1,5 @@
 #pragma once
+#include <FunctionRef.h>
 #include <HalStorage.h>
 
 #include <deque>
@@ -71,10 +72,5 @@ class ZipFile {
   uint8_t* readFileToMemory(const char* filename, size_t* size = nullptr, bool trailingNullByte = false);
   bool readFileToStream(const char* filename, Print& out, size_t chunkSize);
 
-  template <typename F>
-  void enumerateFilePaths(F&& callback) const {
-    for (const auto& entry : fileStatSlimCache) {
-      callback(std::string_view{entry.first});
-    }
-  }
+  bool enumerateFilePaths(FunctionRef<void(std::string_view)> callback);
 };

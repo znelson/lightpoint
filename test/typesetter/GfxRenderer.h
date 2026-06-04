@@ -67,6 +67,8 @@ class GfxRenderer {
 
   // No SD-card fonts in the stub; lay-out code skips the pre-warm path.
   bool isSdCardFont([[maybe_unused]] int fontId) const { return false; }
+  // TextBlock checks this before measuring; layout tests never run the prewarm scan pass.
+  bool isFontCacheScanning() const { return false; }
   void ensureSdCardFontReady([[maybe_unused]] int fontId, [[maybe_unused]] const char* utf8Text,
                              [[maybe_unused]] uint8_t styleMask = 0x0F) const {}
   void ensureSdCardFontReady([[maybe_unused]] int fontId, [[maybe_unused]] const std::vector<std::string>& words,
