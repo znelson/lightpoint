@@ -593,7 +593,7 @@ void loop() {
   }
 
   const uint32_t sleepTimeoutMs = SETTINGS.getSleepTimeoutMs();
-  if (halPlatform.millis() - lastActivityTime >= sleepTimeoutMs) {
+  if (sleepTimeoutMs > 0 && halPlatform.millis() - lastActivityTime >= sleepTimeoutMs) {
     LOG_DBG("SLP", "Auto-sleep triggered after %u ms of inactivity", sleepTimeoutMs);
     enterDeepSleep(true);
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start

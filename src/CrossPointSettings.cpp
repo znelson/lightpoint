@@ -4,6 +4,8 @@
 #include <JsonSettingsIO.h>
 #include <Logging.h>
 
+#include <algorithm>
+
 #include "fontIds.h"
 
 // Initialize the static instance
@@ -90,22 +92,10 @@ float CrossPointSettings::getReaderLineCompression() const {
 }
 
 uint32_t CrossPointSettings::getSleepTimeoutMs() const {
-  switch (sleepTimeout) {
-    case SLEEP_1_MIN:
-      return 1UL * 60 * 1000;
-    case SLEEP_3_MIN:
-      return 3UL * 60 * 1000;
-    case SLEEP_5_MIN:
-      return 5UL * 60 * 1000;
-    case SLEEP_10_MIN:
-      return 10UL * 60 * 1000;
-    case SLEEP_15_MIN:
-      return 15UL * 60 * 1000;
-    case SLEEP_30_MIN:
-      return 30UL * 60 * 1000;
-    default:
-      return 10UL * 60 * 1000;
-  }
+  if (sleepTimeoutMinutes >= SLEEP_TIMEOUT_NEVER_MINUTES) return 0U;
+  const uint8_t minutes =
+      std::clamp(sleepTimeoutMinutes, MIN_SLEEP_TIMEOUT_MINUTES, static_cast<uint8_t>(SLEEP_TIMEOUT_NEVER_MINUTES - 1));
+  return static_cast<uint32_t>(minutes) * 60U * 1000U;
 }
 
 int CrossPointSettings::getRefreshFrequency() const {

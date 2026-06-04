@@ -93,17 +93,6 @@ class CrossPointSettings {
     PARAGRAPH_ALIGNMENT_COUNT
   };
 
-  // Auto-sleep timeout options (in minutes)
-  enum SLEEP_TIMEOUT {
-    SLEEP_1_MIN = 0,
-    SLEEP_3_MIN = 1,
-    SLEEP_5_MIN = 2,
-    SLEEP_10_MIN = 3,
-    SLEEP_15_MIN = 4,
-    SLEEP_30_MIN = 5,
-    SLEEP_TIMEOUT_COUNT
-  };
-
   // E-ink refresh frequency (pages between full refreshes)
   enum REFRESH_FREQUENCY {
     REFRESH_1 = 0,
@@ -187,8 +176,8 @@ class CrossPointSettings {
   uint8_t fontSize = MEDIUM;
   uint8_t lineSpacing = NORMAL;
   uint8_t paragraphAlignment = JUSTIFIED;
-  // Auto-sleep timeout setting (default 10 minutes)
-  uint8_t sleepTimeout = SLEEP_10_MIN;
+  // Auto-sleep timeout setting (default 10 minutes).
+  uint8_t sleepTimeoutMinutes = 10;
   // E-ink refresh frequency (default 15 pages)
   uint8_t refreshFrequency = REFRESH_15;
   uint8_t hyphenationEnabled = 0;
@@ -228,6 +217,10 @@ class CrossPointSettings {
 
   // Get singleton instance
   static CrossPointSettings& getInstance() { return instance; }
+
+  static constexpr uint8_t MIN_SLEEP_TIMEOUT_MINUTES = 1;
+  static constexpr uint8_t SLEEP_TIMEOUT_NEVER_MINUTES = 31;
+  static constexpr uint8_t MAX_SLEEP_TIMEOUT_MINUTES = SLEEP_TIMEOUT_NEVER_MINUTES;
 
   // Callback to resolve SD card font IDs. Set by SdCardFontSystem::begin().
   // Returns font ID or 0 if not found.
