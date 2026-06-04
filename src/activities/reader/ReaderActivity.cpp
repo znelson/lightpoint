@@ -6,6 +6,7 @@
 #include "CrossPointSettings.h"
 #include "Epub.h"
 #include "EpubReaderActivity.h"
+#include "MdReaderActivity.h"
 #include "SdCardFontSystem.h"
 #include "Txt.h"
 #include "TxtReaderActivity.h"
@@ -16,15 +17,14 @@
 
 bool ReaderActivity::isXtcFile(const std::string& path) { return FsHelpers::hasXtcExtension(path); }
 
-bool ReaderActivity::isTxtFile(const std::string& path) {
-  return FsHelpers::hasTxtExtension(path) ||
-         FsHelpers::hasMarkdownExtension(path);  // Treat .md as txt files (until we have a markdown reader)
-}
+bool ReaderActivity::isTxtFile(const std::string& path) { return FsHelpers::hasTxtExtension(path); }
+
+bool ReaderActivity::isMdFile(const std::string& path) { return FsHelpers::hasMarkdownExtension(path); }
 
 bool ReaderActivity::isBmpFile(const std::string& path) { return FsHelpers::hasBmpExtension(path); }
 
 std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
-  if (!Storage.exists(path.c_str())) {
+  if (!halStorage.exists(path.c_str())) {
     LOG_ERR("READER", "File does not exist: %s", path.c_str());
     return nullptr;
   }
@@ -39,7 +39,7 @@ std::unique_ptr<Epub> ReaderActivity::loadEpub(const std::string& path) {
 }
 
 std::unique_ptr<Xtc> ReaderActivity::loadXtc(const std::string& path) {
-  if (!Storage.exists(path.c_str())) {
+  if (!halStorage.exists(path.c_str())) {
     LOG_ERR("READER", "File does not exist: %s", path.c_str());
     return nullptr;
   }
@@ -54,7 +54,7 @@ std::unique_ptr<Xtc> ReaderActivity::loadXtc(const std::string& path) {
 }
 
 std::unique_ptr<Txt> ReaderActivity::loadTxt(const std::string& path) {
-  if (!Storage.exists(path.c_str())) {
+  if (!halStorage.exists(path.c_str())) {
     LOG_ERR("READER", "File does not exist: %s", path.c_str());
     return nullptr;
   }
@@ -96,6 +96,12 @@ void ReaderActivity::onGoToTxtReader(std::unique_ptr<Txt> txt) {
   activityManager.replaceActivity(std::make_unique<TxtReaderActivity>(renderer, mappedInput, std::move(txt)));
 }
 
+void ReaderActivity::onGoToMdReader(std::unique_ptr<Txt> md) {
+  const auto mdPath = md->getPath();
+  currentBookPath = mdPath;
+  activityManager.replaceActivity(std::make_unique<MdReaderActivity>(renderer, mappedInput, std::move(md)));
+}
+
 void ReaderActivity::onEnter() {
   Activity::onEnter();
 
@@ -116,6 +122,13 @@ void ReaderActivity::onEnter() {
       return;
     }
     onGoToXtcReader(std::move(xtc));
+  } else if (isMdFile(initialBookPath)) {
+    auto md = loadTxt(initialBookPath);  // .md files read like .txt -- byte stream + cache dir
+    if (!md) {
+      onGoBack();
+      return;
+    }
+    onGoToMdReader(std::move(md));
   } else if (isTxtFile(initialBookPath)) {
     auto txt = loadTxt(initialBookPath);
     if (!txt) {

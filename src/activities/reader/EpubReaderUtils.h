@@ -14,7 +14,7 @@ inline bool saveProgress(Epub& epub, int spineIndex, int pageNumber, int pageCou
     return false;
   }
   HalFile f;
-  if (!Storage.openFileForWrite("ERS", epub.getCachePath() + "/progress.bin", f)) {
+  if (!halStorage.openFileForWrite("ERS", epub.getCachePath() + "/progress.bin", f)) {
     LOG_ERR("ERS", "Could not open progress file for write!");
     return false;
   }

@@ -11,14 +11,13 @@
 #include <vector>
 
 #include "CrossPointSettings.h"
-#include "KOReaderCredentialStore.h"
 #include "activities/settings/SettingsActivity.h"
 
 // Build the font family setting dynamically. When registry is non-null, SD card fonts
 // are appended after the built-in fonts. Otherwise only built-in fonts are listed.
 inline SettingInfo buildFontFamilySetting(const SdCardFontRegistry* registry) {
   // Built-in font labels (StrId)
-  std::vector<StrId> enumValues = {StrId::STR_NOTO_SERIF, StrId::STR_NOTO_SANS, StrId::STR_OPEN_DYSLEXIC};
+  std::vector<StrId> enumValues = {StrId::STR_NOTO_SERIF, StrId::STR_NOTO_SANS, StrId::STR_COURIER_PRIME};
   // Runtime string labels for SD card fonts
   std::vector<std::string> enumStringValues;
 
@@ -41,7 +40,7 @@ inline SettingInfo buildFontFamilySetting(const SdCardFontRegistry* registry) {
   if (sdFontCount > 0) {
     allStringValues.push_back(I18N.get(StrId::STR_NOTO_SERIF));
     allStringValues.push_back(I18N.get(StrId::STR_NOTO_SANS));
-    allStringValues.push_back(I18N.get(StrId::STR_OPEN_DYSLEXIC));
+    allStringValues.push_back(I18N.get(StrId::STR_COURIER_PRIME));
     allStringValues.insert(allStringValues.end(), enumStringValues.begin(), enumStringValues.end());
   }
 
@@ -134,7 +133,7 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
         // Built-in font-family entry. Replaced per-call with a registry-aware
         // version when SD fonts are installed.
         SettingInfo::Enum(StrId::STR_FONT_FAMILY, &CrossPointSettings::fontFamily,
-                          {StrId::STR_NOTO_SERIF, StrId::STR_NOTO_SANS, StrId::STR_OPEN_DYSLEXIC}, "fontFamily",
+                          {StrId::STR_NOTO_SERIF, StrId::STR_NOTO_SANS, StrId::STR_COURIER_PRIME}, "fontFamily",
                           StrId::STR_CAT_READER),
         SettingInfo::Enum(StrId::STR_FONT_SIZE, &CrossPointSettings::fontSize,
                           {StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE, StrId::STR_X_LARGE}, "fontSize",
@@ -189,36 +188,6 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
         SettingInfo::Toggle(StrId::STR_MOVE_FINISHED_TO_READ, &CrossPointSettings::moveFinishedToReadFolder,
                             "moveFinishedToReadFolder", StrId::STR_CAT_SYSTEM),
 
-        // --- KOReader Sync (web-only, uses KOReaderCredentialStore) ---
-        SettingInfo::DynamicString(
-            StrId::STR_KOREADER_USERNAME, [] { return KOREADER_STORE.getUsername(); },
-            [](const std::string& v) {
-              KOREADER_STORE.setCredentials(v, KOREADER_STORE.getPassword());
-              KOREADER_STORE.saveToFile();
-            },
-            "koUsername", StrId::STR_KOREADER_SYNC),
-        SettingInfo::DynamicString(
-            StrId::STR_KOREADER_PASSWORD, [] { return KOREADER_STORE.getPassword(); },
-            [](const std::string& v) {
-              KOREADER_STORE.setCredentials(KOREADER_STORE.getUsername(), v);
-              KOREADER_STORE.saveToFile();
-            },
-            "koPassword", StrId::STR_KOREADER_SYNC),
-        SettingInfo::DynamicString(
-            StrId::STR_SYNC_SERVER_URL, [] { return KOREADER_STORE.getServerUrl(); },
-            [](const std::string& v) {
-              KOREADER_STORE.setServerUrl(v);
-              KOREADER_STORE.saveToFile();
-            },
-            "koServerUrl", StrId::STR_KOREADER_SYNC),
-        SettingInfo::DynamicEnum(
-            StrId::STR_DOCUMENT_MATCHING, {StrId::STR_FILENAME, StrId::STR_BINARY},
-            [] { return static_cast<uint8_t>(KOREADER_STORE.getMatchMethod()); },
-            [](uint8_t v) {
-              KOREADER_STORE.setMatchMethod(static_cast<DocumentMatchMethod>(v));
-              KOREADER_STORE.saveToFile();
-            },
-            "koMatchMethod", StrId::STR_KOREADER_SYNC),
         // --- Status Bar Settings (web-only, uses StatusBarSettingsActivity) ---
         SettingInfo::Toggle(StrId::STR_CHAPTER_PAGE_COUNT, &CrossPointSettings::statusBarChapterPageCount,
                             "statusBarChapterPageCount", StrId::STR_CUSTOMISE_STATUS_BAR),
@@ -255,13 +224,12 @@ inline std::vector<SettingInfo> getSettingsList(const SdCardFontRegistry* regist
     // Only show tilt page turn setting when the QMI8658 IMU is present (X3)
     if (halTiltSensor.isAvailable()) {
       // Insert after the short power button setting (end of Controls section)
-      for (auto it = v.begin(); it != v.end(); ++it) {
-        if (it->nameId == StrId::STR_SHORT_PWR_BTN) {
-          v.insert(it + 1, SettingInfo::Enum(StrId::STR_TILT_PAGE_TURN, &CrossPointSettings::tiltPageTurn,
-                                             {StrId::STR_STATE_OFF, StrId::STR_NORMAL, StrId::STR_INVERTED},
-                                             "tiltPageTurn", StrId::STR_CAT_CONTROLS));
-          break;
-        }
+      auto it =
+          std::find_if(v.begin(), v.end(), [](const SettingInfo& s) { return s.nameId == StrId::STR_SHORT_PWR_BTN; });
+      if (it != v.end()) {
+        v.insert(it + 1, SettingInfo::Enum(StrId::STR_TILT_PAGE_TURN, &CrossPointSettings::tiltPageTurn,
+                                           {StrId::STR_STATE_OFF, StrId::STR_NORMAL, StrId::STR_INVERTED},
+                                           "tiltPageTurn", StrId::STR_CAT_CONTROLS));
       }
     }
     return v;

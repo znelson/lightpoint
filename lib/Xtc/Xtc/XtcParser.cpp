@@ -2,7 +2,7 @@
  * XtcParser.cpp
  *
  * XTC file parsing implementation
- * XTC ebook support for CrossPoint Reader
+ * XTC ebook support for LightPoint Reader
  */
 
 #include "XtcParser.h"
@@ -37,7 +37,7 @@ XtcError XtcParser::open(const char* filepath) {
   m_filepath = filepath;
 
   // Open file
-  if (!Storage.openFileForRead("XTC", filepath, m_file)) {
+  if (!halStorage.openFileForRead("XTC", filepath, m_file)) {
     m_lastError = XtcError::FILE_NOT_FOUND;
     return m_lastError;
   }
@@ -113,7 +113,7 @@ bool XtcParser::ensureFileOpen() {
   if (m_file.isOpen()) {
     return true;
   }
-  return Storage.openFileForRead("XTC", m_filepath.c_str(), m_file);
+  return halStorage.openFileForRead("XTC", m_filepath.c_str(), m_file);
 }
 
 void XtcParser::closeFile() {
@@ -141,8 +141,8 @@ XtcError XtcParser::readHeader() {
   // Check version
   // Currently, version 1.0 is the only valid version, however some generators are swapping the bytes around, so we
   // accept both 1.0 and 0.1 for compatibility
-  const bool validVersion = m_header.versionMajor == 1 && m_header.versionMinor == 0 ||
-                            m_header.versionMajor == 0 && m_header.versionMinor == 1;
+  const bool validVersion = (m_header.versionMajor == 1 && m_header.versionMinor == 0) ||
+                            (m_header.versionMajor == 0 && m_header.versionMinor == 1);
   if (!validVersion) {
     LOG_DBG("XTC", "Unsupported version: %u.%u", m_header.versionMajor, m_header.versionMinor);
     return XtcError::INVALID_VERSION;
@@ -468,7 +468,7 @@ size_t XtcParser::loadPage(uint32_t pageIndex, uint8_t* buffer, size_t bufferSiz
 }
 
 XtcError XtcParser::loadPageStreaming(uint32_t pageIndex,
-                                      std::function<void(const uint8_t* data, size_t size, size_t offset)> callback,
+                                      FunctionRef<void(const uint8_t* data, size_t size, size_t offset)> callback,
                                       size_t chunkSize) {
   if (!m_isOpen) {
     return XtcError::FILE_NOT_FOUND;
@@ -531,7 +531,7 @@ XtcError XtcParser::loadPageStreaming(uint32_t pageIndex,
 
 bool XtcParser::isValidXtcFile(const char* filepath) {
   HalFile file;
-  if (!Storage.openFileForRead("XTC", filepath, file)) {
+  if (!halStorage.openFileForRead("XTC", filepath, file)) {
     return false;
   }
 

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "lib/JsonParser/StreamingJsonParser.h"
+#include "lib/JsonIO/StreamingJsonParser.h"
 
 namespace {
 
@@ -150,13 +150,98 @@ TEST(StreamingJsonParser, StringEscapes) {
   EXPECT_EQ(events[2].value, std::string("a\"b\\c/d\ne\tf"));
 }
 
-TEST(StreamingJsonParser, UnicodeEscapePassthrough) {
+TEST(StreamingJsonParser, UnicodeEscapeAscii) {
+  // \u escapes for ASCII codepoints (1-byte UTF-8) decode to the raw bytes.
   auto events = parse(R"({"u": "\u0041\u0042"})");
 
   ASSERT_EQ(events.size(), 4u);
   EXPECT_EQ(events[2].type, EventType::STRING);
-  // \uXXXX passed through as literal \u followed by the hex digits
-  EXPECT_EQ(events[2].value, "\\u0041\\u0042");
+  EXPECT_EQ(events[2].value, "AB");
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeTwoByteUtf8) {
+  // U+00E9 (e-acute) decodes to the 2-byte UTF-8 sequence C3 A9.
+  auto events = parse(R"({"k": "caf\u00E9"})");
+
+  ASSERT_EQ(events.size(), 4u);
+  EXPECT_EQ(events[2].type, EventType::STRING);
+  EXPECT_EQ(events[2].value, std::string("caf\xC3\xA9"));
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeThreeByteUtf8) {
+  // U+20AC (euro sign) decodes to the 3-byte UTF-8 sequence E2 82 AC.
+  auto events = parse(R"({"k": "\u20AC"})");
+
+  ASSERT_EQ(events.size(), 4u);
+  EXPECT_EQ(events[2].type, EventType::STRING);
+  EXPECT_EQ(events[2].value, std::string("\xE2\x82\xAC"));
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeMixedHexCase) {
+  // Lower and upper case hex digits must both decode.
+  auto events = parse(R"({"k": "\u00e9\u00E9"})");
+
+  ASSERT_EQ(events.size(), 4u);
+  EXPECT_EQ(events[2].type, EventType::STRING);
+  EXPECT_EQ(events[2].value, std::string("\xC3\xA9\xC3\xA9"));
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeSurrogateBecomesReplacement) {
+  // Bare surrogate values (no pair handling) emit U+FFFD (EF BF BD).
+  auto events = parse(R"({"k": "\uD800"})");
+
+  ASSERT_EQ(events.size(), 4u);
+  EXPECT_EQ(events[2].type, EventType::STRING);
+  EXPECT_EQ(events[2].value, std::string("\xEF\xBF\xBD"));
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeInvalidHexBecomesReplacement) {
+  // A non-hex digit inside \uXXXX yields U+FFFD; the offending byte is then
+  // reprocessed as a normal string char so the rest of the string parses.
+  auto events = parse(R"({"k": "\u00ZZok"})");
+
+  ASSERT_EQ(events.size(), 4u);
+  EXPECT_EQ(events[2].type, EventType::STRING);
+  EXPECT_EQ(events[2].value, std::string("\xEF\xBF\xBD"
+                                         "ZZok"));
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeMixedWithLiterals) {
+  auto events = parse(R"({"k": "a\u00E9b"})");
+
+  ASSERT_EQ(events.size(), 4u);
+  EXPECT_EQ(events[2].type, EventType::STRING);
+  EXPECT_EQ(events[2].value, std::string("a\xC3\xA9"
+                                         "b"));
+}
+
+TEST(StreamingJsonParser, UnicodeEscapeSplitAcrossChunks) {
+  // Feed the JSON one byte at a time -- the parser must hold \uXXXX state
+  // across feed() calls so the escape still decodes correctly.
+  const char* json = R"({"k": "\u00E9"})";
+  auto reference = parse(json);
+
+  auto bytewise = parseBytewise(json);
+  ASSERT_EQ(bytewise.size(), reference.size());
+  for (size_t i = 0; i < reference.size(); ++i) {
+    EXPECT_EQ(bytewise[i].type, reference[i].type);
+    EXPECT_EQ(bytewise[i].value, reference[i].value);
+  }
+
+  // Also try every possible split point (similar to EveryByteBoundary).
+  size_t len = strlen(json);
+  for (size_t split = 0; split <= len; ++split) {
+    TestContext ctx;
+    StreamingJsonParser parser(makeCallbacks(&ctx));
+    if (split > 0) parser.feed(json, split);
+    if (split < len) parser.feed(json + split, len - split);
+
+    ASSERT_EQ(ctx.events.size(), reference.size()) << "split=" << split;
+    for (size_t i = 0; i < reference.size(); ++i) {
+      EXPECT_EQ(ctx.events[i].type, reference[i].type) << "split=" << split << " event=" << i;
+      EXPECT_EQ(ctx.events[i].value, reference[i].value) << "split=" << split << " event=" << i;
+    }
+  }
 }
 
 TEST(StreamingJsonParser, Numbers) {
