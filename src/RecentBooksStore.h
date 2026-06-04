@@ -11,9 +11,10 @@ struct RecentBook {
   bool operator==(const RecentBook& other) const { return path == other.path; }
 };
 
+class HalFile;
 class RecentBooksStore;
 namespace JsonSettingsIO {
-bool loadRecentBooks(RecentBooksStore& store, const char* json);
+bool loadRecentBooksFromFile(RecentBooksStore& store, HalFile& file);
 }  // namespace JsonSettingsIO
 
 class RecentBooksStore {
@@ -22,9 +23,16 @@ class RecentBooksStore {
 
   std::vector<RecentBook> recentBooks;
 
-  friend bool JsonSettingsIO::loadRecentBooks(RecentBooksStore&, const char*);
+  RecentBooksStore() = default;
+
+  friend bool JsonSettingsIO::loadRecentBooksFromFile(RecentBooksStore&, HalFile&);
 
  public:
+  RecentBooksStore(const RecentBooksStore&) = delete;
+  RecentBooksStore& operator=(const RecentBooksStore&) = delete;
+  RecentBooksStore(RecentBooksStore&&) = delete;
+  RecentBooksStore& operator=(RecentBooksStore&&) = delete;
+
   ~RecentBooksStore() = default;
 
   // Get singleton instance
@@ -64,10 +72,6 @@ class RecentBooksStore {
   bool saveToFile() const;
 
   bool loadFromFile();
-  RecentBook getDataFromBook(std::string path) const;
-
- private:
-  bool loadFromBinaryFile();
 };
 
 // Helper macro to access recent books store

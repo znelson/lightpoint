@@ -1,6 +1,6 @@
 # Testing and Debugging
 
-CrossPoint runs on real hardware, so debugging usually combines local build checks and on-device logs.
+LightPoint runs on real hardware, so debugging usually combines local build checks and on-device logs.
 
 ## Local checks
 

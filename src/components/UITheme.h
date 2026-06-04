@@ -14,6 +14,10 @@ class UITheme {
 
  public:
   UITheme();
+  UITheme(const UITheme&) = delete;
+  UITheme& operator=(const UITheme&) = delete;
+  UITheme(UITheme&&) = delete;
+  UITheme& operator=(UITheme&&) = delete;
   static UITheme& getInstance() { return instance; }
 
   const ThemeMetrics& getMetrics() const { return *currentMetrics; }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(crosspoint_reader_tests CXX)
+project(lightpoint_reader_tests CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,12 +24,12 @@ FetchContent_MakeAvailable(googletest)
 
 set(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
-add_library(crosspoint_test_common INTERFACE)
-target_include_directories(crosspoint_test_common INTERFACE
+add_library(lightpoint_test_common INTERFACE)
+target_include_directories(lightpoint_test_common INTERFACE
   ${REPO_ROOT}
   ${REPO_ROOT}/lib
 )
-target_compile_options(crosspoint_test_common INTERFACE
+target_compile_options(lightpoint_test_common INTERFACE
   -Wall
   -Wextra
   -pedantic
@@ -38,7 +38,15 @@ target_compile_options(crosspoint_test_common INTERFACE
 enable_testing()
 include(GoogleTest)
 
+add_subdirectory(stubs)
+
 add_subdirectory(streaming_json_parser)
 add_subdirectory(release_json_parser)
 add_subdirectory(differential_rounding)
 add_subdirectory(hyphenation_eval)
+add_subdirectory(json_writer)
+add_subdirectory(css_parser)
+add_subdirectory(typesetter)
+add_subdirectory(section)
+add_subdirectory(markdown)
+add_subdirectory(utility)
