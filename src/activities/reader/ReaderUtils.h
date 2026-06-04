@@ -1,6 +1,7 @@
 #pragma once
 
 #include <CrossPointSettings.h>
+#include <FunctionRef.h>
 #include <GfxRenderer.h>
 #include <HalTiltSensor.h>
 #include <Logging.h>
@@ -72,30 +73,8 @@ inline void displayWithRefreshCycle(const GfxRenderer& renderer, int& pagesUntil
 }
 
 // Grayscale anti-aliasing pass. Renders content twice (LSB + MSB) to build
-// the grayscale buffer. Only the content callback is re-rendered — status bars
+// the grayscale buffer. Only the content callback is re-rendered -- status bars
 // and other overlays should be drawn before calling this.
-// Kept as a template to avoid std::function overhead; instantiated once per reader type.
-template <typename RenderFn>
-void renderAntiAliased(GfxRenderer& renderer, RenderFn&& renderFn) {
-  if (!renderer.storeBwBuffer()) {
-    LOG_ERR("READER", "Failed to store BW buffer for anti-aliasing");
-    return;
-  }
-
-  renderer.clearScreen(0x00);
-  renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
-  renderFn();
-  renderer.copyGrayscaleLsbBuffers();
-
-  renderer.clearScreen(0x00);
-  renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-  renderFn();
-  renderer.copyGrayscaleMsbBuffers();
-
-  renderer.displayGrayBuffer();
-  renderer.setRenderMode(GfxRenderer::BW);
-
-  renderer.restoreBwBuffer();
-}
+void renderAntiAliased(GfxRenderer& renderer, FunctionRef<void()> renderFn);
 
 }  // namespace ReaderUtils
