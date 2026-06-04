@@ -2,14 +2,14 @@
  * XtcParser.h
  *
  * XTC file parsing and page data extraction
- * XTC ebook support for CrossPoint Reader
+ * XTC ebook support for LightPoint Reader
  */
 
 #pragma once
 
+#include <FunctionRef.h>
 #include <HalStorage.h>
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -67,7 +67,7 @@ class XtcParser {
    * @return Error code
    */
   XtcError loadPageStreaming(uint32_t pageIndex,
-                             std::function<void(const uint8_t* data, size_t size, size_t offset)> callback,
+                             FunctionRef<void(const uint8_t* data, size_t size, size_t offset)> callback,
                              size_t chunkSize = 1024);
 
   // Get title/author from metadata

@@ -77,7 +77,7 @@ bool SdCardFontRegistry::parseFilename(const char* filename, uint8_t& size, uint
 }
 
 void SdCardFontRegistry::scanDirectory(const char* dirPath, SdCardFontFamilyInfo& family) {
-  HalFile dir = Storage.open(dirPath);
+  HalFile dir = halStorage.open(dirPath);
   if (!dir || !dir.isDirectory()) return;
 
   char nameBuffer[128];
@@ -126,7 +126,7 @@ void SdCardFontRegistry::scanDirectory(const char* dirPath, SdCardFontFamilyInfo
 // Skips families whose names already exist in `out` (de-duplicates between
 // the hidden and visible roots — first scan wins).
 void SdCardFontRegistry::scanRoot(const char* rootPath, std::vector<SdCardFontFamilyInfo>& out) {
-  HalFile root = Storage.open(rootPath);
+  HalFile root = halStorage.open(rootPath);
   if (!root) {
     LOG_DBG("SDREG", "Fonts directory not found: %s", rootPath);
     return;
@@ -195,36 +195,9 @@ bool SdCardFontRegistry::discover() {
   return !families_.empty();
 }
 
-const char* SdCardFontRegistry::findFamilyRoot(const char* familyName) {
-  if (!familyName || !*familyName) return nullptr;
-  char path[160];
-  snprintf(path, sizeof(path), "%s/%s", FONTS_DIR_HIDDEN, familyName);
-  if (Storage.exists(path)) return FONTS_DIR_HIDDEN;
-  snprintf(path, sizeof(path), "%s/%s", FONTS_DIR_VISIBLE, familyName);
-  if (Storage.exists(path)) return FONTS_DIR_VISIBLE;
-  return nullptr;
-}
-
-const char* SdCardFontRegistry::defaultWriteRoot() {
-  // If exactly one of the roots already exists, keep using it. Otherwise
-  // (neither exists, or both exist) prefer the hidden root for new installs.
-  bool hiddenExists = Storage.exists(FONTS_DIR_HIDDEN);
-  bool visibleExists = Storage.exists(FONTS_DIR_VISIBLE);
-  if (hiddenExists) return FONTS_DIR_HIDDEN;
-  if (visibleExists) return FONTS_DIR_VISIBLE;
-  return FONTS_DIR_HIDDEN;
-}
-
 const SdCardFontFamilyInfo* SdCardFontRegistry::findFamily(const std::string& name) const {
   for (const auto& f : families_) {
     if (f.name == name) return &f;
   }
   return nullptr;
-}
-
-int SdCardFontRegistry::getFamilyIndex(const std::string& name) const {
-  for (int i = 0; i < static_cast<int>(families_.size()); i++) {
-    if (families_[i].name == name) return i;
-  }
-  return -1;
 }

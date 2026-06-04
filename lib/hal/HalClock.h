@@ -1,24 +1,27 @@
 #pragma once
 
-#include <Arduino.h>
-#include <Wire.h>
+#include <driver/i2c_master.h>
 
 #include "HalGPIO.h"
 
-class HalClock;
-extern HalClock halClock;  // Singleton
-
 class HalClock {
   bool _available = false;
+  i2c_master_dev_handle_t ds3231Dev = nullptr;
   mutable uint8_t _cachedHour = 0;
   mutable uint8_t _cachedMinute = 0;
   mutable bool _hasCachedTime = false;
-  mutable unsigned long _lastPollMs = 0;
+  mutable uint32_t _lastPollMs = 0;
 
-  static constexpr unsigned long CLOCK_POLL_MS = 10000;  // 10 seconds
+  static constexpr uint32_t CLOCK_POLL_MS = 10000;  // 10 seconds
 
  public:
-  // Call after gpio.begin() and powerManager.begin() (I2C already initialised for X3)
+  HalClock() = default;
+  HalClock(const HalClock&) = delete;
+  HalClock& operator=(const HalClock&) = delete;
+  HalClock(HalClock&&) = delete;
+  HalClock& operator=(HalClock&&) = delete;
+
+  // Call after halGPIO.begin() (I2C bus initialised there for X3)
   void begin();
 
   // True if the DS3231 RTC is present on this device
@@ -46,3 +49,5 @@ class HalClock {
  private:
   bool writeTimeToRTC(uint8_t hour, uint8_t minute, uint8_t second);
 };
+
+extern HalClock halClock;  // Singleton

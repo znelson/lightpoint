@@ -1,6 +1,7 @@
 #include "Epub.h"
 
 #include <FsHelpers.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <JpegToBmpConverter.h>
 #include <Logging.h>
@@ -153,13 +154,13 @@ bool Epub::parseTocNcxFile() const {
 
   const auto tmpNcxPath = getCachePath() + "/toc.ncx";
   HalFile tempNcxFile;
-  if (!Storage.openFileForWrite("EBP", tmpNcxPath, tempNcxFile)) {
+  if (!halStorage.openFileForWrite("EBP", tmpNcxPath, tempNcxFile)) {
     return false;
   }
   readItemContentsToStream(tocNcxItem, tempNcxFile, 1024);
   // Explicitly close() file before reopening for reading
   tempNcxFile.close();
-  if (!Storage.openFileForRead("EBP", tmpNcxPath, tempNcxFile)) {
+  if (!halStorage.openFileForRead("EBP", tmpNcxPath, tempNcxFile)) {
     return false;
   }
   const auto ncxSize = tempNcxFile.size();
@@ -190,9 +191,9 @@ bool Epub::parseTocNcxFile() const {
   }
 
   free(ncxBuffer);
-  // Explicitly close() file before calling Storage.remove()
+  // Explicitly close() file before calling halStorage.remove()
   tempNcxFile.close();
-  Storage.remove(tmpNcxPath.c_str());
+  halStorage.remove(tmpNcxPath.c_str());
 
   LOG_DBG("EBP", "Parsed TOC items");
   return true;
@@ -209,13 +210,13 @@ bool Epub::parseTocNavFile() const {
 
   const auto tmpNavPath = getCachePath() + "/toc.nav";
   HalFile tempNavFile;
-  if (!Storage.openFileForWrite("EBP", tmpNavPath, tempNavFile)) {
+  if (!halStorage.openFileForWrite("EBP", tmpNavPath, tempNavFile)) {
     return false;
   }
   readItemContentsToStream(tocNavItem, tempNavFile, 1024);
   // Explicitly close() file before reopening for reading
   tempNavFile.close();
-  if (!Storage.openFileForRead("EBP", tmpNavPath, tempNavFile)) {
+  if (!halStorage.openFileForRead("EBP", tmpNavPath, tempNavFile)) {
     return false;
   }
   const auto navSize = tempNavFile.size();
@@ -248,9 +249,9 @@ bool Epub::parseTocNavFile() const {
   }
 
   free(navBuffer);
-  // Explicitly close() file before calling Storage.remove()
+  // Explicitly close() file before calling halStorage.remove()
   tempNavFile.close();
-  Storage.remove(tmpNavPath.c_str());
+  halStorage.remove(tmpNavPath.c_str());
 
   LOG_DBG("EBP", "Parsed TOC nav items");
   return true;
@@ -304,7 +305,7 @@ void Epub::parseCssFiles() const {
     LOG_DBG("EBP", "Parsing CSS file: %s", cssPath.c_str());
 
     // Check heap before parsing - CSS parsing allocates heavily
-    const uint32_t freeHeap = ESP.getFreeHeap();
+    const uint32_t freeHeap = halPlatform.freeHeap();
     if (freeHeap < MIN_HEAP_FOR_CSS_PARSING) {
       LOG_ERR("EBP", "Insufficient heap for CSS parsing (%u bytes free, need %zu), skipping: %s", freeHeap,
               MIN_HEAP_FOR_CSS_PARSING, cssPath.c_str());
@@ -324,30 +325,30 @@ void Epub::parseCssFiles() const {
     // Extract CSS file to temp location
     const auto tmpCssPath = getCachePath() + "/.tmp.css";
     HalFile tempCssFile;
-    if (!Storage.openFileForWrite("EBP", tmpCssPath, tempCssFile)) {
+    if (!halStorage.openFileForWrite("EBP", tmpCssPath, tempCssFile)) {
       LOG_ERR("EBP", "Could not create temp CSS file");
       continue;
     }
     if (!readItemContentsToStream(cssPath, tempCssFile, 1024)) {
       LOG_ERR("EBP", "Could not read CSS file: %s", cssPath.c_str());
-      // Explicitly close() file before calling Storage.remove()
+      // Explicitly close() file before calling halStorage.remove()
       tempCssFile.close();
-      Storage.remove(tmpCssPath.c_str());
+      halStorage.remove(tmpCssPath.c_str());
       continue;
     }
     // Explicitly close() file before reopening for reading
     tempCssFile.close();
 
     // Parse the CSS file
-    if (!Storage.openFileForRead("EBP", tmpCssPath, tempCssFile)) {
+    if (!halStorage.openFileForRead("EBP", tmpCssPath, tempCssFile)) {
       LOG_ERR("EBP", "Could not open temp CSS file for reading");
-      Storage.remove(tmpCssPath.c_str());
+      halStorage.remove(tmpCssPath.c_str());
       continue;
     }
     cssParser->loadFromStream(tempCssFile);
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     tempCssFile.close();
-    Storage.remove(tmpCssPath.c_str());
+    halStorage.remove(tmpCssPath.c_str());
   }
 
   // Save to cache for next time
@@ -391,7 +392,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
           return false;
         }
         // Invalidate section caches so they are rebuilt with the new CSS
-        Storage.removeDir((cachePath + "/sections").c_str());
+        halStorage.removeDir((cachePath + "/sections").c_str());
       }
     }
     LOG_DBG("EBP", "Loaded ePub: %s", filepath.c_str());
@@ -407,7 +408,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   LOG_DBG("EBP", "Cache not found, building spine/TOC cache");
   setupCacheDir();
 
-  const uint32_t indexingStart = millis();
+  const uint32_t indexingStart = halPlatform.millis();
 
   // Begin building cache - stream entries to disk immediately
   if (!bookMetadataCache->beginWrite()) {
@@ -416,7 +417,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   }
 
   // OPF Pass
-  const uint32_t opfStart = millis();
+  const uint32_t opfStart = halPlatform.millis();
   BookMetadataCache::BookMetadata bookMetadata;
   if (!bookMetadataCache->beginContentOpfPass()) {
     LOG_ERR("EBP", "Could not begin writing content.opf pass");
@@ -431,10 +432,10 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     LOG_ERR("EBP", "Could not end writing content.opf pass");
     return false;
   }
-  LOG_DBG("EBP", "OPF pass completed in %lu ms", millis() - opfStart);
+  LOG_DBG("EBP", "OPF pass completed in %u ms", halPlatform.millis() - opfStart);
 
   // TOC Pass - try EPUB 3 nav first, fall back to NCX
-  const uint32_t tocStart = millis();
+  const uint32_t tocStart = halPlatform.millis();
   if (!bookMetadataCache->beginTocPass()) {
     LOG_ERR("EBP", "Could not begin writing toc pass");
     return false;
@@ -463,7 +464,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     LOG_ERR("EBP", "Could not end writing toc pass");
     return false;
   }
-  LOG_DBG("EBP", "TOC pass completed in %lu ms", millis() - tocStart);
+  LOG_DBG("EBP", "TOC pass completed in %u ms", halPlatform.millis() - tocStart);
 
   // Close the cache files
   if (!bookMetadataCache->endWrite()) {
@@ -472,13 +473,13 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
   }
 
   // Build final book.bin
-  const uint32_t buildStart = millis();
+  const uint32_t buildStart = halPlatform.millis();
   if (!bookMetadataCache->buildBookBin(filepath, bookMetadata)) {
     LOG_ERR("EBP", "Could not update mappings and sizes");
     return false;
   }
-  LOG_DBG("EBP", "buildBookBin completed in %lu ms", millis() - buildStart);
-  LOG_DBG("EBP", "Total indexing completed in %lu ms", millis() - indexingStart);
+  LOG_DBG("EBP", "buildBookBin completed in %u ms", halPlatform.millis() - buildStart);
+  LOG_DBG("EBP", "Total indexing completed in %u ms", halPlatform.millis() - indexingStart);
 
   if (!bookMetadataCache->cleanupTmpFiles()) {
     LOG_DBG("EBP", "Could not cleanup tmp files - ignoring");
@@ -488,7 +489,7 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     // Parse CSS before reloading book.bin to leave more heap for CSS rule-table growth.
     bookMetadataCache.reset();
     parseCssFiles();
-    Storage.removeDir((cachePath + "/sections").c_str());
+    halStorage.removeDir((cachePath + "/sections").c_str());
   }
 
   // Reload the cache from disk so it's in the correct state
@@ -498,17 +499,26 @@ bool Epub::load(const bool buildIfMissing, const bool skipLoadingCss) {
     return false;
   }
 
+  if (!skipLoadingCss) {
+    // Handle case where CSS files are not listed in OPF manifest
+    // but are still referenced by HTML files - discover and parse them too
+    discoverCssFilesFromZip();
+    // Parse CSS files after cache reload
+    parseCssFiles();
+    halStorage.removeDir((cachePath + "/sections").c_str());
+  }
+
   LOG_DBG("EBP", "Loaded ePub: %s", filepath.c_str());
   return true;
 }
 
 bool Epub::clearCache() const {
-  if (!Storage.exists(cachePath.c_str())) {
+  if (!halStorage.exists(cachePath.c_str())) {
     LOG_DBG("EPB", "Cache does not exist, no action needed");
     return true;
   }
 
-  if (!Storage.removeDir(cachePath.c_str())) {
+  if (!halStorage.removeDir(cachePath.c_str())) {
     LOG_ERR("EPB", "Failed to clear cache");
     return false;
   }
@@ -518,11 +528,11 @@ bool Epub::clearCache() const {
 }
 
 void Epub::setupCacheDir() const {
-  if (Storage.exists(cachePath.c_str())) {
+  if (halStorage.exists(cachePath.c_str())) {
     return;
   }
 
-  Storage.mkdir(cachePath.c_str());
+  halStorage.mkdir(cachePath.c_str());
 }
 
 const std::string& Epub::getCachePath() const { return cachePath; }
@@ -563,7 +573,7 @@ std::string Epub::getCoverBmpPath(bool cropped) const {
 
 bool Epub::generateCoverBmp(bool cropped) const {
   // Already generated, return true
-  if (Storage.exists(getCoverBmpPath(cropped).c_str())) {
+  if (halStorage.exists(getCoverBmpPath(cropped).c_str())) {
     return true;
   }
 
@@ -583,30 +593,30 @@ bool Epub::generateCoverBmp(bool cropped) const {
     const auto coverJpgTempPath = getCachePath() + "/.cover.jpg";
 
     HalFile coverJpg;
-    if (!Storage.openFileForWrite("EBP", coverJpgTempPath, coverJpg)) {
+    if (!halStorage.openFileForWrite("EBP", coverJpgTempPath, coverJpg)) {
       return false;
     }
     readItemContentsToStream(coverImageHref, coverJpg, 1024);
     // Explicitly close() file before reopening for reading
     coverJpg.close();
 
-    if (!Storage.openFileForRead("EBP", coverJpgTempPath, coverJpg)) {
+    if (!halStorage.openFileForRead("EBP", coverJpgTempPath, coverJpg)) {
       return false;
     }
 
     HalFile coverBmp;
-    if (!Storage.openFileForWrite("EBP", getCoverBmpPath(cropped), coverBmp)) {
+    if (!halStorage.openFileForWrite("EBP", getCoverBmpPath(cropped), coverBmp)) {
       return false;
     }
     const bool success = JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp, cropped);
-    // Explicitly close() files before calling Storage.remove()
+    // Explicitly close() files before calling halStorage.remove()
     coverJpg.close();
     coverBmp.close();
-    Storage.remove(coverJpgTempPath.c_str());
+    halStorage.remove(coverJpgTempPath.c_str());
 
     if (!success) {
       LOG_ERR("EBP", "Failed to generate BMP from cover image");
-      Storage.remove(getCoverBmpPath(cropped).c_str());
+      halStorage.remove(getCoverBmpPath(cropped).c_str());
     }
     LOG_DBG("EBP", "Generated BMP from JPG cover image, success: %s", success ? "yes" : "no");
     return success;
@@ -617,30 +627,30 @@ bool Epub::generateCoverBmp(bool cropped) const {
     const auto coverPngTempPath = getCachePath() + "/.cover.png";
 
     HalFile coverPng;
-    if (!Storage.openFileForWrite("EBP", coverPngTempPath, coverPng)) {
+    if (!halStorage.openFileForWrite("EBP", coverPngTempPath, coverPng)) {
       return false;
     }
     readItemContentsToStream(coverImageHref, coverPng, 1024);
     // Explicitly close() file before reopening for reading
     coverPng.close();
 
-    if (!Storage.openFileForRead("EBP", coverPngTempPath, coverPng)) {
+    if (!halStorage.openFileForRead("EBP", coverPngTempPath, coverPng)) {
       return false;
     }
 
     HalFile coverBmp;
-    if (!Storage.openFileForWrite("EBP", getCoverBmpPath(cropped), coverBmp)) {
+    if (!halStorage.openFileForWrite("EBP", getCoverBmpPath(cropped), coverBmp)) {
       return false;
     }
     const bool success = PngToBmpConverter::pngFileToBmpStream(coverPng, coverBmp, cropped);
-    // Explicitly close() files before calling Storage.remove()
+    // Explicitly close() files before calling halStorage.remove()
     coverPng.close();
     coverBmp.close();
-    Storage.remove(coverPngTempPath.c_str());
+    halStorage.remove(coverPngTempPath.c_str());
 
     if (!success) {
       LOG_ERR("EBP", "Failed to generate BMP from PNG cover image");
-      Storage.remove(getCoverBmpPath(cropped).c_str());
+      halStorage.remove(getCoverBmpPath(cropped).c_str());
     }
     LOG_DBG("EBP", "Generated BMP from PNG cover image, success: %s", success ? "yes" : "no");
     return success;
@@ -655,7 +665,7 @@ std::string Epub::getThumbBmpPath(int height) const { return cachePath + "/thumb
 
 bool Epub::generateThumbBmp(int height) const {
   // Already generated, return true
-  if (Storage.exists(getThumbBmpPath(height).c_str())) {
+  if (halStorage.exists(getThumbBmpPath(height).c_str())) {
     return true;
   }
 
@@ -672,19 +682,19 @@ bool Epub::generateThumbBmp(int height) const {
     const auto coverJpgTempPath = getCachePath() + "/.cover.jpg";
 
     HalFile coverJpg;
-    if (!Storage.openFileForWrite("EBP", coverJpgTempPath, coverJpg)) {
+    if (!halStorage.openFileForWrite("EBP", coverJpgTempPath, coverJpg)) {
       return false;
     }
     readItemContentsToStream(coverImageHref, coverJpg, 1024);
     // Explicitly close() file before reopening for reading
     coverJpg.close();
 
-    if (!Storage.openFileForRead("EBP", coverJpgTempPath, coverJpg)) {
+    if (!halStorage.openFileForRead("EBP", coverJpgTempPath, coverJpg)) {
       return false;
     }
 
     HalFile thumbBmp;
-    if (!Storage.openFileForWrite("EBP", getThumbBmpPath(height), thumbBmp)) {
+    if (!halStorage.openFileForWrite("EBP", getThumbBmpPath(height), thumbBmp)) {
       return false;
     }
     // Use smaller target size for Continue Reading card (half of screen: 240x400)
@@ -693,14 +703,14 @@ bool Epub::generateThumbBmp(int height) const {
     int THUMB_TARGET_HEIGHT = height;
     const bool success = JpegToBmpConverter::jpegFileTo1BitBmpStreamWithSize(coverJpg, thumbBmp, THUMB_TARGET_WIDTH,
                                                                              THUMB_TARGET_HEIGHT);
-    // Explicitly close() files before calling Storage.remove()
+    // Explicitly close() files before calling halStorage.remove()
     coverJpg.close();
     thumbBmp.close();
-    Storage.remove(coverJpgTempPath.c_str());
+    halStorage.remove(coverJpgTempPath.c_str());
 
     if (!success) {
       LOG_ERR("EBP", "Failed to generate thumb BMP from JPG cover image");
-      Storage.remove(getThumbBmpPath(height).c_str());
+      halStorage.remove(getThumbBmpPath(height).c_str());
     }
     LOG_DBG("EBP", "Generated thumb BMP from JPG cover image, success: %s", success ? "yes" : "no");
     return success;
@@ -709,33 +719,33 @@ bool Epub::generateThumbBmp(int height) const {
     const auto coverPngTempPath = getCachePath() + "/.cover.png";
 
     HalFile coverPng;
-    if (!Storage.openFileForWrite("EBP", coverPngTempPath, coverPng)) {
+    if (!halStorage.openFileForWrite("EBP", coverPngTempPath, coverPng)) {
       return false;
     }
     readItemContentsToStream(coverImageHref, coverPng, 1024);
     // Explicitly close() file before reopening for reading
     coverPng.close();
 
-    if (!Storage.openFileForRead("EBP", coverPngTempPath, coverPng)) {
+    if (!halStorage.openFileForRead("EBP", coverPngTempPath, coverPng)) {
       return false;
     }
 
     HalFile thumbBmp;
-    if (!Storage.openFileForWrite("EBP", getThumbBmpPath(height), thumbBmp)) {
+    if (!halStorage.openFileForWrite("EBP", getThumbBmpPath(height), thumbBmp)) {
       return false;
     }
     int THUMB_TARGET_WIDTH = height * 0.6;
     int THUMB_TARGET_HEIGHT = height;
     const bool success =
         PngToBmpConverter::pngFileTo1BitBmpStreamWithSize(coverPng, thumbBmp, THUMB_TARGET_WIDTH, THUMB_TARGET_HEIGHT);
-    // Explicitly close() files before calling Storage.remove()
+    // Explicitly close() files before calling halStorage.remove()
     coverPng.close();
     thumbBmp.close();
-    Storage.remove(coverPngTempPath.c_str());
+    halStorage.remove(coverPngTempPath.c_str());
 
     if (!success) {
       LOG_ERR("EBP", "Failed to generate thumb BMP from PNG cover image");
-      Storage.remove(getThumbBmpPath(height).c_str());
+      halStorage.remove(getThumbBmpPath(height).c_str());
     }
     LOG_DBG("EBP", "Generated thumb BMP from PNG cover image, success: %s", success ? "yes" : "no");
     return success;
@@ -745,7 +755,7 @@ bool Epub::generateThumbBmp(int height) const {
 
   // Write an empty bmp file to avoid generation attempts in the future
   HalFile thumbBmp;
-  Storage.openFileForWrite("EBP", getThumbBmpPath(height), thumbBmp);
+  halStorage.openFileForWrite("EBP", getThumbBmpPath(height), thumbBmp);
   return false;
 }
 
@@ -826,28 +836,63 @@ int Epub::getTocItemsCount() const {
   return bookMetadataCache->getTocCount();
 }
 
-// work out the section index for a toc index
-int Epub::getSpineIndexForTocIndex(const int tocIndex) const {
+// work out the spine index for a toc index
+std::optional<int> Epub::getSpineIndexForTocIndex(const int tocIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_ERR("EBP", "getSpineIndexForTocIndex called but cache not loaded");
-    return 0;
+    return std::nullopt;
   }
 
   if (tocIndex < 0 || tocIndex >= bookMetadataCache->getTocCount()) {
     LOG_ERR("EBP", "getSpineIndexForTocIndex: tocIndex %d out of range", tocIndex);
-    return 0;
+    return std::nullopt;
   }
 
   const int spineIndex = bookMetadataCache->getTocEntry(tocIndex).spineIndex;
   if (spineIndex < 0) {
-    LOG_DBG("EBP", "Section not found for TOC index %d", tocIndex);
-    return 0;
+    LOG_DBG("EBP", "Spine item not found for TOC index %d", tocIndex);
+    return std::nullopt;
   }
 
   return spineIndex;
 }
 
-int Epub::getTocIndexForSpineIndex(const int spineIndex) const { return getSpineItem(spineIndex).tocIndex; }
+std::optional<int> Epub::getTocIndexForSpineIndex(const int spineIndex) const {
+  const int stored = getSpineItem(spineIndex).tocIndex;
+  // The on-disk int16_t storage uses -1 as the no-TOC sentinel, convert at the API
+  // boundary so callers don't propagate the sentinel.
+  if (stored < 0) return std::nullopt;
+  return stored;
+}
+
+std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const int tocIndex) const {
+  const int tocCount = getTocItemsCount();
+  const int spineCount = getSpineItemsCount();
+  if (tocIndex < 0 || tocIndex >= tocCount) {
+    return std::nullopt;
+  }
+
+  const int firstSpine = getTocItem(tocIndex).spineIndex;
+  if (firstSpine < 0 || firstSpine >= spineCount) {
+    return std::nullopt;
+  }
+
+  int lastSpine;
+  if (tocIndex + 1 < tocCount) {
+    const auto nextToc = getTocItem(tocIndex + 1);
+    // If the next TOC entry has an anchor, it starts mid-spine, so this chapter
+    // shares that spine. If no anchor, the next chapter owns that spine exclusively.
+    lastSpine = nextToc.anchor.empty() ? nextToc.spineIndex - 1 : nextToc.spineIndex;
+    if (lastSpine < firstSpine) lastSpine = firstSpine;
+  } else {
+    // Last TOC entry: cap to its own spine rather than pulling in all remaining
+    // spines (typically end-of-book material like appendices or copyright).
+    lastSpine = firstSpine;
+  }
+  if (lastSpine >= spineCount) lastSpine = spineCount - 1;
+
+  return SpineRange{firstSpine, lastSpine};
+}
 
 size_t Epub::getBookSize() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded() || bookMetadataCache->getSpineCount() == 0) {
@@ -880,7 +925,7 @@ int Epub::getSpineIndexForTextReference() const {
     }
   }
   // This should not happen, as we checked for empty textReferenceHref earlier
-  LOG_DBG("EBP", "Section not found for text reference");
+  LOG_DBG("EBP", "Spine item not found for text reference");
   return 0;
 }
 

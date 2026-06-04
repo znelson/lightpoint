@@ -1,18 +1,16 @@
 #pragma once
 
-#include <Arduino.h>
 #include <BatteryMonitor.h>
 #include <InputManager.h>
 #include <Logging.h>
-#include <Wire.h>
+#include <driver/i2c_master.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
 #include <cassert>
+#include <cstdint>
 
 #include "HalGPIO.h"
-
-class HalPowerManager;
-extern HalPowerManager powerManager;  // Singleton
 
 class HalPowerManager {
   int normalFreq = 0;  // MHz
@@ -20,17 +18,24 @@ class HalPowerManager {
 
   // I2C fuel gauge configuration for X3 battery monitoring
   bool _batteryUseI2C = false;                   // True if using I2C fuel gauge (X3), false for ADC (X4)
+  i2c_master_dev_handle_t bq27220Dev = nullptr;  // I2C device handle for BQ27220 fuel gauge (X3 only)
   mutable int _batteryCachedPercent = 0;         // Last read battery percentage (0-100)
-  mutable unsigned long _batteryLastPollMs = 0;  // Timestamp of last battery read in milliseconds
+  mutable uint32_t _batteryLastPollMs = 0;       // Timestamp of last battery read in milliseconds
 
   enum LockMode { None, NormalSpeed };
   LockMode currentLockMode = None;
   SemaphoreHandle_t modeMutex = nullptr;  // Protect access to currentLockMode
 
  public:
-  static constexpr int LOW_POWER_FREQ = 10;                    // MHz
-  static constexpr unsigned long IDLE_POWER_SAVING_MS = 3000;  // ms
-  static constexpr unsigned long BATTERY_POLL_MS = 1500;       // ms
+  static constexpr int LOW_POWER_FREQ = 10;               // MHz
+  static constexpr uint32_t IDLE_POWER_SAVING_MS = 3000;  // ms
+  static constexpr uint32_t BATTERY_POLL_MS = 1500;       // ms
+
+  HalPowerManager() = default;
+  HalPowerManager(const HalPowerManager&) = delete;
+  HalPowerManager& operator=(const HalPowerManager&) = delete;
+  HalPowerManager(HalPowerManager&&) = delete;
+  HalPowerManager& operator=(HalPowerManager&&) = delete;
 
   void begin();
 
@@ -62,3 +67,5 @@ class HalPowerManager {
     Lock& operator=(Lock&&) = delete;
   };
 };
+
+extern HalPowerManager halPowerManager;  // Singleton

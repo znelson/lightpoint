@@ -11,6 +11,8 @@ class RenderLock {
   explicit RenderLock(Activity&);  // unused for now, but keep for compatibility
   RenderLock(const RenderLock&) = delete;
   RenderLock& operator=(const RenderLock&) = delete;
+  RenderLock(RenderLock&&) = delete;
+  RenderLock& operator=(RenderLock&&) = delete;
   ~RenderLock();
   void unlock();
   static bool peek();
