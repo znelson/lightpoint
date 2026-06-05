@@ -327,39 +327,38 @@ TEST(Utf8NextCodepoint, WalksMixedString) {
 
 // ---- utf8SafeTruncateBuffer --------------------------------------------------
 
-TEST(Utf8SafeTruncate, ZeroOrNegativeLength) {
+TEST(Utf8SafeTruncate, ZeroLength) {
   const char buf[] = "hello";
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 0), 0);
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, -1), 0);
+  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 0), 0u);
 }
 
 TEST(Utf8SafeTruncate, AllAscii) {
   const char buf[] = "hello";
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 5), 5);
+  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 5), 5u);
 }
 
 TEST(Utf8SafeTruncate, EndsAtCompleteMultibyte) {
   // "café" = 63 61 66 C3 A9 (5 bytes, last codepoint is 2-byte UTF-8)
   const char buf[] = {0x63, 0x61, 0x66, static_cast<char>(0xC3), static_cast<char>(0xA9)};
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 5), 5);
+  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 5), 5u);
 }
 
 TEST(Utf8SafeTruncate, TrimsIncompleteTrailingTwoByte) {
   // "caf" + just the C3 (first byte of e-acute). The trailing C3 is incomplete.
   const char buf[] = {0x63, 0x61, 0x66, static_cast<char>(0xC3)};
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 4), 3);
+  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 4), 3u);
 }
 
 TEST(Utf8SafeTruncate, TrimsIncompleteTrailingThreeByte) {
   // "a" + E2 82 (first two of three bytes for U+20AC).
   const char buf[] = {0x61, static_cast<char>(0xE2), static_cast<char>(0x82)};
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 3), 1);
+  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 3), 1u);
 }
 
 TEST(Utf8SafeTruncate, TrimsIncompleteTrailingFourByte) {
   // "a" + F0 9F (first two of four bytes for U+1F600).
   const char buf[] = {0x61, static_cast<char>(0xF0), static_cast<char>(0x9F)};
-  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 3), 1);
+  EXPECT_EQ(utf8SafeTruncateBuffer(buf, 3), 1u);
 }
 
 // ---- utf8RemoveLastChar ------------------------------------------------------

@@ -1,6 +1,6 @@
 #include "Utf8.h"
 
-int utf8CodepointLen(const unsigned char c) {
+size_t utf8CodepointLen(const unsigned char c) {
   if (c < 0x80) return 1;          // 0xxxxxxx
   if ((c >> 5) == 0x6) return 2;   // 110xxxxx
   if ((c >> 4) == 0xE) return 3;   // 1110xxxx
@@ -14,7 +14,7 @@ uint32_t utf8NextCodepoint(const unsigned char** string) {
   }
 
   const unsigned char lead = **string;
-  const int bytes = utf8CodepointLen(lead);
+  const size_t bytes = utf8CodepointLen(lead);
   const uint8_t* chr = *string;
 
   // Invalid lead byte (stray continuation byte 0x80-0xBF, or 0xFE/0xFF)
@@ -29,7 +29,7 @@ uint32_t utf8NextCodepoint(const unsigned char** string) {
   }
 
   // Validate continuation bytes before consuming them
-  for (int i = 1; i < bytes; i++) {
+  for (size_t i = 1; i < bytes; i++) {
     if ((chr[i] & 0xC0) != 0x80) {
       // Missing or invalid continuation byte — skip all bytes consumed so far
       *string += i;
@@ -37,9 +37,9 @@ uint32_t utf8NextCodepoint(const unsigned char** string) {
     }
   }
 
-  uint32_t cp = chr[0] & ((1 << (7 - bytes)) - 1);  // mask header bits
+  uint32_t cp = chr[0] & ((1u << (7 - bytes)) - 1);  // mask header bits
 
-  for (int i = 1; i < bytes; i++) {
+  for (size_t i = 1; i < bytes; i++) {
     cp = (cp << 6) | (chr[i] & 0x3F);
   }
 
@@ -74,18 +74,18 @@ void utf8AppendCodepoint(uint32_t cp, std::string& out) {
   }
 }
 
-int utf8SafeTruncateBuffer(const char* buf, int len) {
-  if (len <= 0) return 0;
+size_t utf8SafeTruncateBuffer(const char* buf, size_t len) {
+  if (len == 0) return 0;
 
   // Walk back past continuation bytes (10xxxxxx) to find the lead byte
-  int leadPos = len - 1;
+  size_t leadPos = len - 1;
   while (leadPos > 0 && (static_cast<uint8_t>(buf[leadPos]) & 0xC0) == 0x80) {
     leadPos--;
   }
 
   // Determine expected length of the sequence starting at leadPos
-  int expectedLen = utf8CodepointLen(static_cast<unsigned char>(buf[leadPos]));
-  int actualLen = len - leadPos;
+  size_t expectedLen = utf8CodepointLen(static_cast<unsigned char>(buf[leadPos]));
+  size_t actualLen = len - leadPos;
 
   if (actualLen < expectedLen && leadPos > 0) {
     // Incomplete UTF-8 sequence at the end — exclude it

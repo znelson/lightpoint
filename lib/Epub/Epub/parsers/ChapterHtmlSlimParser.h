@@ -21,9 +21,9 @@ class Page;
 class GfxRenderer;
 class Epub;
 
-#define MAX_WORD_SIZE 200
-
 class ChapterHtmlSlimParser {
+  static constexpr size_t MAX_WORD_SIZE = 200;
+
   std::shared_ptr<Epub> epub;
   const std::string& filepath;
   GfxRenderer& renderer;
@@ -37,7 +37,7 @@ class ChapterHtmlSlimParser {
   // buffer for building up words from characters, will auto break if longer than this
   // leave one char at end for null pointer
   char partWordBuffer[MAX_WORD_SIZE + 1] = {};
-  int partWordBufferIndex = 0;
+  size_t partWordBufferIndex = 0;
   bool nextWordContinues = false;  // true when next flushed word attaches to previous (inline element boundary)
   std::unique_ptr<ParsedText> currentTextBlock = nullptr;
   int fontId;
