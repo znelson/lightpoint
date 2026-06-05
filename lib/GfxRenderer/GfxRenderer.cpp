@@ -1204,16 +1204,16 @@ std::string GfxRenderer::truncatedText(const int fontId, const char* text, const
 }
 
 std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* text, const int maxWidth,
-                                                  const int maxLines, const EpdFontFamily::Style style) const {
+                                                  const size_t maxLines, const EpdFontFamily::Style style) const {
   std::vector<std::string> lines;
 
-  if (!text || maxWidth <= 0 || maxLines <= 0) return lines;
+  if (!text || maxWidth <= 0 || maxLines == 0) return lines;
 
   std::string remaining = text;
   std::string currentLine;
 
   while (!remaining.empty()) {
-    if (static_cast<int>(lines.size()) == maxLines - 1) {
+    if (lines.size() == maxLines - 1) {
       // Last available line: combine any word already started on this line with
       // the rest of the text, then let truncatedText fit it with an ellipsis.
       std::string lastContent = currentLine.empty() ? remaining : currentLine + " " + remaining;
@@ -1246,7 +1246,7 @@ std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* 
         if (getTextWidth(fontId, word.c_str(), style) > maxWidth) {
           lines.push_back(truncatedText(fontId, word.c_str(), maxWidth, style));
           currentLine.clear();
-          if (static_cast<int>(lines.size()) >= maxLines) return lines;
+          if (lines.size() >= maxLines) return lines;
         } else {
           currentLine = word;
         }
@@ -1260,7 +1260,7 @@ std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* 
     }
   }
 
-  if (!currentLine.empty() && static_cast<int>(lines.size()) < maxLines) {
+  if (!currentLine.empty() && lines.size() < maxLines) {
     lines.push_back(currentLine);
   }
 

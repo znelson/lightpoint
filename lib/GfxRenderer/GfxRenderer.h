@@ -212,7 +212,7 @@ class GfxRenderer {
   /// Word-wrap \p text into at most \p maxLines lines, each no wider than
   /// \p maxWidth pixels. Overflowing words and excess lines are UTF-8-safely
   /// truncated with an ellipsis (U+2026).
-  std::vector<std::string> wrappedText(int fontId, const char* text, int maxWidth, int maxLines,
+  std::vector<std::string> wrappedText(int fontId, const char* text, int maxWidth, size_t maxLines,
                                        EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
 
   // Helper for drawing rotated text (90 degrees clockwise, for side buttons)
