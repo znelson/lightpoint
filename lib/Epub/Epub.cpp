@@ -791,44 +791,46 @@ bool Epub::getItemSize(const std::string& itemHref, size_t* size) const {
   return ZipFile(filepath).getInflatedFileSize(path.c_str(), size);
 }
 
-int Epub::getSpineItemsCount() const {
+uint16_t Epub::getSpineItemsCount() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     return 0;
   }
   return bookMetadataCache->getSpineCount();
 }
 
-size_t Epub::getCumulativeSpineItemSize(const int spineIndex) const { return getSpineItem(spineIndex).cumulativeSize; }
+size_t Epub::getCumulativeSpineItemSize(const uint16_t spineIndex) const {
+  return getSpineItem(spineIndex).cumulativeSize;
+}
 
-BookMetadataCache::SpineEntry Epub::getSpineItem(const int spineIndex) const {
+BookMetadataCache::SpineEntry Epub::getSpineItem(const uint16_t spineIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_ERR("EBP", "getSpineItem called but cache not loaded");
     return {};
   }
 
-  if (spineIndex < 0 || spineIndex >= bookMetadataCache->getSpineCount()) {
-    LOG_ERR("EBP", "getSpineItem index:%d is out of range", spineIndex);
+  if (spineIndex >= bookMetadataCache->getSpineCount()) {
+    LOG_ERR("EBP", "getSpineItem index:%u is out of range", spineIndex);
     return bookMetadataCache->getSpineEntry(0);
   }
 
   return bookMetadataCache->getSpineEntry(spineIndex);
 }
 
-BookMetadataCache::TocEntry Epub::getTocItem(const int tocIndex) const {
+BookMetadataCache::TocEntry Epub::getTocItem(const uint16_t tocIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_DBG("EBP", "getTocItem called but cache not loaded");
     return {};
   }
 
-  if (tocIndex < 0 || tocIndex >= bookMetadataCache->getTocCount()) {
-    LOG_DBG("EBP", "getTocItem index:%d is out of range", tocIndex);
+  if (tocIndex >= bookMetadataCache->getTocCount()) {
+    LOG_DBG("EBP", "getTocItem index:%u is out of range", tocIndex);
     return {};
   }
 
   return bookMetadataCache->getTocEntry(tocIndex);
 }
 
-int Epub::getTocItemsCount() const {
+uint16_t Epub::getTocItemsCount() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     return 0;
   }
@@ -837,52 +839,63 @@ int Epub::getTocItemsCount() const {
 }
 
 // work out the spine index for a toc index
-std::optional<int> Epub::getSpineIndexForTocIndex(const int tocIndex) const {
+std::optional<uint16_t> Epub::getSpineIndexForTocIndex(const uint16_t tocIndex) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_ERR("EBP", "getSpineIndexForTocIndex called but cache not loaded");
     return std::nullopt;
   }
 
-  if (tocIndex < 0 || tocIndex >= bookMetadataCache->getTocCount()) {
-    LOG_ERR("EBP", "getSpineIndexForTocIndex: tocIndex %d out of range", tocIndex);
+  if (tocIndex >= bookMetadataCache->getTocCount()) {
+    LOG_ERR("EBP", "getSpineIndexForTocIndex: tocIndex %u out of range", tocIndex);
     return std::nullopt;
   }
 
-  const int spineIndex = bookMetadataCache->getTocEntry(tocIndex).spineIndex;
-  if (spineIndex < 0) {
-    LOG_DBG("EBP", "Spine item not found for TOC index %d", tocIndex);
+  const auto spineIndex = bookMetadataCache->getTocEntry(tocIndex).spineIndex;
+  if (!spineIndex) {
+    LOG_DBG("EBP", "Spine item not found for TOC index %u", tocIndex);
     return std::nullopt;
   }
 
-  return spineIndex;
+  return *spineIndex;
 }
 
-std::optional<int> Epub::getTocIndexForSpineIndex(const int spineIndex) const {
-  const int stored = getSpineItem(spineIndex).tocIndex;
-  // The on-disk int16_t storage uses -1 as the no-TOC sentinel, convert at the API
-  // boundary so callers don't propagate the sentinel.
-  if (stored < 0) return std::nullopt;
-  return stored;
+std::optional<uint16_t> Epub::getTocIndexForSpineIndex(const uint16_t spineIndex) const {
+  const auto stored = getSpineItem(spineIndex).tocIndex;
+  if (!stored) return std::nullopt;
+  return *stored;
 }
 
-std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const int tocIndex) const {
-  const int tocCount = getTocItemsCount();
-  const int spineCount = getSpineItemsCount();
-  if (tocIndex < 0 || tocIndex >= tocCount) {
+std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const uint16_t tocIndex) const {
+  const uint16_t tocCount = getTocItemsCount();
+  const uint16_t spineCount = getSpineItemsCount();
+  if (tocIndex >= tocCount) {
     return std::nullopt;
   }
 
-  const int firstSpine = getTocItem(tocIndex).spineIndex;
-  if (firstSpine < 0 || firstSpine >= spineCount) {
+  const auto firstSpineOpt = getTocItem(tocIndex).spineIndex;
+  if (!firstSpineOpt || *firstSpineOpt >= spineCount) {
     return std::nullopt;
   }
+  const int firstSpine = *firstSpineOpt;
 
   int lastSpine;
   if (tocIndex + 1 < tocCount) {
-    const auto nextToc = getTocItem(tocIndex + 1);
-    // If the next TOC entry has an anchor, it starts mid-spine, so this chapter
-    // shares that spine. If no anchor, the next chapter owns that spine exclusively.
-    lastSpine = nextToc.anchor.empty() ? nextToc.spineIndex - 1 : nextToc.spineIndex;
+    // tocIndex + 1 fits in uint16_t since the (tocIndex + 1 < tocCount) guard
+    // bounds it below tocCount, itself a uint16_t-derived value.
+    const auto nextToc = getTocItem(static_cast<uint16_t>(tocIndex + 1));
+    if (!nextToc.spineIndex) {
+      // Malformed EPUB: next TOC entry didn't resolve to any spine. Treat as
+      // "this chapter owns its starting spine only" rather than letting an
+      // unresolved value through.
+      lastSpine = firstSpine;
+    } else if (nextToc.anchor.empty()) {
+      // No anchor: next chapter owns its spine exclusively, so we end one before.
+      // Guard the next-chapter-is-spine-0 case (cannot end before firstSpine).
+      lastSpine = (*nextToc.spineIndex > 0) ? *nextToc.spineIndex - 1 : firstSpine;
+    } else {
+      // Anchor present: next chapter starts mid-spine, so we share that spine.
+      lastSpine = *nextToc.spineIndex;
+    }
     if (lastSpine < firstSpine) lastSpine = firstSpine;
   } else {
     // Last TOC entry: cap to its own spine rather than pulling in all remaining
@@ -891,17 +904,17 @@ std::optional<SpineRange> Epub::getSpineRangeForTocIndex(const int tocIndex) con
   }
   if (lastSpine >= spineCount) lastSpine = spineCount - 1;
 
-  return SpineRange{firstSpine, lastSpine};
+  return SpineRange{static_cast<uint16_t>(firstSpine), static_cast<uint16_t>(lastSpine)};
 }
 
 size_t Epub::getBookSize() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded() || bookMetadataCache->getSpineCount() == 0) {
     return 0;
   }
-  return getCumulativeSpineItemSize(getSpineItemsCount() - 1);
+  return getCumulativeSpineItemSize(static_cast<uint16_t>(getSpineItemsCount() - 1));
 }
 
-int Epub::getSpineIndexForTextReference() const {
+uint16_t Epub::getSpineIndexForTextReference() const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) {
     LOG_ERR("EBP", "getSpineIndexForTextReference called but cache not loaded");
     return 0;
@@ -917,9 +930,10 @@ int Epub::getSpineIndexForTextReference() const {
   }
 
   // loop through spine items to get the correct index matching the text href
-  for (size_t i = 0; i < getSpineItemsCount(); i++) {
+  const uint16_t spineCount = getSpineItemsCount();
+  for (uint16_t i = 0; i < spineCount; i++) {
     if (getSpineItem(i).href == bookMetadataCache->coreMetadata.textReferenceHref) {
-      LOG_DBG("EBP", "Text reference %s found at index %d", bookMetadataCache->coreMetadata.textReferenceHref.c_str(),
+      LOG_DBG("EBP", "Text reference %s found at index %u", bookMetadataCache->coreMetadata.textReferenceHref.c_str(),
               i);
       return i;
     }
@@ -930,20 +944,21 @@ int Epub::getSpineIndexForTextReference() const {
 }
 
 // Calculate progress in book (returns 0.0-1.0)
-float Epub::calculateProgress(const int currentSpineIndex, const float currentSpineRead) const {
+float Epub::calculateProgress(const uint16_t currentSpineIndex, const float currentSpineRead) const {
   const size_t bookSize = getBookSize();
   if (bookSize == 0) {
     return 0.0f;
   }
-  const size_t prevChapterSize = (currentSpineIndex >= 1) ? getCumulativeSpineItemSize(currentSpineIndex - 1) : 0;
+  const size_t prevChapterSize =
+      (currentSpineIndex >= 1) ? getCumulativeSpineItemSize(static_cast<uint16_t>(currentSpineIndex - 1)) : 0;
   const size_t curChapterSize = getCumulativeSpineItemSize(currentSpineIndex) - prevChapterSize;
   const float sectionProgSize = currentSpineRead * static_cast<float>(curChapterSize);
   const float totalProgress = static_cast<float>(prevChapterSize) + sectionProgSize;
   return totalProgress / static_cast<float>(bookSize);
 }
 
-int Epub::resolveHrefToSpineIndex(const std::string& href) const {
-  if (!bookMetadataCache || !bookMetadataCache->isLoaded()) return -1;
+std::optional<uint16_t> Epub::resolveHrefToSpineIndex(const std::string& href) const {
+  if (!bookMetadataCache || !bookMetadataCache->isLoaded()) return std::nullopt;
 
   // Extract filename (remove #anchor)
   std::string target = href;
@@ -951,13 +966,14 @@ int Epub::resolveHrefToSpineIndex(const std::string& href) const {
   if (hashPos != std::string::npos) target = target.substr(0, hashPos);
 
   // Same-file reference (anchor-only)
-  if (target.empty()) return -1;
+  if (target.empty()) return std::nullopt;
 
   // Extract just the filename for comparison
   size_t targetSlash = target.find_last_of('/');
   std::string targetFilename = (targetSlash != std::string::npos) ? target.substr(targetSlash + 1) : target;
 
-  for (int i = 0; i < getSpineItemsCount(); i++) {
+  const uint16_t spineCount = getSpineItemsCount();
+  for (uint16_t i = 0; i < spineCount; i++) {
     const auto& spineHref = getSpineItem(i).href;
     // Try exact match first
     if (spineHref == target) return i;
@@ -966,5 +982,5 @@ int Epub::resolveHrefToSpineIndex(const std::string& href) const {
     std::string spineFilename = (spineSlash != std::string::npos) ? spineHref.substr(spineSlash + 1) : spineHref;
     if (spineFilename == targetFilename) return i;
   }
-  return -1;
+  return std::nullopt;
 }

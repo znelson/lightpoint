@@ -38,8 +38,8 @@ struct PageResult {
 };
 
 struct PositionResult {
-  int spineIndex = 0;
-  int page = 0;
+  uint16_t spineIndex = 0;
+  uint16_t page = 0;
 };
 
 struct LinkResult {

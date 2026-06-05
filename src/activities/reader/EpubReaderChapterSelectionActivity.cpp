@@ -7,7 +7,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
-int EpubReaderChapterSelectionActivity::getTotalItems() const { return epub->getTocItemsCount(); }
+uint16_t EpubReaderChapterSelectionActivity::getTotalItems() const { return epub->getTocItemsCount(); }
 
 void EpubReaderChapterSelectionActivity::onEnter() {
   Activity::onEnter();

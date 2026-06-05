@@ -61,28 +61,28 @@ class Epub {
                                    bool trailingNullByte = false) const;
   bool readItemContentsToStream(const std::string& itemHref, Print& out, size_t chunkSize) const;
   bool getItemSize(const std::string& itemHref, size_t* size) const;
-  BookMetadataCache::SpineEntry getSpineItem(int spineIndex) const;
-  BookMetadataCache::TocEntry getTocItem(int tocIndex) const;
-  int getSpineItemsCount() const;
-  int getTocItemsCount() const;
+  BookMetadataCache::SpineEntry getSpineItem(uint16_t spineIndex) const;
+  BookMetadataCache::TocEntry getTocItem(uint16_t tocIndex) const;
+  uint16_t getSpineItemsCount() const;
+  uint16_t getTocItemsCount() const;
   // Returns the spine index for the given TOC entry, or nullopt if tocIndex is out of range
   // or the entry has no spine mapping.
-  std::optional<int> getSpineIndexForTocIndex(int tocIndex) const;
+  std::optional<uint16_t> getSpineIndexForTocIndex(uint16_t tocIndex) const;
   // Returns the TOC index for the given spine, or nullopt if the spine has no TOC entry
   // (pre-TOC orphans like the cover; post-TOC orphans inherit the previous spine's tocIndex
   // and return it here).
-  std::optional<int> getTocIndexForSpineIndex(int spineIndex) const;
+  std::optional<uint16_t> getTocIndexForSpineIndex(uint16_t spineIndex) const;
   // Contiguous spine range [first, last] (last inclusive) that belongs to the given TOC chapter.
   // Uses the next TOC entry's anchor to decide whether this chapter shares the next chapter's
   // first spine. For the last TOC entry, caps to its own spine to exclude post-TOC orphan
   // spines (appendices, copyright pages) from being lumped into the last chapter.
   // Returns nullopt if tocIndex is out of range or the TOC entry's spine is invalid.
-  std::optional<SpineRange> getSpineRangeForTocIndex(int tocIndex) const;
-  size_t getCumulativeSpineItemSize(int spineIndex) const;
-  int getSpineIndexForTextReference() const;
+  std::optional<SpineRange> getSpineRangeForTocIndex(uint16_t tocIndex) const;
+  size_t getCumulativeSpineItemSize(uint16_t spineIndex) const;
+  uint16_t getSpineIndexForTextReference() const;
 
   size_t getBookSize() const;
-  float calculateProgress(int currentSpineIndex, float currentSpineRead) const;
+  float calculateProgress(uint16_t currentSpineIndex, float currentSpineRead) const;
   CssParser* getCssParser() const { return cssParser.get(); }
-  int resolveHrefToSpineIndex(const std::string& href) const;
+  std::optional<uint16_t> resolveHrefToSpineIndex(const std::string& href) const;
 };

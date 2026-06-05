@@ -156,7 +156,7 @@ void EpubReaderBookmarksActivity::loop() {
               static_cast<unsigned>(windowStart + windowCount));
       return;
     }
-    setResult(PositionResult{static_cast<int>(view->bookmark.spineIndex), static_cast<int>(view->resolvedPage)});
+    setResult(PositionResult{view->bookmark.spineIndex, view->resolvedPage});
     finish();
     return;
   }

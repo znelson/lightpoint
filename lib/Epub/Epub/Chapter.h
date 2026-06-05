@@ -7,8 +7,8 @@
 // are represented as multiple Chapters sharing the same tocIndex; multi-TOC-
 // per-spine layouts are multiple Chapters sharing the same spineIndex.
 struct Chapter {
-  int tocIndex;
-  int spineIndex;
+  uint16_t tocIndex;
+  uint16_t spineIndex;
   uint16_t startPage;  // inclusive
   uint16_t endPage;    // exclusive
 };
@@ -17,12 +17,12 @@ struct Chapter {
 // item has not been loaded, so its page count is unknown).
 // Used for chapter-selector results and pending cross-spine navigation.
 struct ChapterTarget {
-  std::optional<int> tocIndex;
-  int spineIndex;
+  std::optional<uint16_t> tocIndex;
+  uint16_t spineIndex;
 };
 
 // Contiguous spine range belonging to a TOC chapter. Both ends inclusive.
 struct SpineRange {
-  int first;
-  int last;
+  uint16_t first;
+  uint16_t last;
 };
