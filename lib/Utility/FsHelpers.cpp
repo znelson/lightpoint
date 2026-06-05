@@ -18,6 +18,8 @@ uint8_t hexValue(const char c) {
 }  // namespace
 
 std::string decodeUriEscapes(const std::string& path) {
+  if (path.find('%') == std::string::npos) return path;
+
   std::string decoded;
   decoded.reserve(path.size());
 
