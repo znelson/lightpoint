@@ -701,35 +701,29 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
                                ? spareSpace / static_cast<int>(actualGapCount)
                                : 0;
 
-  // BiDi processing: reorder words with UAX#9 in full-line context.
-  visualOrderScratch.clear();
-  visualOrderScratch.reserve(lineWordCount);
-  // Skip expensive visual-order resolution for pure LTR paragraphs that have no RTL words.
+  // BiDi processing: reorder words with UAX#9 in full-line context. Skip the
+  // whole code path (including the visualOrderScratch allocation) for pure LTR
+  // paragraphs that have no RTL words.
   const bool shouldResolveVisualOrder = blockStyle.isRtl || hasRtlWord;
-  const bool willReorder =
-      shouldResolveVisualOrder && BidiUtils::computeVisualWordOrder(lineWords, blockStyle.isRtl, visualOrderScratch);
+  bool willReorder = false;
+  if (shouldResolveVisualOrder) {
+    visualOrderScratch.clear();
+    visualOrderScratch.reserve(lineWordCount);
+    willReorder = BidiUtils::computeVisualWordOrder(lineWords, blockStyle.isRtl, visualOrderScratch);
+  }
 
   std::vector<int16_t> lineXPos;
   lineXPos.reserve(lineWordCount);
 
   if (willReorder) {
     reorderedWordsScratch.clear();
-    reorderedStylesScratch.clear();
-    reorderedWidthsScratch.clear();
     reorderedContinuesScratch.clear();
-    reorderedFocusSuffixScratch.clear();
     reorderedWordsScratch.reserve(visualOrderScratch.size());
-    reorderedStylesScratch.reserve(visualOrderScratch.size());
-    reorderedWidthsScratch.reserve(visualOrderScratch.size());
     reorderedContinuesScratch.reserve(visualOrderScratch.size());
-    reorderedFocusSuffixScratch.reserve(visualOrderScratch.size());
 
     for (size_t i = 0; i < visualOrderScratch.size(); ++i) {
       const uint16_t src = visualOrderScratch[i];
       reorderedWordsScratch.push_back(std::move(lineWords[src]));
-      reorderedStylesScratch.push_back(lineWordStyles[src]);
-      reorderedWidthsScratch.push_back(wordWidths[lastBreakAt + src]);
-      reorderedFocusSuffixScratch.push_back(wordIsFocusSuffix[lastBreakAt + src]);
 
       // Continuation means "no break/gap between two adjacent logical tokens".
       // After visual reordering (common in RTL), an adjacent logical pair can appear
@@ -753,20 +747,23 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
     int reorderedWordWidthSum = 0;
     size_t reorderedGapCount = 0;
     int reorderedNaturalGaps = 0;
-    for (size_t wordIdx = 0; wordIdx < reorderedWidthsScratch.size(); wordIdx++) {
-      reorderedWordWidthSum += reorderedWidthsScratch[wordIdx];
+    for (size_t wordIdx = 0; wordIdx < visualOrderScratch.size(); wordIdx++) {
+      const uint16_t src = visualOrderScratch[wordIdx];
+      reorderedWordWidthSum += wordWidths[lastBreakAt + src];
       if (wordIdx > 0 && !reorderedContinuesScratch[wordIdx]) {
+        const uint16_t prevSrc = visualOrderScratch[wordIdx - 1];
         reorderedGapCount++;
         reorderedNaturalGaps += renderer.getSpaceAdvance(fontId, lastCodepoint(reorderedWordsScratch[wordIdx - 1]),
                                                          firstCodepoint(reorderedWordsScratch[wordIdx]),
-                                                         reorderedStylesScratch[wordIdx - 1]);
+                                                         lineWordStyles[prevSrc]);
       } else if (wordIdx > 0 && reorderedContinuesScratch[wordIdx]) {
         if (reorderedWordsScratch[wordIdx] == " ") {
           reorderedGapCount++;
         }
+        const uint16_t prevSrc = visualOrderScratch[wordIdx - 1];
         reorderedNaturalGaps +=
             renderer.getKerning(fontId, lastCodepoint(reorderedWordsScratch[wordIdx - 1]),
-                                firstCodepoint(reorderedWordsScratch[wordIdx]), reorderedStylesScratch[wordIdx - 1]);
+                                firstCodepoint(reorderedWordsScratch[wordIdx]), lineWordStyles[prevSrc]);
       }
     }
 
@@ -797,25 +794,26 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       }
     }
 
-    for (size_t wordIdx = 0; wordIdx < reorderedWidthsScratch.size(); wordIdx++) {
+    for (size_t wordIdx = 0; wordIdx < visualOrderScratch.size(); wordIdx++) {
+      const uint16_t src = visualOrderScratch[wordIdx];
       lineXPos.push_back(static_cast<int16_t>(xpos < 0 ? 0 : xpos));
-      xpos += reorderedWidthsScratch[wordIdx];
+      xpos += wordWidths[lastBreakAt + src];
 
       const bool nextIsContinuation =
-          wordIdx + 1 < reorderedWidthsScratch.size() && reorderedContinuesScratch[wordIdx + 1];
+          wordIdx + 1 < visualOrderScratch.size() && reorderedContinuesScratch[wordIdx + 1];
       if (nextIsContinuation) {
         int advance =
             renderer.getKerning(fontId, lastCodepoint(reorderedWordsScratch[wordIdx]),
-                                firstCodepoint(reorderedWordsScratch[wordIdx + 1]), reorderedStylesScratch[wordIdx]);
+                                firstCodepoint(reorderedWordsScratch[wordIdx + 1]), lineWordStyles[src]);
         if (reorderedWordsScratch[wordIdx] == " " && reorderedContinuesScratch[wordIdx] &&
             effectiveAlignment == TextAlign::Justify && !isLastLine) {
           advance += reorderedJustifyExtra;
         }
         xpos += advance;
-      } else if (wordIdx + 1 < reorderedWidthsScratch.size()) {
+      } else if (wordIdx + 1 < visualOrderScratch.size()) {
         int gap = renderer.getSpaceAdvance(fontId, lastCodepoint(reorderedWordsScratch[wordIdx]),
                                            firstCodepoint(reorderedWordsScratch[wordIdx + 1]),
-                                           reorderedStylesScratch[wordIdx]);
+                                           lineWordStyles[src]);
         if (effectiveAlignment == TextAlign::Justify && !isLastLine) {
           gap += reorderedJustifyExtra;
         }
@@ -823,8 +821,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       }
     }
 
+    BidiUtils::applyOrderInPlace(lineWordStyles, visualOrderScratch);
     lineWords.swap(reorderedWordsScratch);
-    lineWordStyles.swap(reorderedStylesScratch);
   } else {
     // Standard LTR/RTL positioning loop when no visual reordering is needed
     if (blockStyle.isRtl) {
@@ -902,7 +900,8 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   }
 
   const auto isFocusSuffixAt = [&](const size_t idx) {
-    return willReorder ? reorderedFocusSuffixScratch[idx] : wordIsFocusSuffix[lastBreakAt + idx];
+    const size_t srcIdx = willReorder ? visualOrderScratch[idx] : idx;
+    return wordIsFocusSuffix[lastBreakAt + srcIdx];
   };
 
   // Fast path: when no word on this line was split for focus reading, skip the merge work
