@@ -24,7 +24,7 @@ struct SdCardFontFamilyInfo {
 
 class SdCardFontRegistry {
  public:
-  static constexpr int MAX_SD_FAMILIES = 128;
+  static constexpr size_t MAX_SD_FAMILIES = 128;
   // Two top-level roots are scanned at discovery time. Hidden is preferred
   // when creating new installs; both are read from if present.
   static constexpr const char* FONTS_DIR_HIDDEN = "/.fonts";
@@ -35,7 +35,7 @@ class SdCardFontRegistry {
 
   const std::vector<SdCardFontFamilyInfo>& getFamilies() const { return families_; }
   const SdCardFontFamilyInfo* findFamily(const std::string& name) const;
-  int getFamilyCount() const { return static_cast<int>(families_.size()); }
+  size_t getFamilyCount() const { return families_.size(); }
 
  private:
   std::vector<SdCardFontFamilyInfo> families_;  // sorted alphabetically
