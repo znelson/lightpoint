@@ -2,6 +2,7 @@
 
 #include <HalStorage.h>
 
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -107,32 +108,44 @@ class CssParser {
   bool loadFromCache();
 
  private:
-  // Transparent hash/equal so find() can accept std::string_view without
-  // materializing a temporary std::string. Both routes go through
-  // std::hash<std::string_view> to guarantee identical hashes regardless of
-  // the lookup key type.
+  // Lookup key for a multi-piece selector. The pieces are hashed and compared
+  // as if concatenated, so callers can look up composite keys without
+  // materializing the concatenation in a scratch buffer. Constructed from a
+  // braced list of any arity, e.g. `CompositeKey{tagName, ".", cls}` or
+  // `CompositeKey{".", cls}`. The initializer_list's backing array lives for
+  // the full expression, which covers the lifetime of the find() call.
+  struct CompositeKey {
+    std::initializer_list<std::string_view> pieces;
+    CompositeKey(std::initializer_list<std::string_view> p) noexcept : pieces(p) {}
+  };
+
+  // ASCII-case-insensitive transparent hash/equal. Stored selectors and lookup
+  // keys are compared without regard to case, so callers may insert and look up
+  // using whatever case the CSS source or HTML element name happens to use.
+  // Bodies live in CssParser.cpp so they can share the file-local asciiToLower.
   struct SvHash {
     using is_transparent = void;
-    size_t operator()(std::string_view sv) const noexcept { return std::hash<std::string_view>{}(sv); }
-    size_t operator()(const std::string& s) const noexcept {
-      return std::hash<std::string_view>{}(std::string_view(s));
-    }
+    size_t operator()(std::string_view sv) const noexcept;
+    size_t operator()(const std::string& s) const noexcept;
+    size_t operator()(CompositeKey k) const noexcept;
   };
   struct SvEqual {
     using is_transparent = void;
-    bool operator()(std::string_view a, std::string_view b) const noexcept { return a == b; }
-    bool operator()(const std::string& a, std::string_view b) const noexcept { return std::string_view(a) == b; }
-    bool operator()(std::string_view a, const std::string& b) const noexcept { return a == std::string_view(b); }
-    bool operator()(const std::string& a, const std::string& b) const noexcept { return a == b; }
+    bool operator()(std::string_view a, std::string_view b) const noexcept;
+    bool operator()(const std::string& a, std::string_view b) const noexcept;
+    bool operator()(std::string_view a, const std::string& b) const noexcept;
+    bool operator()(const std::string& a, const std::string& b) const noexcept;
+    bool operator()(CompositeKey a, std::string_view b) const noexcept;
+    bool operator()(std::string_view a, CompositeKey b) const noexcept;
   };
 
-  // Storage: maps normalized selector -> style properties
+  // Storage: maps selector -> style properties. Hash/equal are case-insensitive.
   std::unordered_map<std::string, CssStyle, SvHash, SvEqual> rulesBySelector_;
 
   std::string cachePath;
 
   // Internal parsing helpers
-  void processRuleBlockWithStyle(const std::string& selectorGroup, const CssStyle& style);
+  void processRuleBlockWithStyle(std::string_view selectorGroup, const CssStyle& style);
   static CssStyle parseDeclarations(std::string_view declBlock);
   static void parseDeclarationIntoStyle(std::string_view decl, CssStyle& style);
 
@@ -144,9 +157,4 @@ class CssParser {
   static CssLength interpretLength(std::string_view val);
   /** Returns true only when a numeric length was parsed (e.g. 2em, 50%). False for auto/inherit/initial. */
   static bool tryInterpretLength(std::string_view val, CssLength& out);
-
-  // String utilities
-  static std::string normalized(const std::string& s);
-  static std::vector<std::string> splitOnChar(const std::string& s, char delimiter);
-  static std::vector<std::string> splitWhitespace(std::string_view s);
 };

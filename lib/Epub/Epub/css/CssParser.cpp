@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <cstring>
+#include <charconv>
 #include <string_view>
 
 namespace {
@@ -30,9 +30,7 @@ struct StackBuffer {
 
   // Get string view of current content (zero-copy)
   std::string_view view() const { return std::string_view(data, len); }
-
-  // Convert to string for passing to functions (single allocation)
-  std::string str() const { return std::string(data, len); }
+  operator std::string_view() const noexcept { return view(); }
 };
 
 // Buffer size for reading CSS files
@@ -75,32 +73,62 @@ constexpr bool icontainsAscii(std::string_view value, std::string_view lowercase
                      [](char a, char b) { return asciiToLower(a) == b; }) != value.end();
 }
 
-// Copy src to dst byte-wise with ASCII tolower; returns bytes written. No
-// terminator. Truncates rather than overflowing when src exceeds dstCap.
-size_t lowercaseInto(std::string_view src, char* dst, size_t dstCap) {
-  const size_t n = std::min(src.size(), dstCap);
-  for (size_t i = 0; i < n; ++i) {
-    dst[i] = asciiToLower(src[i]);
-  }
-  return n;
-}
-
-// Walk s and invoke fn(token) for each whitespace-separated, non-empty run.
-// Tokens are yielded as string_views into s; no allocation.
-template <typename F>
-void forEachWhitespaceSeparatedToken(std::string_view s, F&& fn) {
+// Walk s and invoke fn(token) for each non-empty run between delimiters.
+// Tokens are boundary-trimmed and yielded as string_views into s; no
+// allocation. Runs of consecutive delimiters coalesce — no empty tokens are
+// emitted. `isDelimiter` is invoked once per character.
+template <typename Pred, typename F>
+void forEachDelimitedToken(std::string_view s, Pred isDelimiter, F&& fn) {
   size_t start = 0;
-  bool inWord = false;
   for (size_t i = 0; i <= s.size(); ++i) {
-    const bool isSpace = (i == s.size()) || isCssWhitespace(s[i]);
-    if (isSpace && inWord) {
-      fn(s.substr(start, i - start));
-      inWord = false;
-    } else if (!isSpace && !inWord) {
-      start = i;
-      inWord = true;
+    if (i == s.size() || isDelimiter(s[i])) {
+      const std::string_view trimmed = trimCssWhitespace(s.substr(start, i - start));
+      if (!trimmed.empty()) {
+        fn(trimmed);
+      }
+      start = i + 1;
     }
   }
+}
+
+// FNV-1a per Fowler/Noll/Vo, sized to match size_t on the target. The firmware
+// runs on a 32-bit core where size_t is 32 bits, so naively using the 64-bit
+// constants would silently truncate FNV_PRIME to a non-prime and wreck hash
+// distribution. The selection below picks the canonical 32- or 64-bit
+// constants at compile time so the same source works in a 64-bit host
+// simulator. `fnv1aMix` is the per-byte mix step; callers apply any
+// byte-level transform (e.g. asciiToLower) first.
+static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "FNV constants are only defined for 32- or 64-bit size_t");
+constexpr size_t FNV_OFFSET_BASIS =
+    sizeof(size_t) == 8 ? static_cast<size_t>(14695981039346656037ULL) : static_cast<size_t>(2166136261U);
+constexpr size_t FNV_PRIME =
+    sizeof(size_t) == 8 ? static_cast<size_t>(1099511628211ULL) : static_cast<size_t>(16777619U);
+
+constexpr size_t fnv1aMix(size_t hash, unsigned char byte) { return (hash ^ byte) * FNV_PRIME; }
+
+// Parse the entirety of s as a number into `out`. Accepts an optional leading
+// '+' (which std::from_chars rejects by spec) so callers can pass CSS-style
+// signed numbers without manual trimming. Returns false on empty input, a
+// non-numeric suffix, or any from_chars error.
+template <typename T>
+bool tryParseNumber(std::string_view s, T& out) {
+  const char* begin = s.data();
+  const char* end = s.data() + s.size();
+  if (begin < end && *begin == '+') ++begin;
+  const auto r = std::from_chars(begin, end, out);
+  return r.ec == std::errc{} && r.ptr == end;
+}
+
+// Collect up to 4 whitespace-separated tokens for a CSS edge-value shorthand
+// (margin, padding, and the border-* family). Returns the number of tokens
+// written; extras are silently dropped. Callers apply the 1/2/3/4-value
+// fallback rule using the returned count.
+size_t collectEdgeValueTokens(std::string_view s, std::string_view (&out)[4]) {
+  size_t count = 0;
+  forEachDelimitedToken(s, isCssWhitespace, [&](std::string_view tok) {
+    if (count < 4) out[count++] = tok;
+  });
+  return count;
 }
 
 std::string_view stripTrailingImportant(std::string_view value) {
@@ -115,7 +143,7 @@ std::string_view stripTrailingImportant(std::string_view value) {
   }
 
   const size_t suffixPos = value.size() - IMPORTANT.size();
-  if (value.substr(suffixPos) != IMPORTANT) {
+  if (!iequalsAscii(value.substr(suffixPos), IMPORTANT)) {
     return value;
   }
 
@@ -128,66 +156,62 @@ std::string_view stripTrailingImportant(std::string_view value) {
 
 }  // anonymous namespace
 
-// String utilities implementation
+// Transparent case-insensitive hash/equal. Bodies live here (rather than
+// inline in the header) so they can share the anonymous-namespace asciiToLower
+// with the other ASCII helpers in this translation unit.
 
-std::string CssParser::normalized(const std::string& s) {
-  std::string result;
-  result.reserve(s.size());
-
-  bool inSpace = true;  // Start true to skip leading space
-  for (const char c : s) {
-    if (isCssWhitespace(c)) {
-      if (!inSpace) {
-        result.push_back(' ');
-        inSpace = true;
-      }
-    } else {
-      result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-      inSpace = false;
-    }
-  }
-
-  // Remove trailing space
-  while (!result.empty() && (result.back() == ' ' || result.back() == '\n')) {
-    result.pop_back();
-  }
-  return result;
+size_t CssParser::SvHash::operator()(std::string_view sv) const noexcept {
+  size_t h = FNV_OFFSET_BASIS;
+  for (char c : sv) h = fnv1aMix(h, asciiToLower(c));
+  return h;
 }
 
-std::vector<std::string> CssParser::splitOnChar(const std::string& s, const char delimiter) {
-  std::vector<std::string> parts;
-  size_t start = 0;
+size_t CssParser::SvHash::operator()(const std::string& s) const noexcept { return operator()(std::string_view(s)); }
 
-  for (size_t i = 0; i <= s.size(); ++i) {
-    if (i == s.size() || s[i] == delimiter) {
-      std::string part = s.substr(start, i - start);
-      std::string trimmed = normalized(part);
-      if (!trimmed.empty()) {
-        parts.push_back(trimmed);
-      }
-      start = i + 1;
-    }
+size_t CssParser::SvHash::operator()(CompositeKey k) const noexcept {
+  // Hash the case-folded concatenation of every piece without materializing
+  // it — the running hash continues across pieces as if they were one buffer.
+  size_t h = FNV_OFFSET_BASIS;
+  for (std::string_view piece : k.pieces) {
+    for (char c : piece) h = fnv1aMix(h, asciiToLower(c));
   }
-  return parts;
+  return h;
 }
 
-std::vector<std::string> CssParser::splitWhitespace(std::string_view s) {
-  std::vector<std::string> parts;
-  size_t start = 0;
-  bool inWord = false;
+bool CssParser::SvEqual::operator()(std::string_view a, std::string_view b) const noexcept {
+  if (a.size() != b.size()) return false;
+  for (size_t i = 0; i < a.size(); ++i) {
+    if (asciiToLower(a[i]) != asciiToLower(b[i])) return false;
+  }
+  return true;
+}
 
-  for (size_t i = 0; i <= s.size(); ++i) {
-    const bool isSpace = i == s.size() || isCssWhitespace(s[i]);
-    if (isSpace && inWord) {
-      parts.emplace_back(s.substr(start, i - start));
-      inWord = false;
-    } else if (!isSpace && !inWord) {
-      start = i;
-      inWord = true;
+bool CssParser::SvEqual::operator()(const std::string& a, std::string_view b) const noexcept {
+  return operator()(std::string_view(a), b);
+}
+
+bool CssParser::SvEqual::operator()(std::string_view a, const std::string& b) const noexcept {
+  return operator()(a, std::string_view(b));
+}
+
+bool CssParser::SvEqual::operator()(const std::string& a, const std::string& b) const noexcept {
+  return operator()(std::string_view(a), std::string_view(b));
+}
+
+bool CssParser::SvEqual::operator()(CompositeKey k, std::string_view sv) const noexcept {
+  size_t total = 0;
+  for (std::string_view piece : k.pieces) total += piece.size();
+  if (total != sv.size()) return false;
+  size_t i = 0;
+  for (std::string_view piece : k.pieces) {
+    for (char c : piece) {
+      if (asciiToLower(c) != asciiToLower(sv[i++])) return false;
     }
   }
-  return parts;
+  return true;
 }
+
+bool CssParser::SvEqual::operator()(std::string_view sv, CompositeKey k) const noexcept { return operator()(k, sv); }
 
 // Property value interpreters
 
@@ -219,19 +243,10 @@ CssFontWeight CssParser::interpretFontWeight(std::string_view val) {
   // Numeric values: 100-900
   // CSS spec: 400 = normal, 700 = bold
   // We use: 0-400 = normal, 700+ = bold, 500-600 = normal (conservative)
-  char numBuf[16];
-  const size_t numLen = std::min(val.size(), sizeof(numBuf) - 1);
-  std::memcpy(numBuf, val.data(), numLen);
-  numBuf[numLen] = '\0';
-
-  char* endPtr = nullptr;
-  const long numericWeight = std::strtol(numBuf, &endPtr, 10);
-
-  // If we parsed a number and consumed the whole string
-  if (endPtr != numBuf && *endPtr == '\0') {
+  long numericWeight = 0;
+  if (tryParseNumber(val, numericWeight)) {
     return numericWeight >= 700 ? CssFontWeight::Bold : CssFontWeight::Normal;
   }
-
   return CssFontWeight::Normal;
 }
 
@@ -265,14 +280,8 @@ bool CssParser::tryInterpretLength(std::string_view val, CssLength& out) {
     }
   }
 
-  char numBuf[32];
-  const size_t numLen = std::min(unitStart, sizeof(numBuf) - 1);
-  std::memcpy(numBuf, val.data(), numLen);
-  numBuf[numLen] = '\0';
-
-  char* endPtr = nullptr;
-  const float numericValue = std::strtof(numBuf, &endPtr);
-  if (endPtr == numBuf) {
+  float numericValue;
+  if (!tryParseNumber(val.substr(0, unitStart), numericValue)) {
     out = CssLength{};
     return false;  // No number parsed (e.g. auto, inherit, initial)
   }
@@ -332,12 +341,13 @@ void CssParser::parseDeclarationIntoStyle(std::string_view decl, CssStyle& style
     style.marginRight = interpretLength(value);
     style.defined.marginRight = 1;
   } else if (iequalsAscii(name, "margin")) {
-    const auto values = splitWhitespace(value);
-    if (!values.empty()) {
-      style.marginTop = interpretLength(values[0]);
-      style.marginRight = values.size() >= 2 ? interpretLength(values[1]) : style.marginTop;
-      style.marginBottom = values.size() >= 3 ? interpretLength(values[2]) : style.marginTop;
-      style.marginLeft = values.size() >= 4 ? interpretLength(values[3]) : style.marginRight;
+    std::string_view margins[4];
+    const size_t count = collectEdgeValueTokens(value, margins);
+    if (count > 0) {
+      style.marginTop = interpretLength(margins[0]);
+      style.marginRight = count >= 2 ? interpretLength(margins[1]) : style.marginTop;
+      style.marginBottom = count >= 3 ? interpretLength(margins[2]) : style.marginTop;
+      style.marginLeft = count >= 4 ? interpretLength(margins[3]) : style.marginRight;
       style.defined.marginTop = style.defined.marginRight = style.defined.marginBottom = style.defined.marginLeft = 1;
     }
   } else if (iequalsAscii(name, "padding-top")) {
@@ -353,12 +363,13 @@ void CssParser::parseDeclarationIntoStyle(std::string_view decl, CssStyle& style
     style.paddingRight = interpretLength(value);
     style.defined.paddingRight = 1;
   } else if (iequalsAscii(name, "padding")) {
-    const auto values = splitWhitespace(value);
-    if (!values.empty()) {
-      style.paddingTop = interpretLength(values[0]);
-      style.paddingRight = values.size() >= 2 ? interpretLength(values[1]) : style.paddingTop;
-      style.paddingBottom = values.size() >= 3 ? interpretLength(values[2]) : style.paddingTop;
-      style.paddingLeft = values.size() >= 4 ? interpretLength(values[3]) : style.paddingRight;
+    std::string_view paddings[4];
+    const size_t count = collectEdgeValueTokens(value, paddings);
+    if (count > 0) {
+      style.paddingTop = interpretLength(paddings[0]);
+      style.paddingRight = count >= 2 ? interpretLength(paddings[1]) : style.paddingTop;
+      style.paddingBottom = count >= 3 ? interpretLength(paddings[2]) : style.paddingTop;
+      style.paddingLeft = count >= 4 ? interpretLength(paddings[3]) : style.paddingRight;
       style.defined.paddingTop = style.defined.paddingRight = style.defined.paddingBottom = style.defined.paddingLeft =
           1;
     }
@@ -405,10 +416,7 @@ CssStyle CssParser::parseDeclarations(std::string_view declBlock) {
   for (size_t i = 0; i <= declBlock.size(); ++i) {
     if (i == declBlock.size() || declBlock[i] == ';') {
       if (i > start) {
-        const std::string_view decl = declBlock.substr(start, i - start);
-        if (!decl.empty()) {
-          parseDeclarationIntoStyle(decl, style);
-        }
+        parseDeclarationIntoStyle(declBlock.substr(start, i - start), style);
       }
       start = i + 1;
     }
@@ -419,96 +427,59 @@ CssStyle CssParser::parseDeclarations(std::string_view declBlock) {
 
 // Rule processing
 
-void CssParser::processRuleBlockWithStyle(const std::string& selectorGroup, const CssStyle& style) {
+void CssParser::processRuleBlockWithStyle(std::string_view selectorGroup, const CssStyle& style) {
   // Check if we've reached the rule limit before processing
   if (rulesBySelector_.size() >= MAX_RULES) {
     LOG_DBG("CSS", "Reached max rules limit (%zu), stopping CSS parsing", MAX_RULES);
     return;
   }
 
-  // Drop rules whose declarations are all unrecognized (color, background, font-family, etc.).
-  // The CssStyle would store as default-constructed with zero defined flags, contributing nothing
-  // during resolveStyle but costing ~140 bytes of DRAM per entry plus a slot in MAX_RULES.
-  if (!style.defined.anySet()) return;
+  // Walk comma-separated selectors in place — no vector allocation. Selectors
+  // with unsupported syntax (combinators, attributes, pseudo, etc.) are skipped
+  // silently; the only heap allocation per kept selector is the std::string
+  // map key, which is unavoidable since the map owns its keys.
+  bool limitReached = false;
+  forEachDelimitedToken(
+      selectorGroup, [](char c) { return c == ','; },
+      [&](std::string_view sel) {
+        if (limitReached) return;
 
-  // Handle comma-separated selectors
-  const auto selectors = splitOnChar(selectorGroup, ',');
+        if (sel.size() > MAX_SELECTOR_LENGTH) {
+          LOG_DBG("CSS", "Selector too long (%zu > %zu), skipping", sel.size(), MAX_SELECTOR_LENGTH);
+          return;
+        }
 
-  for (const auto& sel : selectors) {
-    // Validate selector length before processing
-    if (sel.size() > MAX_SELECTOR_LENGTH) {
-      LOG_DBG("CSS", "Selector too long (%zu > %zu), skipping", sel.size(), MAX_SELECTOR_LENGTH);
-      continue;
-    }
+        // TODO: Support richer CSS selector syntax in the future. For now we only
+        // handle `tag`, `.class`, or `tag.class`. Reject anything containing a
+        // character that introduces unsupported syntax:
+        //   '+'  adjacent sibling combinator
+        //   '>'  child combinator
+        //   '['  attribute selector
+        //   ':'  pseudo class/element
+        //   '#'  ID selector
+        //   '~'  general sibling combinator
+        //   '*'  wildcard
+        //   ' '  descendant combinator
+        // Single-pass scan via find_first_of instead of eight sequential find() calls.
+        constexpr std::string_view kUnsupportedSelectorChars = "+>[:#~* ";
+        if (sel.find_first_of(kUnsupportedSelectorChars) != std::string_view::npos) return;
 
-    // Normalize the selector
-    std::string key = normalized(sel);
-    if (key.empty()) continue;
+        // Skip if this would exceed the rule limit
+        if (rulesBySelector_.size() >= MAX_RULES) {
+          LOG_DBG("CSS", "Reached max rules limit, stopping selector processing");
+          limitReached = true;
+          return;
+        }
 
-    // TODO: Consider adding support for sibling css selectors in the future
-    // Ensure no + in selector as we don't support adjacent CSS selectors for now
-    if (key.find('+') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Consider adding support for direct nested css selectors in the future
-    // Ensure no > in selector as we don't support nested CSS selectors for now
-    if (key.find('>') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Consider adding support for attribute css selectors in the future
-    // Ensure no [ in selector as we don't support attribute CSS selectors for now
-    if (key.find('[') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Consider adding support for pseudo selectors in the future
-    // Ensure no : in selector as we don't support pseudo CSS selectors for now
-    if (key.find(':') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Consider adding support for ID css selectors in the future
-    // Ensure no # in selector as we don't support ID CSS selectors for now
-    if (key.find('#') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Consider adding support for general sibling combinator selectors in the future
-    // Ensure no ~ in selector as we don't support general sibling combinator CSS selectors for now
-    if (key.find('~') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Consider adding support for wildcard css selectors in the future
-    // Ensure no * in selector as we don't support wildcard CSS selectors for now
-    if (key.find('*') != std::string_view::npos) {
-      continue;
-    }
-
-    // TODO: Add support for more complex selectors in the future
-    // At the moment, we only ever check for `tag`, `tag.class1` or `.class1`
-    // If the selector has whitespace in it, then it's either a CSS selector for a descendant element (e.g. `tag1 tag2`)
-    // or some other slightly more advanced CSS selector which we don't support yet
-    if (key.find(' ') != std::string_view::npos) {
-      continue;
-    }
-
-    // Skip if this would exceed the rule limit
-    if (rulesBySelector_.size() >= MAX_RULES) {
-      LOG_DBG("CSS", "Reached max rules limit, stopping selector processing");
-      return;
-    }
-
-    // Store or merge with existing
-    auto it = rulesBySelector_.find(key);
-    if (it != rulesBySelector_.end()) {
-      it->second.applyOver(style);
-    } else {
-      rulesBySelector_[key] = style;
-    }
-  }
+        // Store or merge with existing. Hash/equal are case-insensitive, so two
+        // selectors that differ only in ASCII case collide on insert and merge.
+        auto it = rulesBySelector_.find(sel);
+        if (it != rulesBySelector_.end()) {
+          it->second.applyOver(style);
+        } else {
+          rulesBySelector_.emplace(std::string(sel), style);
+        }
+      });
 }
 
 // Main parsing entry point
@@ -580,10 +551,10 @@ bool CssParser::loadFromStream(HalFile& source) {
       --bodyDepth;
       if (bodyDepth == 0) {
         if (!skippingRule && !declBuffer.empty()) {
-          parseDeclarationIntoStyle(declBuffer.view(), currentStyle);
+          parseDeclarationIntoStyle(declBuffer, currentStyle);
         }
         if (!skippingRule) {
-          processRuleBlockWithStyle(selector.str(), currentStyle);
+          processRuleBlockWithStyle(selector, currentStyle);
         }
         selector.clear();
         declBuffer.clear();
@@ -598,7 +569,7 @@ bool CssParser::loadFromStream(HalFile& source) {
     if (!skippingRule) {
       if (c == ';') {
         if (!declBuffer.empty()) {
-          parseDeclarationIntoStyle(declBuffer.view(), currentStyle);
+          parseDeclarationIntoStyle(declBuffer, currentStyle);
           declBuffer.clear();
         }
       } else {
@@ -670,37 +641,28 @@ CssStyle CssParser::resolveStyle(std::string_view tagName, std::string_view clas
   }
 
   CssStyle result;
-  char keyBuf[MAX_SELECTOR_LENGTH + 1];
 
-  // 1. Apply element-level style (lowest priority)
-  size_t tagLen = lowercaseInto(tagName, keyBuf, sizeof(keyBuf));
-  if (auto it = rulesBySelector_.find(std::string_view(keyBuf, tagLen)); it != rulesBySelector_.end()) {
+  // 1. Apply element-level style (lowest priority). The map's hash/equal are
+  // case-insensitive, so the raw tagName view can be used as the lookup key.
+  if (auto it = rulesBySelector_.find(tagName); it != rulesBySelector_.end()) {
     result.applyOver(it->second);
   }
 
   if (classAttr.empty()) return result;
 
   // TODO: Support combinations of classes (e.g. style on .class1.class2)
-  // 2. Apply class styles (medium priority)
-  forEachWhitespaceSeparatedToken(classAttr, [&](std::string_view cls) {
-    if (cls.size() + 1 > sizeof(keyBuf)) return;
-    keyBuf[0] = '.';
-    const size_t clsLen = lowercaseInto(cls, keyBuf + 1, sizeof(keyBuf) - 1);
-    if (auto it = rulesBySelector_.find(std::string_view(keyBuf, 1 + clsLen)); it != rulesBySelector_.end()) {
+  // 2. Apply class styles (medium priority). The transparent hash/equal accept
+  // a CompositeKey, so we never materialize the concatenation.
+  forEachDelimitedToken(classAttr, isCssWhitespace, [&](std::string_view cls) {
+    if (auto it = rulesBySelector_.find(CompositeKey{".", cls}); it != rulesBySelector_.end()) {
       result.applyOver(it->second);
     }
   });
 
   // TODO: Support combinations of classes (e.g. style on p.class1.class2)
-  // 3. Apply element.class styles (higher priority)
-  // Pass 2 overwrote keyBuf; re-lowercase the tag before appending ".cls".
-  tagLen = lowercaseInto(tagName, keyBuf, sizeof(keyBuf));
-  if (tagLen + 1 >= sizeof(keyBuf)) return result;
-  keyBuf[tagLen] = '.';
-  forEachWhitespaceSeparatedToken(classAttr, [&](std::string_view cls) {
-    if (tagLen + 1 + cls.size() > sizeof(keyBuf)) return;
-    const size_t clsLen = lowercaseInto(cls, keyBuf + tagLen + 1, sizeof(keyBuf) - tagLen - 1);
-    if (auto it = rulesBySelector_.find(std::string_view(keyBuf, tagLen + 1 + clsLen)); it != rulesBySelector_.end()) {
+  // 3. Apply element.class styles (higher priority).
+  forEachDelimitedToken(classAttr, isCssWhitespace, [&](std::string_view cls) {
+    if (auto it = rulesBySelector_.find(CompositeKey{tagName, ".", cls}); it != rulesBySelector_.end()) {
       result.applyOver(it->second);
     }
   });
