@@ -753,9 +753,9 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       if (wordIdx > 0 && !reorderedContinuesScratch[wordIdx]) {
         const uint16_t prevSrc = visualOrderScratch[wordIdx - 1];
         reorderedGapCount++;
-        reorderedNaturalGaps += renderer.getSpaceAdvance(fontId, lastCodepoint(reorderedWordsScratch[wordIdx - 1]),
-                                                         firstCodepoint(reorderedWordsScratch[wordIdx]),
-                                                         lineWordStyles[prevSrc]);
+        reorderedNaturalGaps +=
+            renderer.getSpaceAdvance(fontId, lastCodepoint(reorderedWordsScratch[wordIdx - 1]),
+                                     firstCodepoint(reorderedWordsScratch[wordIdx]), lineWordStyles[prevSrc]);
       } else if (wordIdx > 0 && reorderedContinuesScratch[wordIdx]) {
         if (reorderedWordsScratch[wordIdx] == " ") {
           reorderedGapCount++;
@@ -799,12 +799,10 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
       lineXPos.push_back(static_cast<int16_t>(xpos < 0 ? 0 : xpos));
       xpos += wordWidths[lastBreakAt + src];
 
-      const bool nextIsContinuation =
-          wordIdx + 1 < visualOrderScratch.size() && reorderedContinuesScratch[wordIdx + 1];
+      const bool nextIsContinuation = wordIdx + 1 < visualOrderScratch.size() && reorderedContinuesScratch[wordIdx + 1];
       if (nextIsContinuation) {
-        int advance =
-            renderer.getKerning(fontId, lastCodepoint(reorderedWordsScratch[wordIdx]),
-                                firstCodepoint(reorderedWordsScratch[wordIdx + 1]), lineWordStyles[src]);
+        int advance = renderer.getKerning(fontId, lastCodepoint(reorderedWordsScratch[wordIdx]),
+                                          firstCodepoint(reorderedWordsScratch[wordIdx + 1]), lineWordStyles[src]);
         if (reorderedWordsScratch[wordIdx] == " " && reorderedContinuesScratch[wordIdx] &&
             effectiveAlignment == TextAlign::Justify && !isLastLine) {
           advance += reorderedJustifyExtra;
@@ -812,8 +810,7 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
         xpos += advance;
       } else if (wordIdx + 1 < visualOrderScratch.size()) {
         int gap = renderer.getSpaceAdvance(fontId, lastCodepoint(reorderedWordsScratch[wordIdx]),
-                                           firstCodepoint(reorderedWordsScratch[wordIdx + 1]),
-                                           lineWordStyles[src]);
+                                           firstCodepoint(reorderedWordsScratch[wordIdx + 1]), lineWordStyles[src]);
         if (effectiveAlignment == TextAlign::Justify && !isLastLine) {
           gap += reorderedJustifyExtra;
         }

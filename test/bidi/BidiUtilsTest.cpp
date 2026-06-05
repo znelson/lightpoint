@@ -16,27 +16,19 @@ namespace {
 // through to ON (neutral) per the firmware's "no fonts for those scripts" stance.
 constexpr const char* kShalom = "\xD7\xA9\xD7\x9C\xD7\x95\xD7\x9D";  // shin lamed vav mem-final
 constexpr const char* kAhalan = "\xD7\x90\xD7\x94\xD7\x9C\xD7\x9F";  // alef he lamed nun-final
-constexpr const char* kArabicAlef = "\xD8\xA3";  // U+0623 ALEF WITH HAMZA
+constexpr const char* kArabicAlef = "\xD8\xA3";                      // U+0623 ALEF WITH HAMZA
 
 }  // namespace
 
 // --- startsWithRtl --------------------------------------------------------
 
-TEST(BidiUtilsStartsWithRtl, NullInputIsFalse) {
-  EXPECT_FALSE(BidiUtils::startsWithRtl(nullptr));
-}
+TEST(BidiUtilsStartsWithRtl, NullInputIsFalse) { EXPECT_FALSE(BidiUtils::startsWithRtl(nullptr)); }
 
-TEST(BidiUtilsStartsWithRtl, EmptyStringIsFalse) {
-  EXPECT_FALSE(BidiUtils::startsWithRtl(""));
-}
+TEST(BidiUtilsStartsWithRtl, EmptyStringIsFalse) { EXPECT_FALSE(BidiUtils::startsWithRtl("")); }
 
-TEST(BidiUtilsStartsWithRtl, PureAsciiIsFalse) {
-  EXPECT_FALSE(BidiUtils::startsWithRtl("hello world"));
-}
+TEST(BidiUtilsStartsWithRtl, PureAsciiIsFalse) { EXPECT_FALSE(BidiUtils::startsWithRtl("hello world")); }
 
-TEST(BidiUtilsStartsWithRtl, LeadingHebrewIsTrue) {
-  EXPECT_TRUE(BidiUtils::startsWithRtl(kShalom));
-}
+TEST(BidiUtilsStartsWithRtl, LeadingHebrewIsTrue) { EXPECT_TRUE(BidiUtils::startsWithRtl(kShalom)); }
 
 TEST(BidiUtilsStartsWithRtl, ArabicIsTreatedAsNeutral) {
   // Documents scope: lib/MiniBidi/bidiclasses.t omits Arabic by design (no
@@ -65,13 +57,9 @@ TEST(BidiUtilsDetectParagraphLevel, NullReturnsFallback) {
   EXPECT_EQ(BidiUtils::detectParagraphLevel(nullptr, /*fallbackLevel=*/1), 1);
 }
 
-TEST(BidiUtilsDetectParagraphLevel, AsciiIsLevel0) {
-  EXPECT_EQ(BidiUtils::detectParagraphLevel("hello"), 0);
-}
+TEST(BidiUtilsDetectParagraphLevel, AsciiIsLevel0) { EXPECT_EQ(BidiUtils::detectParagraphLevel("hello"), 0); }
 
-TEST(BidiUtilsDetectParagraphLevel, HebrewIsLevel1) {
-  EXPECT_EQ(BidiUtils::detectParagraphLevel(kShalom), 1);
-}
+TEST(BidiUtilsDetectParagraphLevel, HebrewIsLevel1) { EXPECT_EQ(BidiUtils::detectParagraphLevel(kShalom), 1); }
 
 TEST(BidiUtilsDetectParagraphLevel, NeutralOnlyReturnsFallback) {
   // No strong chars at all -> fallback.
