@@ -1194,10 +1194,8 @@ void EpubReaderActivity::addBookmark() {
   uint16_t liIdx;
   {
     RenderLock lock(*this);
-    const int rawPage = spineItem->currentPage;
-    const int rawCount = spineItem->getPageCount();
-    if (rawPage < 0 || rawPage >= rawCount) return;
-    const uint16_t currentPage = static_cast<uint16_t>(rawPage);
+    const uint16_t currentPage = spineItem->currentPage;
+    if (currentPage >= spineItem->getPageCount()) return;
     paragraphIdx = spineItem->getParagraphIndexForPage(currentPage).value_or(0);
     liIdx = spineItem->getListItemIndexForPage(currentPage).value_or(BookmarkEntry::NO_LI_INDEX);
   }
