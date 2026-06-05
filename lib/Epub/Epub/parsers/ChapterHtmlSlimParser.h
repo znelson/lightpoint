@@ -10,6 +10,7 @@
 
 #include <climits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,13 +58,12 @@ class ChapterHtmlSlimParser {
   // Style tracking (replaces depth-based approach)
   struct StyleStackEntry {
     int depth = 0;
-    bool hasBold = false, bold = false;
-    bool hasItalic = false, italic = false;
-    bool hasUnderline = false, underline = false;
-    bool hasDirection = false;
-    CssTextDirection direction = CssTextDirection::Ltr;
-    bool hasSup = false, sup = false;
-    bool hasSub = false, sub = false;
+    std::optional<bool> bold;
+    std::optional<bool> italic;
+    std::optional<bool> underline;
+    std::optional<CssTextDirection> direction;
+    std::optional<bool> sup;
+    std::optional<bool> sub;
   };
   std::vector<StyleStackEntry> inlineStyleStack;
   std::vector<BlockStyle> blockStyleStack;  // accumulated block styles from open ancestor elements

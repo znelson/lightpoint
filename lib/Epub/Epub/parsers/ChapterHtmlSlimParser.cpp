@@ -71,7 +71,6 @@ bool isTableStructuralTag(const char* name) {
 
 void ChapterHtmlSlimParser::applyDirectionToEntry(StyleStackEntry& entry, const CssStyle& css) {
   if (css.hasDirection()) {
-    entry.hasDirection = true;
     entry.direction = css.direction;
   }
 }
@@ -90,26 +89,26 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
 
   // Apply inline style stack in order
   for (const auto& entry : inlineStyleStack) {
-    if (entry.hasBold) {
-      effectiveBold = entry.bold;
+    if (entry.bold) {
+      effectiveBold = *entry.bold;
     }
-    if (entry.hasItalic) {
-      effectiveItalic = entry.italic;
+    if (entry.italic) {
+      effectiveItalic = *entry.italic;
     }
-    if (entry.hasUnderline) {
-      effectiveUnderline = entry.underline;
+    if (entry.underline) {
+      effectiveUnderline = *entry.underline;
     }
-    if (entry.hasDirection) {
+    if (entry.direction) {
       effectiveDirectionDefined = true;
-      effectiveDirection = entry.direction;
+      effectiveDirection = *entry.direction;
     }
-    if (entry.hasSup) {
-      effectiveSup = entry.sup;
-      if (entry.sup) effectiveSub = false;
+    if (entry.sup) {
+      effectiveSup = *entry.sup;
+      if (*entry.sup) effectiveSub = false;
     }
-    if (entry.hasSub) {
-      effectiveSub = entry.sub;
-      if (entry.sub) effectiveSup = false;
+    if (entry.sub) {
+      effectiveSub = *entry.sub;
+      if (*entry.sub) effectiveSup = false;
     }
   }
 
@@ -334,11 +333,8 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
         "Tab Row " + std::to_string(self->tableRowIndex) + ", Cell " + std::to_string(self->tableColIndex) + ":";
     StyleStackEntry headerStyle;
     headerStyle.depth = self->depth;
-    headerStyle.hasBold = true;
     headerStyle.bold = false;
-    headerStyle.hasItalic = true;
     headerStyle.italic = true;
-    headerStyle.hasUnderline = true;
     headerStyle.underline = false;
     self->inlineStyleStack.push_back(headerStyle);
     self->updateEffectiveInlineStyle();
@@ -650,7 +646,6 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       self->underlineUntilDepth = std::min(self->underlineUntilDepth, self->depth);
       StyleStackEntry entry;
       entry.depth = self->depth;
-      entry.hasUnderline = true;
       entry.underline = true;
       applyDirectionToEntry(entry, cssStyle);
       self->inlineStyleStack.push_back(entry);
@@ -727,14 +722,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     // Push inline style entry for underline tag
     StyleStackEntry entry;
     entry.depth = self->depth;  // Track depth for matching pop
-    entry.hasUnderline = true;
     entry.underline = true;
     if (cssStyle.hasFontWeight()) {
-      entry.hasBold = true;
       entry.bold = cssStyle.fontWeight == CssFontWeight::Bold;
     }
     if (cssStyle.hasFontStyle()) {
-      entry.hasItalic = true;
       entry.italic = cssStyle.fontStyle == CssFontStyle::Italic;
     }
     applyDirectionToEntry(entry, cssStyle);
@@ -750,14 +742,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     // Push inline style entry for bold tag
     StyleStackEntry entry;
     entry.depth = self->depth;  // Track depth for matching pop
-    entry.hasBold = true;
     entry.bold = true;
     if (cssStyle.hasFontStyle()) {
-      entry.hasItalic = true;
       entry.italic = cssStyle.fontStyle == CssFontStyle::Italic;
     }
     if (cssStyle.hasTextDecoration()) {
-      entry.hasUnderline = true;
       entry.underline = cssStyle.textDecoration == CssTextDecoration::Underline;
     }
     applyDirectionToEntry(entry, cssStyle);
@@ -773,14 +762,11 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     // Push inline style entry for italic tag
     StyleStackEntry entry;
     entry.depth = self->depth;  // Track depth for matching pop
-    entry.hasItalic = true;
     entry.italic = true;
     if (cssStyle.hasFontWeight()) {
-      entry.hasBold = true;
       entry.bold = cssStyle.fontWeight == CssFontWeight::Bold;
     }
     if (cssStyle.hasTextDecoration()) {
-      entry.hasUnderline = true;
       entry.underline = cssStyle.textDecoration == CssTextDecoration::Underline;
     }
     applyDirectionToEntry(entry, cssStyle);
@@ -794,10 +780,8 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
     StyleStackEntry entry;
     entry.depth = self->depth;
     if (strcmp(name, "sup") == 0) {
-      entry.hasSup = true;
       entry.sup = true;
     } else {
-      entry.hasSub = true;
       entry.sub = true;
     }
     self->inlineStyleStack.push_back(entry);
@@ -814,24 +798,19 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       StyleStackEntry entry;
       entry.depth = self->depth;  // Track depth for matching pop
       if (cssStyle.hasFontWeight()) {
-        entry.hasBold = true;
         entry.bold = cssStyle.fontWeight == CssFontWeight::Bold;
       }
       if (cssStyle.hasFontStyle()) {
-        entry.hasItalic = true;
         entry.italic = cssStyle.fontStyle == CssFontStyle::Italic;
       }
       if (cssStyle.hasTextDecoration()) {
-        entry.hasUnderline = true;
         entry.underline = cssStyle.textDecoration == CssTextDecoration::Underline;
       }
       applyDirectionToEntry(entry, cssStyle);
       if (cssStyle.hasVerticalAlign()) {
         if (cssStyle.verticalAlign == CssVerticalAlign::Super) {
-          entry.hasSup = true;
           entry.sup = true;
         } else if (cssStyle.verticalAlign == CssVerticalAlign::Sub) {
-          entry.hasSub = true;
           entry.sub = true;
         }
       }
