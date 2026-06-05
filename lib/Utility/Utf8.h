@@ -15,7 +15,7 @@ void utf8TruncateChars(std::string& str, size_t numChars);
 // Truncate a raw char buffer to the last complete UTF-8 codepoint boundary.
 // Returns the new length (<= len). If the buffer ends mid-sequence, the
 // incomplete trailing bytes are excluded.
-int utf8SafeTruncateBuffer(const char* buf, int len);
+size_t utf8SafeTruncateBuffer(const char* buf, size_t len);
 
 // Encode a Unicode codepoint as UTF-8 into out (which must have room for 4
 // bytes). Returns the number of bytes written (1-4). Invalid codepoints
