@@ -782,7 +782,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     // Collect footnotes from the loaded page
     currentPageLinks = std::move(p->links);
 
-    const auto start = halPlatform.millis();
+    [[maybe_unused]] const auto start = halPlatform.millis();
     renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     LOG_DBG("ERS", "Rendered page in %dms", halPlatform.millis() - start);
   }
@@ -827,21 +827,21 @@ bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
                                         const int orientedMarginLeft) {
-  const auto t0 = halPlatform.millis();
+  [[maybe_unused]] const auto t0 = halPlatform.millis();
 
   // Font prewarm: scan pass accumulates text, then prewarm, then real render
   auto* fcm = renderer.getFontCacheManager();
   auto scope = fcm->createPrewarmScope();
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);  // scan pass
   scope.endScanAndPrewarm();
-  const auto tPrewarm = halPlatform.millis();
+  [[maybe_unused]] const auto tPrewarm = halPlatform.millis();
 
   // Force special handling for pages with images when anti-aliasing is on
   bool imagePageWithAA = page->hasImages() && SETTINGS.textAntiAliasing;
 
   page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
   renderStatusBar();
-  const auto tBwRender = halPlatform.millis();
+  [[maybe_unused]] const auto tBwRender = halPlatform.millis();
 
   if (imagePageWithAA) {
     // Double FAST_REFRESH with selective image blanking (pablohc's technique):
@@ -871,7 +871,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   } else {
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
   }
-  const auto tDisplay = halPlatform.millis();
+  [[maybe_unused]] const auto tDisplay = halPlatform.millis();
 
   // Tiled grayscale: render each plane band-by-band into a small scratch and
   // stream straight to the controller, leaving the BW framebuffer intact so no
@@ -900,7 +900,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
         renderer.endStripTarget();
         renderer.writeGrayscalePlaneStrip(true, scratch.get(), y, rows);
       }
-      const auto tGrayLsb = halPlatform.millis();
+      [[maybe_unused]] const auto tGrayLsb = halPlatform.millis();
 
       // MSB plane.
       renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
@@ -912,18 +912,18 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
         renderer.endStripTarget();
         renderer.writeGrayscalePlaneStrip(false, scratch.get(), y, rows);
       }
-      const auto tGrayMsb = halPlatform.millis();
+      [[maybe_unused]] const auto tGrayMsb = halPlatform.millis();
 
       renderer.setRenderMode(GfxRenderer::BW);
       renderer.displayGrayBuffer();
-      const auto tGrayDisplay = halPlatform.millis();
+      [[maybe_unused]] const auto tGrayDisplay = halPlatform.millis();
 
       // BW framebuffer is intact; re-sync controller RAM for the next
       // differential page turn directly from it.
       renderer.cleanupGrayscaleWithFrameBuffer();
-      const auto tCleanup = halPlatform.millis();
+      [[maybe_unused]] const auto tCleanup = halPlatform.millis();
 
-      const auto tEnd = halPlatform.millis();
+      [[maybe_unused]] const auto tEnd = halPlatform.millis();
       LOG_DBG("ERS",
               "Page render (tiled): prewarm=%ums bw_render=%ums display=%ums gray_lsb=%ums "
               "gray_msb=%ums gray_display=%ums cleanup=%ums total=%ums",
@@ -937,29 +937,29 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       // Save the BW frame before the grayscale passes overwrite it, restore
       // after. Only needed when grayscale actually renders.
       renderer.storeBwBuffer();
-      const auto tBwStore = halPlatform.millis();
+      [[maybe_unused]] const auto tBwStore = halPlatform.millis();
 
       renderer.clearScreen(0x00);
       renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
       page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
       renderer.copyGrayscaleLsbBuffers();
-      const auto tGrayLsb = halPlatform.millis();
+      [[maybe_unused]] const auto tGrayLsb = halPlatform.millis();
 
       // Render and copy to MSB buffer
       renderer.clearScreen(0x00);
       renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
       page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
       renderer.copyGrayscaleMsbBuffers();
-      const auto tGrayMsb = halPlatform.millis();
+      [[maybe_unused]] const auto tGrayMsb = halPlatform.millis();
 
       // display grayscale part
       renderer.displayGrayBuffer();
-      const auto tGrayDisplay = halPlatform.millis();
+      [[maybe_unused]] const auto tGrayDisplay = halPlatform.millis();
       renderer.setRenderMode(GfxRenderer::BW);
       renderer.restoreBwBuffer();
-      const auto tBwRestore = halPlatform.millis();
+      [[maybe_unused]] const auto tBwRestore = halPlatform.millis();
 
-      const auto tEnd = halPlatform.millis();
+      [[maybe_unused]] const auto tEnd = halPlatform.millis();
       LOG_DBG("ERS",
               "Page render: prewarm=%ums bw_render=%ums display=%ums bw_store=%ums "
               "gray_lsb=%ums gray_msb=%ums gray_display=%ums bw_restore=%ums total=%ums",
@@ -968,7 +968,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     } else {
       // No anti-aliasing: BW frame already displayed above, no grayscale to
       // render, so no save/restore.
-      const auto tEnd = halPlatform.millis();
+      [[maybe_unused]] const auto tEnd = halPlatform.millis();
       LOG_DBG("ERS", "Page render: prewarm=%lums bw_render=%lums display=%lums total=%lums", tPrewarm - t0,
               tBwRender - tPrewarm, tDisplay - tBwRender, tEnd - t0);
     }
@@ -1079,7 +1079,7 @@ bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const ui
         chapterPageInfo.segments.push_back(*range);
       }
 
-      const int totalPages =
+      [[maybe_unused]] const int totalPages =
           std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
                           [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
       LOG_DBG("ERS", "Chapter %d: %d spines (%d-%d), %d total pages", *tocIndex, totalSpines, firstSpine, lastSpine,

@@ -1178,7 +1178,7 @@ void GfxRenderer::invertScreen() const {
 }
 
 void GfxRenderer::displayBuffer(const HalDisplay::RefreshMode refreshMode) const {
-  auto elapsed = halPlatform.millis() - start_ms;
+  [[maybe_unused]] const auto elapsed = halPlatform.millis() - start_ms;
   LOG_DBG("GFX", "Time = %u ms from clearScreen to displayBuffer", elapsed);
   display.displayBuffer(refreshMode, fadingFix);
 }
