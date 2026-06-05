@@ -242,13 +242,13 @@ int32_t FontDecompressor::findGlyphIndex(const EpdFontData* fontData, uint32_t c
   return -1;
 }
 
-int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8Text) {
+std::optional<uint32_t> FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8Text) {
   if (!fontData || !fontData->groups || !utf8Text) return 0;
 
   // Allocate the next available slot (caller must call freePageBuffer/clearCache to reset)
   if (pageSlotCount >= MAX_PAGE_SLOTS) {
     LOG_ERR("FDC", "All %u page buffer slots full, cannot prewarm fontData=%p", MAX_PAGE_SLOTS, (void*)fontData);
-    return -1;
+    return std::nullopt;
   }
   PageSlot& slot = pageSlots[pageSlotCount];
 
@@ -456,7 +456,7 @@ int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8
 
   // Step 4: For each unique group, decompress to temp buffer and extract needed glyphs
   uint32_t writeOffset = 0;
-  int missed = 0;
+  uint32_t missed = 0;
 
   for (uint8_t g = 0; g < groupCount; g++) {
     uint16_t groupIdx = neededGroups[g];
@@ -493,7 +493,7 @@ int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8
     free(tempBuf);
   }
 
-  LOG_DBG("FDC", "Prewarm: %u glyphs in %u bytes from %u groups (%d missed)", glyphCount, writeOffset, groupCount,
+  LOG_DBG("FDC", "Prewarm: %u glyphs in %u bytes from %u groups (%u missed)", glyphCount, writeOffset, groupCount,
           missed);
 
   return missed;

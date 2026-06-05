@@ -23,9 +23,9 @@ void FontCacheManager::prewarmCache(int fontId, const char* utf8Text, uint8_t st
   // SD card font prewarm path: prewarm all requested styles in one call
   auto it = sdCardFonts_.find(fontId);
   if (it != sdCardFonts_.end()) {
-    int missed = it->second->prewarm(utf8Text, styleMask);
-    if (missed > 0) {
-      LOG_DBG("FCM", "prewarmCache(SD): %d glyph(s) not found (styleMask=0x%02X)", missed, styleMask);
+    const auto missed = it->second->prewarm(utf8Text, styleMask);
+    if (missed && *missed > 0) {
+      LOG_DBG("FCM", "prewarmCache(SD): %u glyph(s) not found (styleMask=0x%02X)", *missed, styleMask);
     }
     return;
   }
@@ -38,9 +38,9 @@ void FontCacheManager::prewarmCache(int fontId, const char* utf8Text, uint8_t st
     auto style = static_cast<EpdFontFamily::Style>(i);
     const EpdFontData* data = fontMap_.at(fontId).getData(style);
     if (!data || !data->groups) continue;
-    int missed = fontDecompressor_->prewarmCache(data, utf8Text);
-    if (missed > 0) {
-      LOG_DBG("FCM", "prewarmCache: %d glyph(s) not cached for style %d", missed, i);
+    const auto missed = fontDecompressor_->prewarmCache(data, utf8Text);
+    if (missed && *missed > 0) {
+      LOG_DBG("FCM", "prewarmCache: %u glyph(s) not cached for style %d", *missed, i);
     }
   }
 }
