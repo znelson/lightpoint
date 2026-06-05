@@ -37,7 +37,7 @@ void SdCardFontSystem::begin(GfxRenderer& renderer) {
     }
   }
 
-  LOG_DBG("SDFS", "SD font system ready (%d families discovered)", registry_.getFamilyCount());
+  LOG_DBG("SDFS", "SD font system ready (%zu families discovered)", registry_.getFamilyCount());
 }
 
 void SdCardFontSystem::ensureLoaded(GfxRenderer& renderer) {
