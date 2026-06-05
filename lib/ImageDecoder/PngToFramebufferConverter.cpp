@@ -368,7 +368,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
 
   const uint32_t decodeStart = halPlatform.millis();
   rc = png->decode(&ctx, 0);
-  const uint32_t decodeTime = halPlatform.millis() - decodeStart;
+  [[maybe_unused]] const uint32_t decodeTime = halPlatform.millis() - decodeStart;
 
   free(ctx.grayLineBuffer);
   ctx.grayLineBuffer = nullptr;

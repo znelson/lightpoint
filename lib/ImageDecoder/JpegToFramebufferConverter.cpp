@@ -481,7 +481,7 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
 
   const uint32_t decodeStart = halPlatform.millis();
   rc = jpeg->decode(0, 0, jpegScaleOption);
-  const uint32_t decodeTime = halPlatform.millis() - decodeStart;
+  [[maybe_unused]] const uint32_t decodeTime = halPlatform.millis() - decodeStart;
 
   if (rc != 1) {
     LOG_ERR("JPG", "Decode failed (rc=%d, lastError=%d)", rc, jpeg->getLastError());
