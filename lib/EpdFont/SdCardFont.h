@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,15 +41,18 @@ class SdCardFont {
   // styleMask: bitmask of styles to prewarm (bit 0=regular, 1=bold, 2=italic, 3=bolditalic).
   // Default 0x0F = all present styles.
   // When metadataOnly=true, only glyph metrics are loaded (no bitmap data).
-  // Returns number of glyphs that couldn't be loaded (0 on full success).
-  int prewarm(const char* utf8Text, uint8_t styleMask = 0x0F, bool metadataOnly = false);
+  // Returns number of glyphs that couldn't be loaded (0 on full success),
+  // or std::nullopt if the font isn't loaded or initial allocation fails.
+  std::optional<uint32_t> prewarm(const char* utf8Text, uint8_t styleMask = 0x0F, bool metadataOnly = false);
 
   // Build a compact advance-only table for layout measurement.
   // Extracts ALL unique codepoints from words (no MAX_PAGE_GLYPHS cap),
   // batch-reads advanceX from SD, stores in a sorted per-style table.
-  // Returns number of codepoints not found in font coverage.
-  int buildAdvanceTable(const char* utf8Text, uint8_t styleMask = 0x0F);
-  int buildAdvanceTable(const std::vector<std::string>& words, bool includeHyphen, uint8_t styleMask = 0x0F);
+  // Returns number of codepoints not found in font coverage, or std::nullopt
+  // if the font isn't loaded or initial allocation fails.
+  std::optional<uint32_t> buildAdvanceTable(const char* utf8Text, uint8_t styleMask = 0x0F);
+  std::optional<uint32_t> buildAdvanceTable(const std::vector<std::string>& words, bool includeHyphen,
+                                            uint8_t styleMask = 0x0F);
 
   // Look up advanceX for a codepoint from the advance table.
   // Returns the 12.4 fixed-point advance, or 0 if not found.
@@ -238,10 +242,11 @@ class SdCardFont {
   void applyKernLigaturePointers(PerStyle& s, EpdFontData& data) const;
   void applyGlyphMissCallback(uint8_t styleIdx);
   int32_t findGlobalGlyphIndex(const PerStyle& s, uint32_t codepoint) const;
-  int fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCount, uint8_t styleMask);
+  uint32_t fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCount, uint8_t styleMask);
   template <typename Iter>
-  int buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen, uint8_t styleMask);
-  int prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly);
+  std::optional<uint32_t> buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen,
+                                                 uint8_t styleMask);
+  uint32_t prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly);
 
   // Global helpers
   void freeAll();

@@ -618,8 +618,8 @@ int32_t SdCardFont::findGlobalGlyphIndex(const PerStyle& s, uint32_t codepoint) 
 
 // --- Prewarm ---
 
-int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOnly) {
-  if (!loaded_) return -1;
+std::optional<uint32_t> SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOnly) {
+  if (!loaded_) return std::nullopt;
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
 
@@ -634,7 +634,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
   std::unique_ptr<uint32_t[]> codepoints(new (std::nothrow) uint32_t[MAX_PAGE_GLYPHS]);
   if (!codepoints) {
     LOG_ERR("SDCF", "Failed to allocate codepoint buffer (%u bytes)", MAX_PAGE_GLYPHS * 4);
-    return -1;
+    return std::nullopt;
   }
   uint32_t cpCount = 0;
 
@@ -712,7 +712,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
   std::sort(codepoints.get(), codepoints.get() + cpCount);
 
   // Prewarm each requested style
-  int totalMissed = 0;
+  uint32_t totalMissed = 0;
   for (uint8_t si = 0; si < MAX_STYLES; si++) {
     if (!(styleMask & (1 << si)) || !styles_[si].present) continue;
     totalMissed += prewarmStyle(si, codepoints.get(), cpCount, metadataOnly);
@@ -722,7 +722,7 @@ int SdCardFont::prewarm(const char* utf8Text, uint8_t styleMask, bool metadataOn
   return totalMissed;
 }
 
-int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly) {
+uint32_t SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint32_t cpCount, bool metadataOnly) {
   auto& s = styles_[styleIdx];
 
   // Map codepoints to global glyph indices for this style
@@ -733,7 +733,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
   CpGlyphMapping* mappings = new (std::nothrow) CpGlyphMapping[cpCount];
   if (!mappings) {
     LOG_ERR("SDCF", "Failed to allocate mapping array for style %u", styleIdx);
-    return static_cast<int>(cpCount);
+    return cpCount;
   }
 
   uint32_t validCount = 0;
@@ -745,7 +745,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
       validCount++;
     }
   }
-  int missed = static_cast<int>(cpCount - validCount);
+  uint32_t missed = cpCount - validCount;
 
   if (validCount == 0) {
     freeStyleMiniData(s);
@@ -762,7 +762,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
   if (!s.miniIntervals) {
     LOG_ERR("SDCF", "Failed to allocate mini intervals for style %u", styleIdx);
     delete[] mappings;
-    return static_cast<int>(cpCount);
+    return cpCount;
   }
 
   s.miniIntervalCount = 0;
@@ -784,7 +784,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     LOG_ERR("SDCF", "Failed to allocate mini glyphs for style %u", styleIdx);
     delete[] mappings;
     freeStyleMiniData(s);
-    return static_cast<int>(cpCount);
+    return cpCount;
   }
 
   // Build sorted read order for sequential I/O
@@ -793,7 +793,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     LOG_ERR("SDCF", "Failed to allocate read order for style %u", styleIdx);
     delete[] mappings;
     freeStyleMiniData(s);
-    return static_cast<int>(cpCount);
+    return cpCount;
   }
   for (uint32_t i = 0; i < validCount; i++) readOrder[i] = i;
   std::sort(readOrder, readOrder + validCount,
@@ -805,7 +805,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
     delete[] readOrder;
     delete[] mappings;
     freeStyleMiniData(s);
-    return static_cast<int>(cpCount);
+    return cpCount;
   }
 
   const uint32_t sdStart = halPlatform.millis();
@@ -830,7 +830,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
         delete[] readOrder;
         delete[] mappings;
         freeStyleMiniData(s);
-        return static_cast<int>(cpCount);
+        return cpCount;
       }
       seekCount++;
     }
@@ -839,7 +839,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
       delete[] readOrder;
       delete[] mappings;
       freeStyleMiniData(s);
-      return static_cast<int>(cpCount);
+      return cpCount;
     }
     lastReadIndex = gIdx;
   }
@@ -858,7 +858,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
       delete[] readOrder;
       delete[] mappings;
       freeStyleMiniData(s);
-      return static_cast<int>(cpCount);
+      return cpCount;
     }
 
     // Read bitmap data sorted by file offset
@@ -884,7 +884,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
           delete[] readOrder;
           delete[] mappings;
           freeStyleMiniData(s);
-          return static_cast<int>(cpCount);
+          return cpCount;
         }
         seekCount++;
       }
@@ -893,7 +893,7 @@ int SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, uint3
         delete[] readOrder;
         delete[] mappings;
         freeStyleMiniData(s);
-        return static_cast<int>(cpCount);
+        return cpCount;
       }
       lastBitmapEnd = fileOff + glyph.dataLength;
 
@@ -1053,8 +1053,8 @@ uint16_t SdCardFont::getAdvance(uint32_t codepoint, uint8_t style) const {
 // Given a sorted array of unique codepoints, resolve glyph indices per style,
 // batch-read advanceX from SD, and merge into the persistent advance table.
 // Caller owns the codepoints buffer.
-int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCount, uint8_t styleMask) {
-  int totalMissed = 0;
+uint32_t SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCount, uint8_t styleMask) {
+  uint32_t totalMissed = 0;
   for (uint8_t si = 0; si < MAX_STYLES; si++) {
     if (!(styleMask & (1 << si)) || !styles_[si].present) continue;
     const auto& s = styles_[si];
@@ -1096,7 +1096,7 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
       mappings[needCount].glyphIndex = idx;
       needCount++;
     }
-    totalMissed += static_cast<int>(missedThisStyle);
+    totalMissed += missedThisStyle;
 
     if (needCount == 0) continue;
 
@@ -1156,8 +1156,9 @@ int SdCardFont::fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCoun
 }
 
 template <typename Iter>
-int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen, uint8_t styleMask) {
-  if (!loaded_) return -1;
+std::optional<uint32_t> SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen,
+                                                           uint8_t styleMask) {
+  if (!loaded_) return std::nullopt;
   styleMask = resolveStyleMask(styleMask);
   if (styleMask == 0) return 0;
 
@@ -1168,7 +1169,7 @@ int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, 
   uint32_t* codepoints = new (std::nothrow) uint32_t[MAX_UNIQUE_CODEPOINTS + 2];
   if (!codepoints) {
     LOG_ERR("SDCF", "buildAdvanceTable: failed to allocate codepoint buffer (%u bytes)", MAX_UNIQUE_CODEPOINTS * 4);
-    return -1;
+    return std::nullopt;
   }
   uint32_t cpCount = 0;
   bool hitCap = false;
@@ -1187,17 +1188,18 @@ int SdCardFont::buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, 
             MAX_UNIQUE_CODEPOINTS);
   }
   std::sort(codepoints, codepoints + cpCount);
-  int totalMissed = fetchAdvancesForCodepoints(codepoints, cpCount, styleMask);
+  const uint32_t totalMissed = fetchAdvancesForCodepoints(codepoints, cpCount, styleMask);
   delete[] codepoints;
   stats_.prewarmTotalMs = halPlatform.millis() - startMs;
   return totalMissed;
 }
 
-int SdCardFont::buildAdvanceTable(const char* utf8Text, uint8_t styleMask) {
+std::optional<uint32_t> SdCardFont::buildAdvanceTable(const char* utf8Text, uint8_t styleMask) {
   return buildAdvanceTableRange(&utf8Text, &utf8Text + 1, false, false, styleMask);
 }
 
-int SdCardFont::buildAdvanceTable(const std::vector<std::string>& words, bool includeHyphen, uint8_t styleMask) {
+std::optional<uint32_t> SdCardFont::buildAdvanceTable(const std::vector<std::string>& words, bool includeHyphen,
+                                                      uint8_t styleMask) {
   return buildAdvanceTableRange(words.begin(), words.end(), words.size() > 1, includeHyphen, styleMask);
 }
 
