@@ -1,2 +1,8 @@
 CompileFlags:
     Add: [-std=c++2a]
+    Remove:
+        - -fno-shrink-wrap
+        - -fno-tree-switch-conversion
+        - -fno-jump-tables
+        - -fstrict-volatile-bitfields
+        - -mlongcalls

@@ -1,8 +1,7 @@
 #include <HalDisplay.h>
 #include <HalGPIO.h>
 
-// Global HalDisplay instance
-HalDisplay display;
+HalDisplay halDisplay;  // Singleton instance
 
 #define SD_SPI_MISO 7
 
@@ -12,7 +11,7 @@ HalDisplay::~HalDisplay() {}
 
 void HalDisplay::begin(bool seamless) {
   // Set X3-specific panel mode before initializing.
-  if (gpio.deviceIsX3()) {
+  if (halGPIO.deviceIsX3()) {
     einkDisplay.setDisplayX3();
   }
 
@@ -25,8 +24,8 @@ void HalDisplay::begin(bool seamless) {
     einkDisplay.skipInitialResync();
     return;
   }
-  // Request resync after specific wakeup events to ensure clean display state.
-  const auto wakeupReason = gpio.getWakeupReason();
+  // Request resync after specific wakeup events to ensure clean halDisplay state.
+  const auto wakeupReason = halGPIO.getWakeupReason();
   if (wakeupReason == HalGPIO::WakeupReason::PowerButton || wakeupReason == HalGPIO::WakeupReason::AfterFlash ||
       wakeupReason == HalGPIO::WakeupReason::Other) {
     einkDisplay.requestResync();
@@ -58,7 +57,7 @@ EInkDisplay::RefreshMode convertRefreshMode(HalDisplay::RefreshMode mode) {
 }
 
 void HalDisplay::displayBuffer(HalDisplay::RefreshMode mode, bool turnOffScreen) {
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
+  if (halGPIO.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
     einkDisplay.requestResync(1);
   }
 
@@ -66,7 +65,7 @@ void HalDisplay::displayBuffer(HalDisplay::RefreshMode mode, bool turnOffScreen)
 }
 
 void HalDisplay::refreshDisplay(HalDisplay::RefreshMode mode, bool turnOffScreen) {
-  if (gpio.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
+  if (halGPIO.deviceIsX3() && mode == RefreshMode::HALF_REFRESH) {
     einkDisplay.requestResync(1);
   }
 

@@ -3,10 +3,12 @@
 #include <Bitmap.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 
 #include <algorithm>
+#include <cmath>
 
 #include "CrossPointSettings.h"
 #include "components/UITheme.h"
@@ -17,7 +19,7 @@ BmpViewerActivity::BmpViewerActivity(GfxRenderer& renderer, MappedInputManager& 
 
 void BmpViewerActivity::loadSiblingImages() {
   siblingImages.clear();
-  currentImageIndex = -1;
+  currentImageIndex.reset();
 
   if (filePath.empty()) return;
 
@@ -25,7 +27,7 @@ void BmpViewerActivity::loadSiblingImages() {
   size_t lastSlash = filePath.find_last_of('/');
   std::string fileName = (lastSlash != std::string::npos) ? filePath.substr(lastSlash + 1) : filePath;
 
-  auto dir = Storage.open(dirPath.c_str());
+  auto dir = halStorage.open(dirPath.c_str());
   if (!dir || !dir.isDirectory()) {
     if (dir) dir.close();
     return;
@@ -50,7 +52,7 @@ void BmpViewerActivity::loadSiblingImages() {
 
   for (size_t i = 0; i < siblingImages.size(); ++i) {
     if (siblingImages[i] == fileName) {
-      currentImageIndex = static_cast<int>(i);
+      currentImageIndex = i;
       break;
     }
   }
@@ -70,7 +72,7 @@ void BmpViewerActivity::onEnter() {
   Rect popupRect = GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
   GUI.fillPopupProgress(renderer, popupRect, 20);  // Initial 20% progress
   // 1. Open the file
-  if (Storage.openFileForRead("BMP", filePath, file)) {
+  if (halStorage.openFileForRead("BMP", filePath, file)) {
     Bitmap bitmap(file, true);
 
     // 2. Parse headers to get dimensions
@@ -97,9 +99,8 @@ void BmpViewerActivity::onEnter() {
       }
 
       // 4. Prepare Rendering
-      bool hasPrevious = (siblingImages.size() > 1 && currentImageIndex > 0);
-      bool hasNext = (siblingImages.size() > 1 && currentImageIndex != -1 &&
-                      currentImageIndex < static_cast<int>(siblingImages.size()) - 1);
+      bool hasPrevious = (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex > 0);
+      bool hasNext = (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex < siblingImages.size() - 1);
 
       const auto labels =
           mappedInput.mapLabels(tr(STR_BACK), tr(STR_SET_SLEEP_COVER), (hasPrevious ? "<" : ""), (hasNext ? ">" : ""));
@@ -148,8 +149,8 @@ void BmpViewerActivity::doSetSleepCover() {
 
   bool success = false;
   HalFile inFile, outFile;
-  if (Storage.openFileForRead("BMP", filePath, inFile)) {
-    if (Storage.openFileForWrite("BMP", "/sleep.bmp", outFile)) {
+  if (halStorage.openFileForRead("BMP", filePath, inFile)) {
+    if (halStorage.openFileForWrite("BMP", "/sleep.bmp", outFile)) {
       char buffer[2048];
       int bytesRead;
       success = true;
@@ -172,7 +173,7 @@ void BmpViewerActivity::doSetSleepCover() {
     GUI.drawPopup(renderer, tr(STR_FAILED_LOWER));
   }
 
-  delay(1000);
+  halPlatform.delay(1000);
   onEnter();
 }
 
@@ -192,11 +193,11 @@ void BmpViewerActivity::loop() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Left) ||
       mappedInput.wasReleased(MappedInputManager::Button::Up)) {
-    if (siblingImages.size() > 1 && currentImageIndex > 0) {
-      currentImageIndex--;
+    if (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex > 0) {
+      --*currentImageIndex;
       std::string dirPath = FsHelpers::extractFolderPath(filePath);
       if (dirPath.back() != '/') dirPath += "/";
-      filePath = dirPath + siblingImages[currentImageIndex];
+      filePath = dirPath + siblingImages[*currentImageIndex];
       onEnter();
     }
     return;
@@ -204,12 +205,11 @@ void BmpViewerActivity::loop() {
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Right) ||
       mappedInput.wasReleased(MappedInputManager::Button::Down)) {
-    if (siblingImages.size() > 1 && currentImageIndex != -1 &&
-        currentImageIndex < static_cast<int>(siblingImages.size()) - 1) {
-      currentImageIndex++;
+    if (siblingImages.size() > 1 && currentImageIndex && *currentImageIndex < siblingImages.size() - 1) {
+      ++*currentImageIndex;
       std::string dirPath = FsHelpers::extractFolderPath(filePath);
       if (dirPath.back() != '/') dirPath += "/";
-      filePath = dirPath + siblingImages[currentImageIndex];
+      filePath = dirPath + siblingImages[*currentImageIndex];
       onEnter();
     }
     return;

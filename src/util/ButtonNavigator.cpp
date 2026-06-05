@@ -1,5 +1,9 @@
 #include "ButtonNavigator.h"
 
+#include <HalPlatform.h>
+
+#include <algorithm>
+
 const MappedInputManager* ButtonNavigator::mappedInput = nullptr;
 
 void ButtonNavigator::onNext(const Callback& callback) {
@@ -31,7 +35,7 @@ void ButtonNavigator::onPreviousContinuous(const Callback& callback) { onContinu
 
 void ButtonNavigator::onPress(const Buttons& buttons, const Callback& callback) {
   const bool wasPressed = std::any_of(buttons.begin(), buttons.end(), [](const MappedInputManager::Button button) {
-    return mappedInput != nullptr && mappedInput->wasPressed(button);
+    return mappedInput && mappedInput->wasPressed(button);
   });
 
   if (wasPressed) {
@@ -41,26 +45,26 @@ void ButtonNavigator::onPress(const Buttons& buttons, const Callback& callback) 
 
 void ButtonNavigator::onRelease(const Buttons& buttons, const Callback& callback) {
   const bool wasReleased = std::any_of(buttons.begin(), buttons.end(), [](const MappedInputManager::Button button) {
-    return mappedInput != nullptr && mappedInput->wasReleased(button);
+    return mappedInput && mappedInput->wasReleased(button);
   });
 
   if (wasReleased) {
-    if (lastContinuousNavTime == 0) {
+    if (!lastContinuousNavTime) {
       callback();
     }
 
-    lastContinuousNavTime = 0;
+    lastContinuousNavTime.reset();
   }
 }
 
 void ButtonNavigator::onContinuous(const Buttons& buttons, const Callback& callback) {
   const bool isPressed = std::any_of(buttons.begin(), buttons.end(), [this](const MappedInputManager::Button button) {
-    return mappedInput != nullptr && mappedInput->isPressed(button) && shouldNavigateContinuously();
+    return mappedInput && mappedInput->isPressed(button) && shouldNavigateContinuously();
   });
 
   if (isPressed) {
     callback();
-    lastContinuousNavTime = millis();
+    lastContinuousNavTime = halPlatform.millis();
   }
 }
 
@@ -68,7 +72,8 @@ bool ButtonNavigator::shouldNavigateContinuously() const {
   if (!mappedInput) return false;
 
   const bool buttonHeldLongEnough = mappedInput->getHeldTime() > continuousStartMs;
-  const bool navigationIntervalElapsed = (millis() - lastContinuousNavTime) > continuousIntervalMs;
+  const bool navigationIntervalElapsed =
+      !lastContinuousNavTime || (halPlatform.millis() - *lastContinuousNavTime) > continuousIntervalMs;
 
   return buttonHeldLongEnough && navigationIntervalElapsed;
 }

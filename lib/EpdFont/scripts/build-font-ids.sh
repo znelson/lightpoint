@@ -80,6 +80,42 @@ ruby -rdigest -e 'puts [
 ].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
 ))"
 
+echo "#define COURIERPRIME_12_FONT_ID ($(
+ruby -rdigest -e 'puts [
+  "./courierprime_12_regular.h",
+  "./courierprime_12_bold.h",
+  "./courierprime_12_bolditalic.h",
+  "./courierprime_12_italic.h",
+].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
+))"
+
+echo "#define COURIERPRIME_14_FONT_ID ($(
+ruby -rdigest -e 'puts [
+  "./courierprime_14_regular.h",
+  "./courierprime_14_bold.h",
+  "./courierprime_14_bolditalic.h",
+  "./courierprime_14_italic.h",
+].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
+))"
+
+echo "#define COURIERPRIME_16_FONT_ID ($(
+ruby -rdigest -e 'puts [
+  "./courierprime_16_regular.h",
+  "./courierprime_16_bold.h",
+  "./courierprime_16_bolditalic.h",
+  "./courierprime_16_italic.h",
+].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
+))"
+
+echo "#define COURIERPRIME_18_FONT_ID ($(
+ruby -rdigest -e 'puts [
+  "./courierprime_18_regular.h",
+  "./courierprime_18_bold.h",
+  "./courierprime_18_bolditalic.h",
+  "./courierprime_18_italic.h",
+].map{|f| Digest::SHA256.hexdigest(File.read(f)).to_i(16) }.sum % (2 ** 32) - (2 ** 31)'
+))"
+
 echo "#define UI_10_FONT_ID ($(
 ruby -rdigest -e 'puts [
   "./ubuntu_10_regular.h",

@@ -8,9 +8,9 @@
 #include <string>
 #include <vector>
 
-#include "lib/Epub/Epub/hyphenation/HyphenationCommon.h"
-#include "lib/Epub/Epub/hyphenation/LanguageHyphenator.h"
-#include "lib/Epub/Epub/hyphenation/LanguageRegistry.h"
+#include "lib/Hyphenation/HyphenationCommon.h"
+#include "lib/Hyphenation/LanguageHyphenator.h"
+#include "lib/Hyphenation/LanguageRegistry.h"
 
 #ifndef HYPHENATION_RESOURCES_DIR
 #error "HYPHENATION_RESOURCES_DIR must be defined by the build system"

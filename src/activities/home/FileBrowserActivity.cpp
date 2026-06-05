@@ -16,14 +16,14 @@
 #include "util/BookCacheUtils.h"
 
 namespace {
-constexpr unsigned long GO_HOME_MS = 1000;
+constexpr uint32_t GO_HOME_MS = 1000;
 constexpr size_t NAME_BUFFER_SIZE = 500;
 }  // namespace
 
 void FileBrowserActivity::loadFiles() {
   files.clear();
 
-  auto root = Storage.open(basepath.c_str());
+  auto root = halStorage.open(basepath.c_str());
   if (!root || !root.isDirectory()) {
     return;
   }
@@ -78,7 +78,7 @@ void FileBrowserActivity::onEnter() {
   // its release — otherwise we'd immediately auto-open whatever is at index 0.
   lockNextConfirmRelease = mappedInput.isPressed(MappedInputManager::Button::Confirm);
 
-  auto root = Storage.open(basepath.c_str());
+  auto root = halStorage.open(basepath.c_str());
   if (!root) {
     basepath = "/";
     loadFiles();
@@ -106,9 +106,9 @@ void FileBrowserActivity::onExit() {
 }
 
 // To avoid traversing directories twice (once for cache clearing, once for deletion),
-// we do both in one pass here, instead of using Storage.removeDir
+// we do both in one pass here, instead of using halStorage.removeDir
 bool FileBrowserActivity::removeDirFile(const std::string& fullPath) {
-  auto file = Storage.open(fullPath.c_str());
+  auto file = halStorage.open(fullPath.c_str());
   if (!file) {
     LOG_ERR("FileBrowser", "Failed to open for metadata clearing: %s", fullPath.c_str());
     return false;
@@ -117,7 +117,7 @@ bool FileBrowserActivity::removeDirFile(const std::string& fullPath) {
   if (!file.isDirectory()) {
     file.close();
     clearBookCache(fullPath);
-    return Storage.remove(fullPath.c_str());
+    return halStorage.remove(fullPath.c_str());
   }
   file.close();
 
@@ -136,14 +136,14 @@ bool FileBrowserActivity::removeDirFile(const std::string& fullPath) {
     stack.pop_back();
 
     if (postOrder) {
-      if (!Storage.rmdir(currentPath.c_str())) {
+      if (!halStorage.rmdir(currentPath.c_str())) {
         LOG_ERR("FileBrowser", "Failed to rmdir: %s", currentPath.c_str());
         return false;
       }
       continue;
     }
 
-    auto dir = Storage.open(currentPath.c_str());
+    auto dir = halStorage.open(currentPath.c_str());
     if (!dir) {
       LOG_ERR("FileBrowser", "Failed to open dir: %s", currentPath.c_str());
       return false;
@@ -175,7 +175,7 @@ bool FileBrowserActivity::removeDirFile(const std::string& fullPath) {
         stack.push_back({std::move(entryPath), false});
       } else {
         clearBookCache(entryPath);
-        if (!Storage.remove(entryPath.c_str())) {
+        if (!halStorage.remove(entryPath.c_str())) {
           LOG_ERR("FileBrowser", "Failed to remove file: %s", entryPath.c_str());
           return false;
         }

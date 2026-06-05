@@ -1,13 +1,12 @@
 #include "CssParser.h"
 
-#include <Arduino.h>
+#include <HalPlatform.h>
 #include <Logging.h>
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <charconv>
-#include <cstring>
 #include <string_view>
 
 namespace {
@@ -216,15 +215,15 @@ bool CssParser::SvEqual::operator()(std::string_view sv, CompositeKey k) const n
 
 // Property value interpreters
 
-CssTextAlign CssParser::interpretAlignment(std::string_view val) {
+TextAlign CssParser::interpretAlignment(std::string_view val) {
   val = trimCssWhitespace(val);
 
-  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return CssTextAlign::Left;
-  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return CssTextAlign::Right;
-  if (iequalsAscii(val, "center")) return CssTextAlign::Center;
-  if (iequalsAscii(val, "justify")) return CssTextAlign::Justify;
+  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return TextAlign::Left;
+  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return TextAlign::Right;
+  if (iequalsAscii(val, "center")) return TextAlign::Center;
+  if (iequalsAscii(val, "justify")) return TextAlign::Justify;
 
-  return CssTextAlign::Left;
+  return TextAlign::Left;
 }
 
 CssFontStyle CssParser::interpretFontStyle(std::string_view val) {
@@ -632,11 +631,11 @@ bool CssParser::loadFromStream(HalFile& source) {
 
 CssStyle CssParser::resolveStyle(std::string_view tagName, std::string_view classAttr) const {
   static bool lowHeapWarningLogged = false;
-  if (ESP.getFreeHeap() < MIN_FREE_HEAP_FOR_CSS) {
+  if (halPlatform.freeHeap() < MIN_FREE_HEAP_FOR_CSS) {
     if (!lowHeapWarningLogged) {
       lowHeapWarningLogged = true;
       LOG_DBG("CSS", "Warning: low heap (%u bytes) below MIN_FREE_HEAP_FOR_CSS (%u), returning empty style",
-              ESP.getFreeHeap(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
+              halPlatform.freeHeap(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
     }
     return CssStyle{};
   }
@@ -680,10 +679,10 @@ CssStyle CssParser::parseInlineStyle(std::string_view styleValue) { return parse
 // Cache file name (version is CssParser::CSS_CACHE_VERSION)
 constexpr char rulesCache[] = "/css_rules.cache";
 
-bool CssParser::hasCache() const { return Storage.exists((cachePath + rulesCache).c_str()); }
+bool CssParser::hasCache() const { return halStorage.exists((cachePath + rulesCache).c_str()); }
 
 void CssParser::deleteCache() const {
-  if (hasCache()) Storage.remove((cachePath + rulesCache).c_str());
+  if (hasCache()) halStorage.remove((cachePath + rulesCache).c_str());
 }
 
 bool CssParser::saveToCache() const {
@@ -692,7 +691,7 @@ bool CssParser::saveToCache() const {
   }
 
   HalFile file;
-  if (!Storage.openFileForWrite("CSS", cachePath + rulesCache, file)) {
+  if (!halStorage.openFileForWrite("CSS", cachePath + rulesCache, file)) {
     return false;
   }
 
@@ -771,7 +770,7 @@ bool CssParser::loadFromCache() {
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("CSS", cachePath + rulesCache, file)) {
+  if (!halStorage.openFileForRead("CSS", cachePath + rulesCache, file)) {
     return false;
   }
 
@@ -783,9 +782,9 @@ bool CssParser::loadFromCache() {
   if (file.read(&version, 1) != 1 || version != CssParser::CSS_CACHE_VERSION) {
     LOG_DBG("CSS", "Cache version mismatch (got %u, expected %u), removing stale cache for rebuild", version,
             CssParser::CSS_CACHE_VERSION);
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove((cachePath + rulesCache).c_str());
+    halStorage.remove((cachePath + rulesCache).c_str());
     return false;
   }
 
@@ -850,7 +849,7 @@ bool CssParser::loadFromCache() {
       rulesBySelector_.clear();
       return false;
     }
-    style.textAlign = static_cast<CssTextAlign>(enumVal);
+    style.textAlign = static_cast<TextAlign>(enumVal);
 
     if (file.read(&enumVal, 1) != 1) {
       rulesBySelector_.clear();
@@ -937,6 +936,10 @@ bool CssParser::loadFromCache() {
     style.defined.display = (definedBits & 1 << 15) != 0;
     style.defined.direction = (definedBits & 1 << 16) != 0;
     style.defined.verticalAlign = (definedBits & 1 << 17) != 0;
+
+    // Guard against pre-bump caches or future-corrupted records that contain rules with
+    // no usable properties. Mirrors the check in processRuleBlockWithStyle.
+    if (!style.defined.anySet()) continue;
 
     rulesBySelector_[selector] = style;
   }

@@ -1,6 +1,7 @@
 #pragma once
-#include <Arduino.h>
 #include <EInkDisplay.h>
+
+#include <cstdint>
 
 class HalDisplay {
  public:
@@ -9,6 +10,11 @@ class HalDisplay {
 
   // Destructor
   ~HalDisplay();
+
+  HalDisplay(const HalDisplay&) = delete;
+  HalDisplay& operator=(const HalDisplay&) = delete;
+  HalDisplay(HalDisplay&&) = delete;
+  HalDisplay& operator=(HalDisplay&&) = delete;
 
   // Refresh modes
   enum RefreshMode {
@@ -70,4 +76,4 @@ class HalDisplay {
   EInkDisplay einkDisplay;
 };
 
-extern HalDisplay display;
+extern HalDisplay halDisplay;  // Singleton

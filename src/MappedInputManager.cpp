@@ -60,11 +60,7 @@ bool MappedInputManager::wasReleased(const Button button) const { return mapButt
 
 bool MappedInputManager::isPressed(const Button button) const { return mapButton(button, &HalGPIO::isPressed); }
 
-bool MappedInputManager::wasAnyPressed() const { return gpio.wasAnyPressed(); }
-
-bool MappedInputManager::wasAnyReleased() const { return gpio.wasAnyReleased(); }
-
-unsigned long MappedInputManager::getHeldTime() const { return gpio.getHeldTime(); }
+uint32_t MappedInputManager::getHeldTime() const { return gpio.getHeldTime(); }
 
 MappedInputManager::Labels MappedInputManager::mapLabels(const char* back, const char* confirm, const char* previous,
                                                          const char* next) const {
@@ -97,7 +93,7 @@ MappedInputManager::Labels MappedInputManager::mapLabels(const char* back, const
           labelForHardware(HalGPIO::BTN_LEFT), labelForHardware(HalGPIO::BTN_RIGHT)};
 }
 
-int MappedInputManager::getPressedFrontButton() const {
+std::optional<uint8_t> MappedInputManager::getPressedFrontButton() const {
   // Scan the raw front buttons in hardware order.
   // This bypasses remapping so the remap activity can capture physical presses.
   if (gpio.wasPressed(HalGPIO::BTN_BACK)) {
@@ -112,5 +108,5 @@ int MappedInputManager::getPressedFrontButton() const {
   if (gpio.wasPressed(HalGPIO::BTN_RIGHT)) {
     return HalGPIO::BTN_RIGHT;
   }
-  return -1;
+  return std::nullopt;
 }

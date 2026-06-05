@@ -9,10 +9,18 @@
 #include "FsHelpers.h"
 
 namespace {
-constexpr uint8_t BOOK_CACHE_VERSION = 7;
+constexpr uint8_t BOOK_CACHE_VERSION = 6;
 constexpr char bookBinFile[] = "/book.bin";
 constexpr char tmpSpineBinFile[] = "/spine.bin.tmp";
 constexpr char tmpTocBinFile[] = "/toc.bin.tmp";
+
+namespace header {
+constexpr uint32_t kVersion = 0;
+constexpr uint32_t kLutOffset = kVersion + sizeof(uint8_t);
+constexpr uint32_t kSpineCount = kLutOffset + sizeof(uint32_t);
+constexpr uint32_t kTocCount = kSpineCount + sizeof(uint16_t);
+constexpr uint32_t kSize = kTocCount + sizeof(uint16_t);
+}  // namespace header
 }  // namespace
 
 /* ============= WRITING / BUILDING FUNCTIONS ================ */
@@ -29,7 +37,7 @@ bool BookMetadataCache::beginContentOpfPass() {
   LOG_DBG("BMC", "Beginning content opf pass");
 
   // Open spine file for writing
-  return Storage.openFileForWrite("BMC", cachePath + tmpSpineBinFile, spineFile);
+  return halStorage.openFileForWrite("BMC", cachePath + tmpSpineBinFile, spineFile);
 }
 
 bool BookMetadataCache::endContentOpfPass() {
@@ -41,10 +49,10 @@ bool BookMetadataCache::endContentOpfPass() {
 bool BookMetadataCache::beginTocPass() {
   LOG_DBG("BMC", "Beginning toc pass");
 
-  if (!Storage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
     return false;
   }
-  if (!Storage.openFileForWrite("BMC", cachePath + tmpTocBinFile, tocFile)) {
+  if (!halStorage.openFileForWrite("BMC", cachePath + tmpTocBinFile, tocFile)) {
     // Explicit close() required: member variable persists beyond function scope
     spineFile.close();
     return false;
@@ -101,34 +109,31 @@ bool BookMetadataCache::endWrite() {
 
 bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMetadata& metadata) {
   // Open all three files, writing to meta, reading from spine and toc
-  if (!Storage.openFileForWrite("BMC", cachePath + bookBinFile, bookFile)) {
+  if (!halStorage.openFileForWrite("BMC", cachePath + bookBinFile, bookFile)) {
     return false;
   }
 
-  if (!Storage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + tmpSpineBinFile, spineFile)) {
     // Explicit close() required: member variable persists beyond function scope
     bookFile.close();
     return false;
   }
 
-  if (!Storage.openFileForRead("BMC", cachePath + tmpTocBinFile, tocFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + tmpTocBinFile, tocFile)) {
     // Explicit close() required: member variables persist beyond function scope
     bookFile.close();
     spineFile.close();
     return false;
   }
 
-  constexpr uint32_t headerASize =
-      sizeof(BOOK_CACHE_VERSION) + /* LUT Offset */ sizeof(uint32_t) + sizeof(spineCount) + sizeof(tocCount);
-  const uint32_t metadataSize = metadata.title.size() + metadata.author.size() + metadata.language.size() +
-                                metadata.coverItemHref.size() + metadata.textReferenceHref.size() +
-                                sizeof(uint32_t) * 5;
-  const uint32_t lutSize = sizeof(uint32_t) * spineCount + sizeof(uint32_t) * tocCount;
-  const uint32_t lutOffset = headerASize + metadataSize;
+  static_assert(header::kSize == sizeof(BOOK_CACHE_VERSION) + sizeof(lutOffset) + sizeof(spineCount) + sizeof(tocCount),
+                "BookMetadataCache header size mismatch");
 
-  // Header A
+  const uint32_t lutSize = sizeof(uint32_t) * (spineCount + tocCount);
+
+  // Header
   serialization::writePod(bookFile, BOOK_CACHE_VERSION);
-  serialization::writePod(bookFile, lutOffset);
+  serialization::writePod(bookFile, uint32_t{0});  // lutOffset placeholder, patched later
   serialization::writePod(bookFile, spineCount);
   serialization::writePod(bookFile, tocCount);
   // Metadata
@@ -138,20 +143,28 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
   serialization::writeString(bookFile, metadata.coverItemHref);
   serialization::writeString(bookFile, metadata.textReferenceHref);
 
+  // Patch lutOffset with actual position
+  const uint32_t lutOffset = bookFile.position();
+  bookFile.seek(header::kLutOffset);
+  serialization::writePod(bookFile, lutOffset);
+  bookFile.seek(lutOffset);
+
   // Loop through spine entries, writing LUT positions
   spineFile.seek(0);
   for (int i = 0; i < spineCount; i++) {
     uint32_t pos = spineFile.position();
-    auto spineEntry = readSpineEntry(spineFile);
+    skipSpineEntry(spineFile);
     serialization::writePod(bookFile, pos + lutOffset + lutSize);
   }
+
+  const uint32_t spineDataSize = spineFile.position();
 
   // Loop through toc entries, writing LUT positions
   tocFile.seek(0);
   for (int i = 0; i < tocCount; i++) {
     uint32_t pos = tocFile.position();
-    auto tocEntry = readTocEntry(tocFile);
-    serialization::writePod(bookFile, pos + lutOffset + lutSize + static_cast<uint32_t>(spineFile.position()));
+    skipTocEntry(tocFile);
+    serialization::writePod(bookFile, pos + lutOffset + lutSize + spineDataSize);
   }
 
   // LUTs complete
@@ -233,7 +246,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
     // Not a huge deal if we don't fine a TOC entry for the spine entry, this is expected behaviour for EPUBs
     // Logging here is for debugging
     if (spineEntry.tocIndex == -1) {
-      LOG_DBG("BMC", "Warning: Could not find TOC entry for spine item %d: %s, using title from last section", i,
+      LOG_DBG("BMC", "Warning: Could not find TOC entry for spine item %d: %s, using title from last spine item", i,
               spineEntry.href.c_str());
       spineEntry.tocIndex = lastSpineTocIndex;
     }
@@ -282,12 +295,12 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
 
 bool BookMetadataCache::cleanupTmpFiles() const {
   const auto spineBinFile = cachePath + tmpSpineBinFile;
-  if (Storage.exists(spineBinFile.c_str())) {
-    Storage.remove(spineBinFile.c_str());
+  if (halStorage.exists(spineBinFile.c_str())) {
+    halStorage.remove(spineBinFile.c_str());
   }
   const auto tocBinFile = cachePath + tmpTocBinFile;
-  if (Storage.exists(tocBinFile.c_str())) {
-    Storage.remove(tocBinFile.c_str());
+  if (halStorage.exists(tocBinFile.c_str())) {
+    halStorage.remove(tocBinFile.c_str());
   }
   return true;
 }
@@ -372,7 +385,7 @@ void BookMetadataCache::createTocEntry(const std::string& title, const std::stri
 /* ============= READING / LOADING FUNCTIONS ================ */
 
 bool BookMetadataCache::load() {
-  if (!Storage.openFileForRead("BMC", cachePath + bookBinFile, bookFile)) {
+  if (!halStorage.openFileForRead("BMC", cachePath + bookBinFile, bookFile)) {
     return false;
   }
 
@@ -412,8 +425,8 @@ BookMetadataCache::SpineEntry BookMetadataCache::getSpineEntry(const int index) 
   }
 
   // Seek to spine LUT item, read from LUT and get out data
-  bookFile.seek(lutOffset + sizeof(uint32_t) * index);
   uint32_t spineEntryPos;
+  bookFile.seek(lutOffset + sizeof(spineEntryPos) * index);
   serialization::readPod(bookFile, spineEntryPos);
   bookFile.seek(spineEntryPos);
   return readSpineEntry(bookFile);
@@ -431,8 +444,8 @@ BookMetadataCache::TocEntry BookMetadataCache::getTocEntry(const int index) {
   }
 
   // Seek to TOC LUT item, read from LUT and get out data
-  bookFile.seek(lutOffset + sizeof(uint32_t) * spineCount + sizeof(uint32_t) * index);
   uint32_t tocEntryPos;
+  bookFile.seek(lutOffset + sizeof(tocEntryPos) * (spineCount + index));
   serialization::readPod(bookFile, tocEntryPos);
   bookFile.seek(tocEntryPos);
   return readTocEntry(bookFile);
@@ -454,4 +467,20 @@ BookMetadataCache::TocEntry BookMetadataCache::readTocEntry(HalFile& file) const
   serialization::readPod(file, entry.level);
   serialization::readPod(file, entry.spineIndex);
   return entry;
+}
+
+void BookMetadataCache::skipSpineEntry(HalFile& file) const {
+  uint32_t len;
+  serialization::readPod(file, len);
+  file.seek(file.position() + len + sizeof(SpineEntry::cumulativeSize) + sizeof(SpineEntry::tocIndex));
+}
+
+void BookMetadataCache::skipTocEntry(HalFile& file) const {
+  // 3: title, href, anchor
+  for (int i = 0; i < 3; i++) {
+    uint32_t len;
+    serialization::readPod(file, len);
+    file.seek(file.position() + len);
+  }
+  file.seek(file.position() + sizeof(TocEntry::level) + sizeof(TocEntry::spineIndex));
 }

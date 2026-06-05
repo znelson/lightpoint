@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 
 class FontDecompressor;
@@ -53,5 +54,5 @@ class FontCacheManager {
   ScanMode scanMode_ = ScanMode::None;
   std::string scanText_;
   uint32_t scanStyleCounts_[4] = {};
-  int scanFontId_ = -1;
+  std::optional<int> scanFontId_;
 };
