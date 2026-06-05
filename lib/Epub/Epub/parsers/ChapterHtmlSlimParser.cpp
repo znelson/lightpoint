@@ -1052,8 +1052,8 @@ void XMLCALL ChapterHtmlSlimParser::endElement(void* userData, const XML_Char* n
       entry.label[sizeof(entry.label) - 1] = '\0';
       strncpy(entry.href, self->currentFootnote.href, sizeof(entry.href) - 1);
       entry.href[sizeof(entry.href) - 1] = '\0';
-      int wordIndex = self->typesetter.getWordsExtractedInBlock() +
-                      (self->currentTextBlock ? static_cast<int>(self->currentTextBlock->size()) : 0);
+      size_t wordIndex =
+          self->typesetter.getWordsExtractedInBlock() + (self->currentTextBlock ? self->currentTextBlock->size() : 0);
       self->typesetter.addPendingLink(wordIndex, entry);
     }
     self->insideFootnoteLink = false;

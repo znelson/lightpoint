@@ -318,7 +318,7 @@ bool tryLink(InlineState& s) {
     entry.label[sizeof(entry.label) - 1] = '\0';
     std::strncpy(entry.href, linkTarget.c_str(), sizeof(entry.href) - 1);
     entry.href[sizeof(entry.href) - 1] = '\0';
-    s.typesetter->addPendingLink(static_cast<int>(s.block->size()), entry);
+    s.typesetter->addPendingLink(s.block->size(), entry);
   }
 
   size_t tp = 0;

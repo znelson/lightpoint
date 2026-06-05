@@ -64,9 +64,9 @@ class Typesetter {
   // within the current block. submitParagraph drains entries whose index
   // has been emitted, attaching them to the page that contains that word.
   // Used identically by EPUB (footnote refs) and Markdown (inline links).
-  void addPendingLink(int wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
-  int getWordsExtractedInBlock() const { return wordsExtractedInBlock; }
-  int getCompletedPageCount() const { return completedPageCount; }
+  void addPendingLink(size_t wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
+  size_t getWordsExtractedInBlock() const { return wordsExtractedInBlock; }
+  size_t getCompletedPageCount() const { return completedPageCount; }
 
  private:
   // Resets per-paragraph word counter at the end of submitParagraph. Not
@@ -83,12 +83,12 @@ class Typesetter {
 
   std::unique_ptr<Page> currentPage;
   int16_t currentPageNextY = 0;
-  int completedPageCount = 0;
+  size_t completedPageCount = 0;
 
   PageCompleteFn completePageFn;
 
-  std::vector<std::pair<int, LinkEntry>> pendingLinks;
-  int wordsExtractedInBlock = 0;
+  std::vector<std::pair<size_t, LinkEntry>> pendingLinks;
+  size_t wordsExtractedInBlock = 0;
   uint16_t xpathParagraphIndex = 0;
   uint16_t xpathListItemIndex = 0;
 

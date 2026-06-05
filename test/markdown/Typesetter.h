@@ -30,22 +30,22 @@ class Typesetter {
 
   void finish() { finished = true; }
 
-  int getCompletedPageCount() const { return completedPageCount; }
+  size_t getCompletedPageCount() const { return completedPageCount; }
 
   // Test-only knob: lets a test simulate "the page counter advanced because
   // this paragraph filled a page." Call between submits.
-  void setCompletedPageCount(int n) { completedPageCount = n; }
+  void setCompletedPageCount(size_t n) { completedPageCount = n; }
 
   // Captures pending link registrations from MarkdownParser::tryLink so tests
   // can verify label, href, and word-index against expectations.
   struct CapturedLink {
-    int wordIndex;
+    size_t wordIndex;
     LinkEntry entry;
   };
-  void addPendingLink(int wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
+  void addPendingLink(size_t wordIndex, const LinkEntry& entry) { pendingLinks.push_back({wordIndex, entry}); }
 
   std::vector<std::unique_ptr<ParsedText>> submitted;
   std::vector<CapturedLink> pendingLinks;
   bool finished = false;
-  int completedPageCount = 0;
+  size_t completedPageCount = 0;
 };
