@@ -809,6 +809,28 @@ build_flags =
 - **NEVER put** personal info (serial ports, credentials) in main `platformio.ini`
 - Use `${base.build_flags}` to extend (not replace) base flags
 
+### compile_commands.json (IDE / clangd Support)
+
+**Purpose**: PlatformIO-generated compilation database that lets clangd-based tools (VS Code clangd extension, Neovim LSP, JetBrains, etc.) resolve includes and provide accurate diagnostics. Without it, clangd reports `EpdFontFamily.h file not found` and a cascade of bogus errors because the project's ~233 `-I` paths are unknown.
+
+**Generate**:
+```bash
+pio run -t compiledb
+```
+Drops `compile_commands.json` at the project root. Gitignored — each contributor regenerates locally.
+
+**Regenerate when**:
+- Adding/removing a library under `lib/`
+- Editing `build_flags` or `lib_deps` in `platformio.ini`
+- Updating ESP-IDF / framework versions
+- Day-to-day source edits do NOT require regeneration
+
+**Companion file**: `.clangd` (committed) strips gcc-only flags (`-fno-shrink-wrap`, `-fno-tree-switch-conversion`, `-fno-jump-tables`, `-fstrict-volatile-bitfields`, `-mlongcalls`) that gcc accepts but clangd warns on. This has no effect on the real build, which uses `riscv32-esp-elf-gcc`.
+
+**Rules**:
+- **NEVER commit** `compile_commands.json` — it embeds absolute paths to `$HOME` and the local PlatformIO install
+- **DO commit** `.clangd` — it's a project-wide tooling config
+
 ---
 
 ## Testing and Verification Workflow
