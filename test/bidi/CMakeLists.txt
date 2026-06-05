@@ -14,6 +14,10 @@ target_include_directories(BidiUtilsTest PRIVATE
 )
 
 target_link_libraries(BidiUtilsTest PRIVATE
+  # Provides MySerialImpl vtable stub so Logging.h's inline `instance`
+  # symbol resolves on the host link. BidiUtils.cpp's LOG_DBG calls compile
+  # to no-ops, but the header still emits MySerialImpl::instance.
+  lightpoint_test_hal_stubs
   lightpoint_test_common
   GTest::gtest_main
 )
