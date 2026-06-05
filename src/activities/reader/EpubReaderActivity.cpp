@@ -162,10 +162,10 @@ void EpubReaderActivity::onEnter() {
   // We may want a better condition to detect if we are opening for the first time.
   // This will trigger if the book is re-opened at Chapter 0.
   if (currentSpineIndex == 0) {
-    int textSpineIndex = epub->getSpineIndexForTextReference();
+    const uint16_t textSpineIndex = epub->getSpineIndexForTextReference();
     if (textSpineIndex != 0) {
       currentSpineIndex = textSpineIndex;
-      LOG_DBG("ERS", "Opened for first time, navigating to text reference at index %d", textSpineIndex);
+      LOG_DBG("ERS", "Opened for first time, navigating to text reference at index %u", textSpineIndex);
     }
   }
 
@@ -337,7 +337,11 @@ void EpubReaderActivity::loop() {
         if (!curTocIndex) {
           // No TOC entry for this spine, fall back to spine-level skip
           nextPageNumber = 0;
-          currentSpineIndex = nextTriggered ? currentSpineIndex + 1 : currentSpineIndex - 1;
+          if (nextTriggered) {
+            currentSpineIndex++;
+          } else if (currentSpineIndex > 0) {
+            currentSpineIndex--;
+          }
           spineItem.reset();
         } else {
           const int nextTocIndex = nextTriggered ? *curTocIndex + 1 : *curTocIndex - 1;
@@ -362,15 +366,22 @@ void EpubReaderActivity::loop() {
             currentSpineIndex = epub->getSpineItemsCount();
             spineItem.reset();
           } else {
-            // Before first TOC entry, skip to spine before the current chapter
+            // Before first TOC entry, skip to spine before the current chapter.
+            // If the current TOC entry didn't resolve to a spine (malformed EPUB)
+            // or its spine is already 0, fall back to spine 0 (start of book).
             nextPageNumber = 0;
-            currentSpineIndex = epub->getTocItem(*curTocIndex).spineIndex - 1;
+            const auto curTocSpine = epub->getTocItem(*curTocIndex).spineIndex;
+            currentSpineIndex = (curTocSpine && *curTocSpine > 0) ? *curTocSpine - 1 : 0;
             spineItem.reset();
           }
         }
       } else {
         nextPageNumber = 0;
-        currentSpineIndex = nextTriggered ? currentSpineIndex + 1 : currentSpineIndex - 1;
+        if (nextTriggered) {
+          currentSpineIndex++;
+        } else if (currentSpineIndex > 0) {
+          currentSpineIndex--;
+        }
         spineItem.reset();
       }
     }
@@ -424,15 +435,15 @@ void EpubReaderActivity::jumpToPercent(int percent) {
     targetSize = bookSize - 1;
   }
 
-  const int spineCount = epub->getSpineItemsCount();
+  const uint16_t spineCount = epub->getSpineItemsCount();
   if (spineCount == 0) {
     return;
   }
 
-  int targetSpineIndex = spineCount - 1;
+  uint16_t targetSpineIndex = spineCount - 1;
   size_t prevCumulative = 0;
 
-  for (int i = 0; i < spineCount; i++) {
+  for (uint16_t i = 0; i < spineCount; i++) {
     const size_t cumulative = epub->getCumulativeSpineItemSize(i);
     if (targetSize <= cumulative) {
       // Found the spine item containing the absolute position.
@@ -636,11 +647,8 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     return;
   }
 
-  // edge case handling for sub-zero spine index
-  if (currentSpineIndex < 0) {
-    currentSpineIndex = 0;
-  }
-  // based bounds of book, show end of book screen
+  // based bounds of book, show end of book screen. currentSpineIndex is uint16_t
+  // so cannot go below 0; navigation sites guard prev-from-0 explicitly.
   if (currentSpineIndex > epub->getSpineItemsCount()) {
     currentSpineIndex = epub->getSpineItemsCount();
   }
@@ -684,10 +692,8 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       pendingPageJump.reset();
     } else {
       spineItem->currentPage = nextPageNumber;
-      if (spineItem->currentPage < 0) {
-        spineItem->currentPage = 0;
-      } else if (spineItem->currentPage >= pageCount && pageCount > 0) {
-        LOG_DBG("ERS", "Clamping cached page %d to %d", spineItem->currentPage, pageCount - 1);
+      if (spineItem->currentPage >= pageCount && pageCount > 0) {
+        LOG_DBG("ERS", "Clamping cached page %u to %u", spineItem->currentPage, pageCount - 1);
         spineItem->currentPage = pageCount - 1;
       }
     }
@@ -715,15 +721,14 @@ void EpubReaderActivity::render(RenderLock&& lock) {
       // only goes to relative position if spine index matches cached value
       if (currentSpineIndex == cachedSpineIndex && pageCount != cachedChapterTotalPageCount) {
         float progress = static_cast<float>(spineItem->currentPage) / static_cast<float>(cachedChapterTotalPageCount);
-        int newPage = static_cast<int>(progress * pageCount);
-        spineItem->currentPage = newPage;
+        spineItem->currentPage = static_cast<uint16_t>(progress * pageCount);
       }
       cachedChapterTotalPageCount = 0;  // resets to 0 to prevent reading cached progress again
     }
 
     if (pendingPercentJump && pageCount > 0) {
       // Apply the pending percent jump now that we know the new spineItem's page count.
-      int newPage = static_cast<int>(pendingSpineProgress * static_cast<float>(pageCount));
+      uint16_t newPage = static_cast<uint16_t>(pendingSpineProgress * static_cast<float>(pageCount));
       if (newPage >= pageCount) {
         newPage = pageCount - 1;
       }
@@ -760,8 +765,8 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     return;
   }
 
-  if (spineItem->currentPage < 0 || spineItem->currentPage >= pageCount) {
-    LOG_DBG("ERS", "Page out of bounds: %d (max %d)", spineItem->currentPage, pageCount);
+  if (spineItem->currentPage >= pageCount) {
+    LOG_DBG("ERS", "Page out of bounds: %u (max %u)", spineItem->currentPage, pageCount);
     renderer.drawCenteredText(UI_12_FONT_ID, 300, tr(STR_OUT_OF_BOUNDS), true, EpdFontFamily::BOLD);
     renderStatusBar();
     renderer.displayBuffer();
@@ -798,12 +803,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
   }
 }
 
-bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageCount) {
-  if (spineIndex < 0 || spineIndex > 0xFFFF || currentPage < 0 || currentPage > 0xFFFF || pageCount < 0 ||
-      pageCount > 0xFFFF) {
-    LOG_ERR("ERS", "Progress values out of range: spine=%d page=%d count=%d", spineIndex, currentPage, pageCount);
-    return false;
-  }
+bool EpubReaderActivity::saveProgress(uint16_t spineIndex, uint16_t currentPage, uint16_t pageCount) {
   HalFile f;
   if (!halStorage.openFileForWrite("ERS", epub->getCachePath() + "/progress.bin", f)) {
     LOG_ERR("ERS", "Could not open progress file for write!");
@@ -821,7 +821,7 @@ bool EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
     LOG_ERR("ERS", "Short write saving progress: %u/%u bytes", (unsigned)written, (unsigned)sizeof(data));
     return false;
   }
-  LOG_DBG("ERS", "Progress saved: spine=%d page=%d", spineIndex, currentPage);
+  LOG_DBG("ERS", "Progress saved: spine=%u page=%u", spineIndex, currentPage);
   return true;
 }
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
@@ -1029,15 +1029,15 @@ bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const ui
   if (tocIndex && chapterPageInfo.tocIndex != tocIndex) {
     const auto spineRange = epub->getSpineRangeForTocIndex(*tocIndex);
     if (spineRange) {
-      const int firstSpine = spineRange->first;
-      const int lastSpine = spineRange->last;
-      const int totalSpines = lastSpine - firstSpine + 1;
+      const uint16_t firstSpine = spineRange->first;
+      const uint16_t lastSpine = spineRange->last;
+      const uint16_t totalSpines = static_cast<uint16_t>(lastSpine - firstSpine + 1);
 
       chapterPageInfo.setChapter(*tocIndex, epub->getTocItem(*tocIndex).title);
       chapterPageInfo.segments.clear();
       chapterPageInfo.segments.reserve(totalSpines);
 
-      int loopIndex = firstSpine;
+      uint16_t loopIndex = firstSpine;
       const auto popupFn = [this, &loopIndex, firstSpine, totalSpines]() {
         if (totalSpines == 1) {
           GUI.drawPopup(renderer, tr(STR_INDEXING));
@@ -1079,9 +1079,9 @@ bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const ui
         chapterPageInfo.segments.push_back(*range);
       }
 
-      [[maybe_unused]] const int totalPages =
-          std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
-                          [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
+      [[maybe_unused]] const uint16_t totalPages =
+          std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), uint16_t{0},
+                          [](uint16_t sum, const Chapter& ch) -> uint16_t { return sum + ch.endPage - ch.startPage; });
       LOG_DBG("ERS", "Chapter %d: %d spines (%d-%d), %d total pages", *tocIndex, totalSpines, firstSpine, lastSpine,
               totalPages);
     }
@@ -1109,8 +1109,8 @@ bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const ui
   return false;
 }
 
-int EpubReaderActivity::getChapterRelativePage() const {
-  int chapterPagesBefore = 0;
+uint16_t EpubReaderActivity::getChapterRelativePage() const {
+  uint16_t chapterPagesBefore = 0;
   for (const auto& ch : chapterPageInfo.segments) {
     if (ch.spineIndex == currentSpineIndex) {
       return chapterPagesBefore + (spineItem->currentPage - ch.startPage);
@@ -1120,12 +1120,12 @@ int EpubReaderActivity::getChapterRelativePage() const {
   return spineItem ? spineItem->currentPage : 0;
 }
 
-int EpubReaderActivity::getChapterTotalPages() const {
+uint16_t EpubReaderActivity::getChapterTotalPages() const {
   if (chapterPageInfo.segments.empty()) {
     return spineItem ? spineItem->getPageCount() : 0;
   }
-  return std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), 0,
-                         [](int sum, const Chapter& ch) { return sum + ch.endPage - ch.startPage; });
+  return std::accumulate(chapterPageInfo.segments.begin(), chapterPageInfo.segments.end(), uint16_t{0},
+                         [](uint16_t sum, const Chapter& ch) -> uint16_t { return sum + ch.endPage - ch.startPage; });
 }
 
 void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool savePosition) {
@@ -1135,7 +1135,7 @@ void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool s
   if (savePosition && spineItem && footnoteDepth < MAX_FOOTNOTE_DEPTH) {
     savedPositions[footnoteDepth] = {currentSpineIndex, spineItem->currentPage};
     footnoteDepth++;
-    LOG_DBG("ERS", "Saved position [%d]: spine %d, page %d", footnoteDepth, currentSpineIndex, spineItem->currentPage);
+    LOG_DBG("ERS", "Saved position [%d]: spine %u, page %u", footnoteDepth, currentSpineIndex, spineItem->currentPage);
   }
 
   // Extract fragment anchor (e.g. "#note1" or "chapter2.xhtml#note1")
@@ -1148,14 +1148,14 @@ void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool s
   // Check for same-file anchor reference (#anchor only)
   bool sameFile = !hrefStr.empty() && hrefStr[0] == '#';
 
-  int targetSpineIndex;
+  std::optional<uint16_t> targetSpineIndex;
   if (sameFile) {
     targetSpineIndex = currentSpineIndex;
   } else {
     targetSpineIndex = epub->resolveHrefToSpineIndex(hrefStr);
   }
 
-  if (targetSpineIndex < 0) {
+  if (!targetSpineIndex) {
     LOG_DBG("ERS", "Could not resolve href: %s", hrefStr.c_str());
     if (savePosition && footnoteDepth > 0) footnoteDepth--;  // undo push
     return;
@@ -1164,19 +1164,19 @@ void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool s
   {
     RenderLock lock(*this);
     pendingAnchor = std::move(anchor);
-    currentSpineIndex = targetSpineIndex;
+    currentSpineIndex = *targetSpineIndex;
     nextPageNumber = 0;
     spineItem.reset();
   }
   requestUpdate();
-  LOG_DBG("ERS", "Navigated to spine %d for href: %s", targetSpineIndex, hrefStr.c_str());
+  LOG_DBG("ERS", "Navigated to spine %u for href: %s", *targetSpineIndex, hrefStr.c_str());
 }
 
 void EpubReaderActivity::restoreSavedPosition() {
   if (footnoteDepth <= 0) return;
   footnoteDepth--;
   const auto& pos = savedPositions[footnoteDepth];
-  LOG_DBG("ERS", "Restoring position [%d]: spine %d, page %d", footnoteDepth, pos.spineIndex, pos.pageNumber);
+  LOG_DBG("ERS", "Restoring position [%d]: spine %u, page %u", footnoteDepth, pos.spineIndex, pos.pageNumber);
 
   {
     RenderLock lock(*this);
@@ -1194,16 +1194,14 @@ void EpubReaderActivity::addBookmark() {
   uint16_t liIdx;
   {
     RenderLock lock(*this);
-    const int rawPage = spineItem->currentPage;
-    const int rawCount = spineItem->getPageCount();
-    if (rawPage < 0 || rawPage >= rawCount) return;
-    const uint16_t currentPage = static_cast<uint16_t>(rawPage);
+    const uint16_t currentPage = spineItem->currentPage;
+    if (currentPage >= spineItem->getPageCount()) return;
     paragraphIdx = spineItem->getParagraphIndexForPage(currentPage).value_or(0);
     liIdx = spineItem->getListItemIndexForPage(currentPage).value_or(BookmarkEntry::NO_LI_INDEX);
   }
 
   BookmarkEntry entry;
-  entry.spineIndex = static_cast<uint16_t>(currentSpineIndex);
+  entry.spineIndex = currentSpineIndex;
   entry.paragraphIndex = paragraphIdx;
   entry.liIndex = liIdx;
   // Summary build reads the section cache file; safe outside the render lock

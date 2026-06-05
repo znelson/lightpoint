@@ -107,9 +107,9 @@ bool SpineItem::createCacheFile(const int fontId, const float lineCompression, c
   uint16_t tocTotalEntries = 0;
   const auto startTocIndex = epub->getTocIndexForSpineIndex(spineIndex);
   if (startTocIndex) {
-    for (int i = *startTocIndex; i < epub->getTocItemsCount(); i++) {
+    for (uint16_t i = *startTocIndex; i < epub->getTocItemsCount(); i++) {
       auto entry = epub->getTocItem(i);
-      if (entry.spineIndex != spineIndex) break;
+      if (!entry.spineIndex || *entry.spineIndex != spineIndex) break;
       tocTotalEntries++;
       if (!entry.anchor.empty()) {
         tocAnchors.push_back(std::move(entry.anchor));
@@ -165,7 +165,7 @@ std::unique_ptr<Page> SpineItem::loadPageFromSectionFile() { return section_.loa
 // because the anchor resolution has fundamentally different iteration patterns
 // (scan in-memory vector vs. stream from file with early exit).
 void SpineItem::buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors,
-                                   const std::optional<int> startTocIndex, const uint16_t totalEntries,
+                                   const std::optional<uint16_t> startTocIndex, const uint16_t totalEntries,
                                    const uint16_t unresolvedCount) {
   // If no TOC entries have anchors, all chapters start at page 0 and
   // getTocIndexForPage falls back to epub->getTocIndexForSpineIndex,
@@ -173,7 +173,7 @@ void SpineItem::buildTocBoundaries(const std::vector<std::pair<std::string, uint
   if (!startTocIndex || totalEntries == 0 || unresolvedCount == 0) return;
 
   tocBoundaries.reserve(totalEntries);
-  for (int i = *startTocIndex; i < *startTocIndex + totalEntries; i++) {
+  for (uint16_t i = *startTocIndex; i < *startTocIndex + totalEntries; i++) {
     const auto entry = epub->getTocItem(i);
     uint16_t page = 0;
     if (!entry.anchor.empty()) {
@@ -210,12 +210,12 @@ void SpineItem::buildTocBoundariesFromFile() {
   if (!startTocIndex) return;
 
   // Count TOC entries for this spine, then reserve and populate
-  const int tocCount = epub->getTocItemsCount();
+  const uint16_t tocCount = epub->getTocItemsCount();
   uint16_t totalEntries = 0;
   uint16_t unresolvedCount = 0;
-  for (int i = *startTocIndex; i < tocCount; i++) {
+  for (uint16_t i = *startTocIndex; i < tocCount; i++) {
     const auto entry = epub->getTocItem(i);
-    if (entry.spineIndex != spineIndex) break;
+    if (!entry.spineIndex || *entry.spineIndex != spineIndex) break;
     totalEntries++;
     if (!entry.anchor.empty()) unresolvedCount++;
   }
@@ -227,13 +227,13 @@ void SpineItem::buildTocBoundariesFromFile() {
 
   // Cache TOC anchor strings before scanning disk, since getTocItem() does file I/O
   struct TocAnchorEntry {
-    int tocIndex;
+    uint16_t tocIndex;
     std::string anchor;
   };
   std::vector<TocAnchorEntry> tocAnchorsToResolve;
   tocAnchorsToResolve.reserve(unresolvedCount);
   tocBoundaries.reserve(totalEntries);
-  for (int i = *startTocIndex; i < *startTocIndex + totalEntries; i++) {
+  for (uint16_t i = *startTocIndex; i < *startTocIndex + totalEntries; i++) {
     const auto entry = epub->getTocItem(i);
     tocBoundaries.push_back({i, spineIndex, 0, 0});  // startPage/endPage filled after anchor resolution + sort
     if (!entry.anchor.empty()) {
@@ -280,13 +280,13 @@ void SpineItem::buildTocBoundariesFromFile() {
 
 // --- TOC queries (in-memory) ---------------------------------------------
 
-std::optional<int> SpineItem::getTocIndexForPage(const int page) const {
+std::optional<uint16_t> SpineItem::getTocIndexForPage(const uint16_t page) const {
   if (tocBoundaries.empty()) {
     return epub->getTocIndexForSpineIndex(spineIndex);
   }
 
   // Find the first boundary AFTER page, then step back one
-  auto it = std::upper_bound(tocBoundaries.begin(), tocBoundaries.end(), static_cast<uint16_t>(page),
+  auto it = std::upper_bound(tocBoundaries.begin(), tocBoundaries.end(), page,
                              [](uint16_t page, const Chapter& boundary) { return page < boundary.startPage; });
   if (it == tocBoundaries.begin()) {
     return tocBoundaries[0].tocIndex;
@@ -294,7 +294,7 @@ std::optional<int> SpineItem::getTocIndexForPage(const int page) const {
   return std::prev(it)->tocIndex;
 }
 
-std::optional<int> SpineItem::getPageForTocIndex(const int tocIndex) const {
+std::optional<uint16_t> SpineItem::getPageForTocIndex(const uint16_t tocIndex) const {
   for (const auto& boundary : tocBoundaries) {
     if (boundary.tocIndex == tocIndex) {
       return boundary.startPage;
@@ -303,7 +303,7 @@ std::optional<int> SpineItem::getPageForTocIndex(const int tocIndex) const {
   return std::nullopt;
 }
 
-std::optional<Chapter> SpineItem::getPageRangeForTocIndex(const int tocIndex) const {
+std::optional<Chapter> SpineItem::getPageRangeForTocIndex(const uint16_t tocIndex) const {
   for (const auto& ch : tocBoundaries) {
     if (ch.tocIndex == tocIndex) {
       return ch;

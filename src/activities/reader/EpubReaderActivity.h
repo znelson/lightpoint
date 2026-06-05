@@ -12,18 +12,18 @@
 class EpubReaderActivity final : public Activity {
   std::shared_ptr<Epub> epub;
   std::unique_ptr<SpineItem> spineItem = nullptr;
-  int currentSpineIndex = 0;
-  int nextPageNumber = 0;
+  uint16_t currentSpineIndex = 0;
+  uint16_t nextPageNumber = 0;
   // Set when navigating to a TOC entry in a different spine (chapter skip or chapter selector).
   // Cleared on the next render after the new spineItem loads and resolves it to a page.
-  std::optional<int> pendingTocIndex;
+  std::optional<uint16_t> pendingTocIndex;
   std::optional<uint16_t> pendingPageJump;
   // Set when navigating to a footnote href with a fragment (e.g. #note1).
   // Cleared on the next render after the new spineItem loads and resolves it to a page.
   std::string pendingAnchor;
   int pagesUntilFullRefresh = 0;
-  int cachedSpineIndex = 0;
-  int cachedChapterTotalPageCount = 0;
+  uint16_t cachedSpineIndex = 0;
+  uint16_t cachedChapterTotalPageCount = 0;
   // Signals that the next render should reposition within the newly loaded spine item
   // based on a cross-book percentage jump.
   bool pendingPercentJump = false;
@@ -48,11 +48,11 @@ class EpubReaderActivity final : public Activity {
   // (which does file I/O against BookMetadataCache) on every page. Use setChapter() to
   // mutate tocIndex+title atomically so they can't desync.
   struct ChapterPageInfo {
-    std::optional<int> tocIndex;
+    std::optional<uint16_t> tocIndex;
     std::vector<Chapter> segments;
     std::string title;
 
-    void setChapter(int newTocIndex, std::string newTitle) {
+    void setChapter(uint16_t newTocIndex, std::string newTitle) {
       tocIndex = newTocIndex;
       title = std::move(newTitle);
     }
@@ -66,8 +66,8 @@ class EpubReaderActivity final : public Activity {
   // (parser-side classification doesn't matter to the picker).
   std::vector<LinkEntry> currentPageLinks;
   struct SavedPosition {
-    int spineIndex;
-    int pageNumber;
+    uint16_t spineIndex;
+    uint16_t pageNumber;
   };
   static constexpr int MAX_FOOTNOTE_DEPTH = 3;
   SavedPosition savedPositions[MAX_FOOTNOTE_DEPTH] = {};
@@ -76,7 +76,7 @@ class EpubReaderActivity final : public Activity {
   void renderContents(std::unique_ptr<Page> page, int orientedMarginTop, int orientedMarginRight,
                       int orientedMarginBottom, int orientedMarginLeft);
   void renderStatusBar() const;
-  bool saveProgress(int spineIndex, int currentPage, int pageCount);
+  bool saveProgress(uint16_t spineIndex, uint16_t currentPage, uint16_t pageCount);
   // Jump to a percentage of the book (0-100), mapping it to spine and page.
   void jumpToPercent(int percent);
   void onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction action);
@@ -87,10 +87,10 @@ class EpubReaderActivity final : public Activity {
   // Returns the chapter-relative page number for the current position. Computes a running
   // sum over chapterPageInfo.segments to find the segment matching currentSpineIndex, then
   // adds the in-spine offset. Falls back to spineItem->currentPage when no segment matches.
-  int getChapterRelativePage() const;
+  uint16_t getChapterRelativePage() const;
   // Returns the total page count of the current chapter (sum of segment ranges), or the
   // current spineItem's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
-  int getChapterTotalPages() const;
+  uint16_t getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
   void addBookmark();
 

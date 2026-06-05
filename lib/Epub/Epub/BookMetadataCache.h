@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <optional>
 #include <string>
 
 class BookMetadataCache {
@@ -19,10 +20,10 @@ class BookMetadataCache {
   struct SpineEntry {
     std::string href;
     uint32_t cumulativeSize;
-    int16_t tocIndex;
+    std::optional<uint16_t> tocIndex;
 
-    SpineEntry() : cumulativeSize(0), tocIndex(-1) {}
-    SpineEntry(std::string href, const uint32_t cumulativeSize, const int16_t tocIndex)
+    SpineEntry() : cumulativeSize(0) {}
+    SpineEntry(std::string href, const uint32_t cumulativeSize, std::optional<uint16_t> tocIndex)
         : href(std::move(href)), cumulativeSize(cumulativeSize), tocIndex(tocIndex) {}
   };
 
@@ -31,10 +32,11 @@ class BookMetadataCache {
     std::string href;
     std::string anchor;
     uint8_t level;
-    int16_t spineIndex;
+    std::optional<uint16_t> spineIndex;
 
-    TocEntry() : level(0), spineIndex(-1) {}
-    TocEntry(std::string title, std::string href, std::string anchor, const uint8_t level, const int16_t spineIndex)
+    TocEntry() : level(0) {}
+    TocEntry(std::string title, std::string href, std::string anchor, const uint8_t level,
+             std::optional<uint16_t> spineIndex)
         : title(std::move(title)),
           href(std::move(href)),
           anchor(std::move(anchor)),
@@ -59,7 +61,7 @@ class BookMetadataCache {
   struct SpineHrefIndexEntry {
     uint64_t hrefHash;  // FNV-1a 64-bit hash
     uint16_t hrefLen;   // length for collision reduction
-    int16_t spineIndex;
+    uint16_t spineIndex;
   };
   std::deque<SpineHrefIndexEntry> spineHrefIndex;
   bool useSpineHrefIndex = false;
@@ -106,9 +108,9 @@ class BookMetadataCache {
 
   // Reading phase (read mode)
   bool load();
-  SpineEntry getSpineEntry(int index);
-  TocEntry getTocEntry(int index);
-  int getSpineCount() const { return spineCount; }
-  int getTocCount() const { return tocCount; }
+  SpineEntry getSpineEntry(uint16_t index);
+  TocEntry getTocEntry(uint16_t index);
+  uint16_t getSpineCount() const { return spineCount; }
+  uint16_t getTocCount() const { return tocCount; }
   bool isLoaded() const { return loaded; }
 };

@@ -29,7 +29,7 @@ class GfxRenderer;
 // entry while the user is reading it.
 class SpineItem {
   std::shared_ptr<Epub> epub;
-  const int spineIndex;
+  const uint16_t spineIndex;
   GfxRenderer& renderer;
   Section section_;
 
@@ -40,13 +40,13 @@ class SpineItem {
   std::vector<Chapter> tocBoundaries;
 
   void buildTocBoundaries(const std::vector<std::pair<std::string, uint16_t>>& anchors,
-                          std::optional<int> startTocIndex, uint16_t totalEntries, uint16_t unresolvedCount);
+                          std::optional<uint16_t> startTocIndex, uint16_t totalEntries, uint16_t unresolvedCount);
   void buildTocBoundariesFromFile();
 
  public:
-  int currentPage = 0;
+  uint16_t currentPage = 0;
 
-  explicit SpineItem(const std::shared_ptr<Epub>& epub, const int spineIndex, GfxRenderer& renderer)
+  explicit SpineItem(const std::shared_ptr<Epub>& epub, const uint16_t spineIndex, GfxRenderer& renderer)
       : epub(epub),
         spineIndex(spineIndex),
         renderer(renderer),
@@ -80,14 +80,14 @@ class SpineItem {
   // Given a page in this spine, return the TOC index for that page, or
   // nullopt for pre-TOC orphan spines (e.g. cover pages) where no chapter
   // applies.
-  std::optional<int> getTocIndexForPage(int page) const;
+  std::optional<uint16_t> getTocIndexForPage(uint16_t page) const;
   // Given a TOC index, return the start page in this spine. Returns nullopt
   // if the TOC index doesn't map to a boundary here (e.g. belongs to a
   // different spine).
-  std::optional<int> getPageForTocIndex(int tocIndex) const;
+  std::optional<uint16_t> getPageForTocIndex(uint16_t tocIndex) const;
   // Returns the Chapter (startPage inclusive, endPage exclusive) belonging
   // to the given TOC index within this spine.
-  std::optional<Chapter> getPageRangeForTocIndex(int tocIndex) const;
+  std::optional<Chapter> getPageRangeForTocIndex(uint16_t tocIndex) const;
 
   // --- Cache queries (delegated to Section) -----------------------------
   uint16_t getPageCount() const { return section_.getPageCount(); }
