@@ -1,6 +1,8 @@
 #include <Typesetter.h>
+#include <Typesetter/Page.h>
 #include <Typesetter/ParsedText.h>
 #include <Typesetter/blocks/BlockStyle.h>
+#include <Typesetter/blocks/TextBlock.h>
 #include <gtest/gtest.h>
 
 #include <cstring>
@@ -468,4 +470,132 @@ TEST_F(TypesetterFixture, PartialFlushOnEmptyBlockIsNoOp) {
   ts.partialFlush(*p);
   EXPECT_EQ(ts.getCompletedPageCount(), 0);
   EXPECT_TRUE(emitted.empty());
+}
+
+// --- RTL / BiDi integration ----------------------------------------------
+//
+// These tests drive the extractLine reorder branch end-to-end. They use
+// Hebrew UTF-8 inputs because lib/MiniBidi/bidiclasses.t is scoped to
+// Hebrew + Latin/Cyrillic. The assertions check word *order* in the emitted
+// TextBlock; xpos placement is covered by BidiUtilsTest.
+
+namespace {
+
+// Hebrew words used by RTL tests. The byte sequences are inline so the test
+// file doesn't depend on the compiler's source-charset handling.
+constexpr const char* kShalom = "\xD7\xA9\xD7\x9C\xD7\x95\xD7\x9D";  // 4 letters
+constexpr const char* kAhalan = "\xD7\x90\xD7\x94\xD7\x9C\xD7\x9F";  // 4 letters
+
+// Pull the first emitted page's first PageLine's TextBlock so tests can
+// assert on word ordering after layout.
+std::vector<std::string> firstLineWords(const Page& page) {
+  for (const auto& el : page.elements) {
+    if (el->getTag() == TAG_PageLine) {
+      auto* line = static_cast<const PageLine*>(el.get());
+      return line->getBlock()->getWords();
+    }
+  }
+  return {};
+}
+
+}  // namespace
+
+TEST_F(TypesetterFixture, PureHebrewRtlParagraphReversesWordOrder) {
+  BlockStyle style;
+  style.isRtl = true;
+  style.directionDefined = true;
+  // extraParagraphSpacing=true skips the em-space first-line indent so the
+  // assertion can match raw word strings.
+  auto p = std::make_unique<ParsedText>(/*extraParagraphSpacing=*/true,
+                                        /*hyphenationEnabled=*/false,
+                                        /*focusReadingEnabled=*/false, style);
+  p->addWord(kShalom, EpdFontFamily::REGULAR);
+  p->addWord(kAhalan, EpdFontFamily::REGULAR);
+
+  auto ts = makeTypesetter();
+  ts.submitParagraph(std::move(p));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+
+  const auto words = firstLineWords(*emitted[0].page);
+  // Pure RTL run in an RTL paragraph: visual order reverses logical order.
+  ASSERT_EQ(words.size(), 2u);
+  EXPECT_EQ(words[0], kAhalan);
+  EXPECT_EQ(words[1], kShalom);
+}
+
+TEST_F(TypesetterFixture, PureLtrParagraphSkipsReorder) {
+  // Default BlockStyle is LTR; pure-ASCII content takes the no-reorder path.
+  auto p = std::make_unique<ParsedText>(/*extraParagraphSpacing=*/true,
+                                        /*hyphenationEnabled=*/false,
+                                        /*focusReadingEnabled=*/false, BlockStyle());
+  p->addWord("hello", EpdFontFamily::REGULAR);
+  p->addWord("world", EpdFontFamily::REGULAR);
+
+  auto ts = makeTypesetter();
+  ts.submitParagraph(std::move(p));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+
+  const auto words = firstLineWords(*emitted[0].page);
+  ASSERT_EQ(words.size(), 2u);
+  EXPECT_EQ(words[0], "hello");
+  EXPECT_EQ(words[1], "world");
+}
+
+TEST_F(TypesetterFixture, MixedHebrewEnglishInRtlParagraphPermutesNonIdentity) {
+  // Hebrew + Latin + Hebrew in an RTL paragraph. The exact visual order
+  // depends on UAX#9; we assert (a) all three words survive, and (b) the
+  // permutation is non-identity (i.e. reorder actually fired).
+  BlockStyle style;
+  style.isRtl = true;
+  style.directionDefined = true;
+  auto p = std::make_unique<ParsedText>(/*extraParagraphSpacing=*/true,
+                                        /*hyphenationEnabled=*/false,
+                                        /*focusReadingEnabled=*/false, style);
+  p->addWord(kShalom, EpdFontFamily::REGULAR);
+  p->addWord("english", EpdFontFamily::REGULAR);
+  p->addWord(kAhalan, EpdFontFamily::REGULAR);
+
+  auto ts = makeTypesetter();
+  ts.submitParagraph(std::move(p));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+
+  const auto words = firstLineWords(*emitted[0].page);
+  ASSERT_EQ(words.size(), 3u);
+  // All three logical tokens present exactly once.
+  size_t shalomCount = 0, ahalanCount = 0, englishCount = 0;
+  for (const auto& w : words) {
+    if (w == kShalom) shalomCount++;
+    if (w == kAhalan) ahalanCount++;
+    if (w == "english") englishCount++;
+  }
+  EXPECT_EQ(shalomCount, 1u);
+  EXPECT_EQ(ahalanCount, 1u);
+  EXPECT_EQ(englishCount, 1u);
+  // Non-identity: logical order was [shalom, english, ahalan]; if the visual
+  // matches that we never exercised the reorder branch we care about.
+  const bool isIdentity = words[0] == kShalom && words[1] == "english" && words[2] == kAhalan;
+  EXPECT_FALSE(isIdentity);
+}
+
+TEST_F(TypesetterFixture, AutoDetectedRtlFromContentReordersWords) {
+  // No explicit direction in BlockStyle. ParsedText should auto-detect RTL
+  // from the Hebrew content (hasRtlWord -> directionDefined check -> isRtl).
+  auto p = std::make_unique<ParsedText>(/*extraParagraphSpacing=*/true,
+                                        /*hyphenationEnabled=*/false,
+                                        /*focusReadingEnabled=*/false, BlockStyle());
+  p->addWord(kShalom, EpdFontFamily::REGULAR);
+  p->addWord(kAhalan, EpdFontFamily::REGULAR);
+
+  auto ts = makeTypesetter();
+  ts.submitParagraph(std::move(p));
+  ts.finish();
+  ASSERT_EQ(emitted.size(), 1u);
+
+  const auto words = firstLineWords(*emitted[0].page);
+  ASSERT_EQ(words.size(), 2u);
+  EXPECT_EQ(words[0], kAhalan);
+  EXPECT_EQ(words[1], kShalom);
 }
