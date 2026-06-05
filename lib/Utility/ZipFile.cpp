@@ -339,7 +339,7 @@ bool ZipFile::getInflatedFileSize(const char* filename, size_t* size) {
   return true;
 }
 
-int ZipFile::fillUncompressedSizes(std::deque<SizeTarget>& targets, std::deque<uint32_t>& sizes) {
+size_t ZipFile::fillUncompressedSizes(std::deque<SizeTarget>& targets, std::deque<uint32_t>& sizes) {
   if (targets.empty()) {
     return 0;
   }
@@ -351,8 +351,8 @@ int ZipFile::fillUncompressedSizes(std::deque<SizeTarget>& targets, std::deque<u
 
   file.seek(zipDetails.centralDirOffset);
 
-  int matched = 0;
-  const int targetCount = static_cast<int>(targets.size());
+  size_t matched = 0;
+  const size_t targetCount = targets.size();
   uint32_t sig;
   char itemName[256];
 

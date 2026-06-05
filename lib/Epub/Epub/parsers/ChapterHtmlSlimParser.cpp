@@ -1139,7 +1139,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   startNewTextBlock(paragraphAlignmentBlockStyle);
 
   XML_Parser parser = XML_ParserCreate(nullptr);
-  int done;
+  bool done = false;
 
   if (!parser) {
     LOG_ERR("EHP", "Couldn't allocate memory for parser");
