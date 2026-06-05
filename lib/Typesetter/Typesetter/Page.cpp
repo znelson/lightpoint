@@ -31,7 +31,7 @@ std::unique_ptr<PageLine> PageLine::deserialize(HalFile& file) {
   return line;
 }
 
-void PageImage::render(GfxRenderer& renderer, const int fontId, const int xOffset, const int yOffset) {
+void PageImage::render(GfxRenderer& renderer, [[maybe_unused]] const int fontId, const int xOffset, const int yOffset) {
   // Images don't use fontId or text rendering
   imageBlock->render(renderer, xPos + xOffset, yPos + yOffset);
 }
