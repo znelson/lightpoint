@@ -397,9 +397,8 @@ void LyraTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
 }
 
 void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                    uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
+                                    uint16_t selectorIndex, bool hasCachedCover, [[maybe_unused]] bool bufferRestored,
                                     FunctionRef<bool()> storeCoverBuffer) const {
-  bool coverRendered = hasCachedCover;
   const int tileWidth = rect.width - 2 * LyraMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
   const int tileY = rect.y;
@@ -413,7 +412,7 @@ void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
   // Only load from SD on first render, then use stored buffer
   if (hasContinueReading) {
     RecentBook book = recentBooks[0];
-    if (!coverRendered) {
+    if (!hasCachedCover) {
       std::string coverPath = book.coverBmpPath;
       bool hasCover = true;
       int tileX = LyraMetrics::values.contentSidePadding;
@@ -449,8 +448,7 @@ void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
         renderer.drawIcon(CoverIcon, tileX + hPaddingInSelection + 24, tileY + hPaddingInSelection + 24, 32, 32);
       }
 
-      // Only consider it rendered if the store succeeded.
-      coverRendered = storeCoverBuffer();
+      storeCoverBuffer();
     }
 
     bool bookSelected = (selectorIndex == 0);
