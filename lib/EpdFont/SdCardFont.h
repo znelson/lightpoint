@@ -110,7 +110,7 @@ class SdCardFont {
 
   // Content hash of the file header + style TOC entries (computed during load).
   // Used to generate deterministic font IDs for section cache invalidation.
-  uint32_t contentHash() const { return contentHash_; }
+  size_t contentHash() const { return contentHash_; }
 
  private:
   // Per-style metadata (parsed from file header/TOC)
@@ -229,7 +229,7 @@ class SdCardFont {
   void mergeIntoAdvanceTable(uint8_t styleIdx, const AdvanceEntry* sortedNew, uint32_t newCount);
 
   Stats stats_;
-  uint32_t contentHash_ = 0;
+  size_t contentHash_ = 0;
   bool loaded_ = false;
 
   // Per-style helpers

@@ -44,7 +44,7 @@ class SdCardFontManager {
     int fontId;
     uint8_t size;
   };
-  static int computeFontId(uint32_t contentHash, const char* familyName, uint8_t pointSize);
+  static int computeFontId(size_t contentHash, const char* familyName, uint8_t pointSize);
 
   std::string loadedFamilyName_;
   uint8_t loadedPointSize_ = 0;

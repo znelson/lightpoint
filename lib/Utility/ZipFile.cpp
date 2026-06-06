@@ -379,7 +379,7 @@ size_t ZipFile::fillUncompressedSizes(std::deque<SizeTarget>& targets, std::dequ
       file.read(itemName, nameLen);
       itemName[nameLen] = '\0';
 
-      uint64_t hash = fnvHash64(itemName, nameLen);
+      size_t hash = Fnv1a::hash(itemName, nameLen);
       SizeTarget key = {hash, nameLen, 0};
 
       auto it = std::lower_bound(targets.begin(), targets.end(), key, [](const SizeTarget& a, const SizeTarget& b) {
