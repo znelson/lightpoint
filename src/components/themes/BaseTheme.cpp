@@ -411,8 +411,9 @@ void BaseTheme::drawTabBar(const GfxRenderer& renderer, const Rect rect, const s
 // Draw the "Recent Book" cover card on the home screen
 // TODO: Refactor method to make it cleaner, split into smaller methods
 void BaseTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                    uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                    bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
+                                    uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
+                                    FunctionRef<bool()> storeCoverBuffer) const {
+  bool coverRendered = hasCachedCover;
   const bool hasContinueReading = !recentBooks.empty();
   const bool bookSelected = hasContinueReading && selectorIndex == 0;
 
@@ -493,9 +494,9 @@ void BaseTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std:
 
           // No bookmark ribbon when cover is shown - it would just cover the art
 
-          // Store the buffer with cover image for fast navigation
-          coverBufferStored = storeCoverBuffer();
-          coverRendered = coverBufferStored;  // Only consider it rendered if we successfully stored the buffer
+          // Store the buffer with cover image for fast navigation.
+          // Only consider it rendered if the store succeeded.
+          coverRendered = storeCoverBuffer();
 
           // First render: if selected, draw selection indicators now
           if (bookSelected) {

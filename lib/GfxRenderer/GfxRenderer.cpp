@@ -1329,9 +1329,10 @@ static bool logicalRectToPhysicalBounds(GfxRenderer::Orientation orientation, in
   return true;
 }
 
-size_t GfxRenderer::getRegionByteSize(int lx, int ly, int lw, int lh) const {
+size_t GfxRenderer::getRegionByteSize(Rect rect) const {
   int x0, y0, x1, y1;
-  if (!logicalRectToPhysicalBounds(orientation, lx, ly, lw, lh, panelWidth, panelHeight, &x0, &y0, &x1, &y1)) {
+  if (!logicalRectToPhysicalBounds(orientation, rect.x, rect.y, rect.width, rect.height, panelWidth, panelHeight, &x0,
+                                   &y0, &x1, &y1)) {
     return 0;
   }
   // x bounds are in pixels; widen to byte boundaries on either side so per-row
@@ -1343,9 +1344,10 @@ size_t GfxRenderer::getRegionByteSize(int lx, int ly, int lw, int lh) const {
   return static_cast<size_t>(bytesPerRow) * static_cast<size_t>(rowCount);
 }
 
-bool GfxRenderer::copyRegionToBuffer(int lx, int ly, int lw, int lh, uint8_t* buf, size_t bufSize) const {
+bool GfxRenderer::copyRegionToBuffer(Rect rect, uint8_t* buf, size_t bufSize) const {
   int x0, y0, x1, y1;
-  if (!logicalRectToPhysicalBounds(orientation, lx, ly, lw, lh, panelWidth, panelHeight, &x0, &y0, &x1, &y1)) {
+  if (!logicalRectToPhysicalBounds(orientation, rect.x, rect.y, rect.width, rect.height, panelWidth, panelHeight, &x0,
+                                   &y0, &x1, &y1)) {
     return false;
   }
   const int byteX0 = x0 / 8;
@@ -1361,9 +1363,10 @@ bool GfxRenderer::copyRegionToBuffer(int lx, int ly, int lw, int lh, uint8_t* bu
   return true;
 }
 
-bool GfxRenderer::copyBufferToRegion(int lx, int ly, int lw, int lh, const uint8_t* buf, size_t bufSize) const {
+bool GfxRenderer::copyBufferToRegion(Rect rect, const uint8_t* buf, size_t bufSize) const {
   int x0, y0, x1, y1;
-  if (!logicalRectToPhysicalBounds(orientation, lx, ly, lw, lh, panelWidth, panelHeight, &x0, &y0, &x1, &y1)) {
+  if (!logicalRectToPhysicalBounds(orientation, rect.x, rect.y, rect.width, rect.height, panelWidth, panelHeight, &x0,
+                                   &y0, &x1, &y1)) {
     return false;
   }
   const int byteX0 = x0 / 8;

@@ -90,7 +90,7 @@ class LyraTheme : public BaseTheme {
                       FunctionRef<std::string(int index)> buttonLabel,
                       FunctionRef<UIIcon(int index)> rowIcon) const override;
   void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
+                           uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
                            FunctionRef<bool()> storeCoverBuffer) const override;
   void drawEmptyRecents(const GfxRenderer& renderer, const Rect rect) const;
   bool showsFileIcons() const override { return true; }

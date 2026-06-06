@@ -112,8 +112,9 @@ void RoundedRaffTheme::drawTabBar(const GfxRenderer& renderer, Rect rect, const 
 }
 
 void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                           bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
+                                           uint16_t selectorIndex, bool hasCachedCover,
+                                           [[maybe_unused]] bool bufferRestored,
+                                           FunctionRef<bool()> storeCoverBuffer) const {
   const int tileWidth = rect.width - 2 * RoundedRaffMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
   const int tileY = rect.y;
@@ -129,7 +130,7 @@ void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
   // Only load from SD on first render, then use stored buffer
   if (hasContinueReading) {
     RecentBook book = recentBooks[0];
-    if (!coverRendered) {
+    if (!hasCachedCover) {
       std::string coverPath = book.coverBmpPath;
       bool hasCover = true;
       if (coverPath.empty()) {
@@ -170,8 +171,7 @@ void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
                                                Color::LightGray);
       }
 
-      coverBufferStored = storeCoverBuffer();
-      coverRendered = coverBufferStored;  // Only consider it rendered if we successfully stored the buffer
+      storeCoverBuffer();
     }
 
     renderer.fillRoundedRect(tileX, tileY, tileWidth, imgY - tileY, kRowRadius, true, true, false, false,

@@ -1,5 +1,9 @@
 #pragma once
+#include <Rect.h>
+
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <vector>
 
 #include "./FileBrowserActivity.h"
@@ -14,17 +18,7 @@ class HomeActivity final : public Activity {
   bool recentsLoading = false;
   bool recentsLoaded = false;
   bool firstRenderDone = false;
-  bool coverRendered = false;      // Track if cover has been rendered once
-  bool coverBufferStored = false;  // Track if cover buffer is stored
-  uint8_t* coverBuffer = nullptr;  // HomeActivity's own buffer for cover image
-  size_t coverBufferSize = 0;      // Bytes allocated to coverBuffer
-  // Logical rect last passed to drawRecentBookCover. The cover snapshot only
-  // needs to cover this region, not the entire framebuffer, so we cache the
-  // tile instead of all 48 KB. Set in render() before the call.
-  int coverRectX = 0;
-  int coverRectY = 0;
-  int coverRectW = 0;
-  int coverRectH = 0;
+  std::unique_ptr<uint8_t[]> coverBuffer;  // Snapshot of the cover tile; non-null iff cover has been rendered
   std::vector<RecentBook> recentBooks;
   const HomeMenuItem initialMenuItem;
 
@@ -34,9 +28,10 @@ class HomeActivity final : public Activity {
   void onSettingsOpen();
 
   uint16_t getMenuItemCount() const;
-  bool storeCoverBuffer();    // Store frame buffer for cover image
-  bool restoreCoverBuffer();  // Restore frame buffer from stored cover
-  void freeCoverBuffer();     // Free the stored cover buffer
+  // Capture/restore the framebuffer region described by `rect`. The same rect must be
+  // passed to both so the byte count matches the allocation.
+  bool storeCoverBuffer(Rect rect);
+  bool restoreCoverBuffer(Rect rect);
   void loadRecentBooks(int maxBooks);
   void loadRecentCovers(int coverHeight);
 
@@ -45,7 +40,6 @@ class HomeActivity final : public Activity {
                         HomeMenuItem initialMenuItemValue = HomeMenuItem::NONE)
       : Activity("Home", renderer, mappedInput), initialMenuItem(initialMenuItemValue) {}
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 };
