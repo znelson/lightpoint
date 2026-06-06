@@ -14,7 +14,6 @@ class ReaderPercentSelectionActivity final : public Activity {
       : Activity("ReaderPercentSelection", renderer, mappedInput), percent(initialPercent) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 

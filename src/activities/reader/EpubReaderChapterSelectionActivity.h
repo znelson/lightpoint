@@ -33,7 +33,6 @@ class EpubReaderChapterSelectionActivity final : public Activity {
         currentSpineIndex(currentSpineIndex),
         currentTocIndex(currentTocIndex) {}
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 };

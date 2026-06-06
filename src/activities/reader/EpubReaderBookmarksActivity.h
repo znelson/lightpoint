@@ -41,7 +41,6 @@ class EpubReaderBookmarksActivity final : public Activity {
       : Activity("EpubReaderBookmarks", renderer, mappedInput), epub(epub), epubPath(epubPath), store(epubPath) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 

@@ -15,8 +15,6 @@ void ReaderLinkPickerActivity::onEnter() {
   requestUpdate();
 }
 
-void ReaderLinkPickerActivity::onExit() { Activity::onExit(); }
-
 void ReaderLinkPickerActivity::loop() {
   if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
     ActivityResult result;

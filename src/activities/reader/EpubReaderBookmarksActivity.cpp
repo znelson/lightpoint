@@ -41,8 +41,6 @@ void EpubReaderBookmarksActivity::onEnter() {
   requestUpdate();
 }
 
-void EpubReaderBookmarksActivity::onExit() { Activity::onExit(); }
-
 int EpubReaderBookmarksActivity::getGutterBottom(const GfxRenderer& renderer) {
   const auto orientation = renderer.getOrientation();
   const bool isPortrait = orientation == GfxRenderer::Orientation::Portrait;

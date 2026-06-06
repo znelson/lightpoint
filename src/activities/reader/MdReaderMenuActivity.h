@@ -29,7 +29,6 @@ class MdReaderMenuActivity final : public Activity {
                                 const bool hasLinks);
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 

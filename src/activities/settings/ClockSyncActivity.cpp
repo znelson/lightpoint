@@ -20,8 +20,6 @@ void ClockSyncActivity::onEnter() {
   requestUpdate();
 }
 
-void ClockSyncActivity::onExit() { Activity::onExit(); }
-
 void ClockSyncActivity::runSync() {
   if (!halWifi.isConnected()) {
     LOG_INF("CLK", "Manual sync requested but WiFi is not connected");

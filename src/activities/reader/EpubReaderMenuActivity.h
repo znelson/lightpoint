@@ -27,7 +27,6 @@ class EpubReaderMenuActivity final : public Activity {
                                   const uint8_t currentOrientation, const bool hasFootnotes);
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 

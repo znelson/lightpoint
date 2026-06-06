@@ -26,8 +26,6 @@ void EpubReaderChapterSelectionActivity::onEnter() {
   requestUpdate();
 }
 
-void EpubReaderChapterSelectionActivity::onExit() { Activity::onExit(); }
-
 void EpubReaderChapterSelectionActivity::loop() {
   const int pageItems = UITheme::getInstance().getNumberOfItemsPerPage(renderer, true, false, true, false);
   const int totalItems = getTotalItems();
