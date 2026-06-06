@@ -1,5 +1,6 @@
 #include "CssParser.h"
 
+#include <Fnv1a.h>
 #include <HalPlatform.h>
 #include <Logging.h>
 
@@ -91,21 +92,6 @@ void forEachDelimitedToken(std::string_view s, Pred isDelimiter, F&& fn) {
   }
 }
 
-// FNV-1a per Fowler/Noll/Vo, sized to match size_t on the target. The firmware
-// runs on a 32-bit core where size_t is 32 bits, so naively using the 64-bit
-// constants would silently truncate FNV_PRIME to a non-prime and wreck hash
-// distribution. The selection below picks the canonical 32- or 64-bit
-// constants at compile time so the same source works in a 64-bit host
-// simulator. `fnv1aMix` is the per-byte mix step; callers apply any
-// byte-level transform (e.g. asciiToLower) first.
-static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "FNV constants are only defined for 32- or 64-bit size_t");
-constexpr size_t FNV_OFFSET_BASIS =
-    sizeof(size_t) == 8 ? static_cast<size_t>(14695981039346656037ULL) : static_cast<size_t>(2166136261U);
-constexpr size_t FNV_PRIME =
-    sizeof(size_t) == 8 ? static_cast<size_t>(1099511628211ULL) : static_cast<size_t>(16777619U);
-
-constexpr size_t fnv1aMix(size_t hash, unsigned char byte) { return (hash ^ byte) * FNV_PRIME; }
-
 // Parse the entirety of s as a number into `out`. Accepts an optional leading
 // '+' (which std::from_chars rejects by spec) so callers can pass CSS-style
 // signed numbers without manual trimming. Returns false on empty input, a
@@ -161,8 +147,8 @@ std::string_view stripTrailingImportant(std::string_view value) {
 // with the other ASCII helpers in this translation unit.
 
 size_t CssParser::SvHash::operator()(std::string_view sv) const noexcept {
-  size_t h = FNV_OFFSET_BASIS;
-  for (char c : sv) h = fnv1aMix(h, asciiToLower(c));
+  size_t h = Fnv1a::kOffsetBasis;
+  for (char c : sv) h = Fnv1a::mix(h, asciiToLower(c));
   return h;
 }
 
@@ -171,9 +157,9 @@ size_t CssParser::SvHash::operator()(const std::string& s) const noexcept { retu
 size_t CssParser::SvHash::operator()(CompositeKey k) const noexcept {
   // Hash the case-folded concatenation of every piece without materializing
   // it — the running hash continues across pieces as if they were one buffer.
-  size_t h = FNV_OFFSET_BASIS;
+  size_t h = Fnv1a::kOffsetBasis;
   for (std::string_view piece : k.pieces) {
-    for (char c : piece) h = fnv1aMix(h, asciiToLower(c));
+    for (char c : piece) h = Fnv1a::mix(h, asciiToLower(c));
   }
   return h;
 }

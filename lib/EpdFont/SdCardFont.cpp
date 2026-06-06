@@ -1,5 +1,6 @@
 #include "SdCardFont.h"
 
+#include <Fnv1a.h>
 #include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
@@ -18,18 +19,6 @@ static_assert(sizeof(EpdKernClassEntry) == 3, "EpdKernClassEntry must be 3 bytes
 static_assert(sizeof(EpdLigaturePair) == 8, "EpdLigaturePair must be 8 bytes to match .cpfont file layout");
 
 namespace {
-
-// FNV-1a hash for content-based font ID generation
-constexpr uint32_t FNV_OFFSET = 2166136261u;
-constexpr uint32_t FNV_PRIME = 16777619u;
-
-uint32_t fnv1a(const uint8_t* data, size_t len, uint32_t hash = FNV_OFFSET) {
-  for (size_t i = 0; i < len; i++) {
-    hash ^= data[i];
-    hash *= FNV_PRIME;
-  }
-  return hash;
-}
 
 // .cpfont magic bytes
 constexpr char CPFONT_MAGIC[8] = {'C', 'P', 'F', 'O', 'N', 'T', '\0', '\0'};
@@ -451,7 +440,7 @@ bool SdCardFont::load(const char* path) {
   }
 
   // Begin content hash: accumulate global header
-  uint32_t hash = fnv1a(headerBuf, HEADER_SIZE);
+  size_t hash = Fnv1a::hash(headerBuf, HEADER_SIZE);
 
   bool is2Bit = (readU16(headerBuf + 10) & 1) != 0;
 
@@ -471,7 +460,7 @@ bool SdCardFont::load(const char* path) {
     }
 
     // Accumulate TOC entry into content hash
-    hash = fnv1a(tocBuf, STYLE_TOC_ENTRY_SIZE, hash);
+    hash = Fnv1a::hash(tocBuf, STYLE_TOC_ENTRY_SIZE, hash);
 
     uint8_t styleId = tocBuf[0];
     if (styleId >= MAX_STYLES) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Fnv1a.h>
 #include <HalStorage.h>
 
 #include <algorithm>
@@ -59,24 +60,14 @@ class BookMetadataCache {
 
   // Index for fast href→spineIndex lookup (used only for large EPUBs)
   struct SpineHrefIndexEntry {
-    uint64_t hrefHash;  // FNV-1a 64-bit hash
-    uint16_t hrefLen;   // length for collision reduction
+    size_t hrefHash;   // FNV-1a hash
+    uint16_t hrefLen;  // length for collision reduction
     uint16_t spineIndex;
   };
   std::deque<SpineHrefIndexEntry> spineHrefIndex;
   bool useSpineHrefIndex = false;
 
   static constexpr uint16_t LARGE_SPINE_THRESHOLD = 400;
-
-  // FNV-1a 64-bit hash function
-  static uint64_t fnvHash64(const std::string& s) {
-    uint64_t hash = 14695981039346656037ull;
-    for (char c : s) {
-      hash ^= static_cast<uint8_t>(c);
-      hash *= 1099511628211ull;
-    }
-    return hash;
-  }
 
   uint32_t writeSpineEntry(HalFile& file, const SpineEntry& entry) const;
   uint32_t writeTocEntry(HalFile& file, const TocEntry& entry) const;
