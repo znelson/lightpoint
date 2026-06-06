@@ -1,10 +1,10 @@
 #pragma once
+#include <Rect.h>
+
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
-
-#include <Rect.h>
 
 #include "./FileBrowserActivity.h"
 #include "activities/Activity.h"
