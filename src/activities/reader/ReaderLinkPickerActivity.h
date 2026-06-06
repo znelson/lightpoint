@@ -28,7 +28,6 @@ class ReaderLinkPickerActivity final : public Activity {
       : Activity("ReaderLinkPicker", renderer, mappedInput), entries(entries), title(title) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 

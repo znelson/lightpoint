@@ -32,8 +32,6 @@ void ButtonRemapActivity::onEnter() {
   requestUpdate();
 }
 
-void ButtonRemapActivity::onExit() { Activity::onExit(); }
-
 void ButtonRemapActivity::loop() {
   // Clear any temporary warning after its timeout.
   if (errorUntil > 0 && halPlatform.millis() > errorUntil) {

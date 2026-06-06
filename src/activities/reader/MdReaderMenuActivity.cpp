@@ -32,8 +32,6 @@ void MdReaderMenuActivity::onEnter() {
   requestUpdate();
 }
 
-void MdReaderMenuActivity::onExit() { Activity::onExit(); }
-
 void MdReaderMenuActivity::loop() {
   buttonNavigator.onNext([this] {
     selectedIndex = ButtonNavigator::nextIndex(selectedIndex, menuItems.size());

@@ -19,8 +19,6 @@ void ReaderPercentSelectionActivity::onEnter() {
   requestUpdate();
 }
 
-void ReaderPercentSelectionActivity::onExit() { Activity::onExit(); }
-
 void ReaderPercentSelectionActivity::adjustPercent(const int delta) {
   // Apply delta and clamp within 0-100.
   percent += delta;

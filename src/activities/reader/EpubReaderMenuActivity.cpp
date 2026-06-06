@@ -40,8 +40,6 @@ void EpubReaderMenuActivity::onEnter() {
   requestUpdate();
 }
 
-void EpubReaderMenuActivity::onExit() { Activity::onExit(); }
-
 void EpubReaderMenuActivity::loop() {
   // Handle navigation
   buttonNavigator.onNext([this] {

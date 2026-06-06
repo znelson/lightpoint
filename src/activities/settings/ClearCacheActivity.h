@@ -10,7 +10,6 @@ class ClearCacheActivity final : public Activity {
       : Activity("ClearCache", renderer, mappedInput) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   bool skipLoopDelay() override { return true; }  // Prevent power-saving mode
   void render(RenderLock&&) override;
