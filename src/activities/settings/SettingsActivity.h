@@ -141,9 +141,9 @@ struct SettingInfo {
 class SettingsActivity final : public Activity {
   ButtonNavigator buttonNavigator;
 
-  int selectedCategoryIndex = 0;  // Currently selected category
-  int selectedSettingIndex = 0;
-  int settingsCount = 0;
+  uint8_t selectedCategoryIndex = 0;  // Currently selected category
+  uint8_t selectedSettingIndex = 0;
+  uint8_t settingsCount = 0;
 
   // Per-category settings derived from shared list + device-only actions
   std::vector<SettingInfo> displaySettings;
@@ -155,7 +155,7 @@ class SettingsActivity final : public Activity {
   bool preserveQuickResumeTimeoutOn = false;
   bool quickResumeTimeoutAutoEnabled = false;
 
-  static constexpr int categoryCount = 4;
+  static constexpr uint8_t categoryCount = 4;
   static const StrId categoryNames[categoryCount];
 
   void enterCategory(int categoryIndex);

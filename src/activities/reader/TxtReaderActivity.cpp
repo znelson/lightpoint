@@ -250,16 +250,15 @@ void TxtReaderActivity::initializeReader() {
   const uint8_t screenMargin = SETTINGS.screenMargin;
 
   // Calculate viewport dimensions
-  renderer.getOrientedViewableTRBL(&cachedOrientedMarginTop, &cachedOrientedMarginRight, &cachedOrientedMarginBottom,
-                                   &cachedOrientedMarginLeft);
-  cachedOrientedMarginTop += screenMargin;
-  cachedOrientedMarginLeft += screenMargin;
-  cachedOrientedMarginRight += screenMargin;
-  cachedOrientedMarginBottom +=
-      std::max(screenMargin, static_cast<uint8_t>(UITheme::getInstance().getStatusBarHeight()));
+  const auto margins = renderer.getOrientedViewableMargins();
+  cachedMargins.top = margins.top + screenMargin;
+  cachedMargins.left = margins.left + screenMargin;
+  cachedMargins.right = margins.right + screenMargin;
+  cachedMargins.bottom =
+      margins.bottom + std::max(screenMargin, static_cast<uint8_t>(UITheme::getInstance().getStatusBarHeight()));
 
-  const uint16_t viewportWidth = renderer.getScreenWidth() - cachedOrientedMarginLeft - cachedOrientedMarginRight;
-  const uint16_t viewportHeight = renderer.getScreenHeight() - cachedOrientedMarginTop - cachedOrientedMarginBottom;
+  const uint16_t viewportWidth = renderer.getScreenWidth() - cachedMargins.left - cachedMargins.right;
+  const uint16_t viewportHeight = renderer.getScreenHeight() - cachedMargins.top - cachedMargins.bottom;
 
   if (!cache.loadHeader(cachedFontId, SETTINGS.getReaderLineCompression(), SETTINGS.extraParagraphSpacing,
                         SETTINGS.paragraphAlignment, viewportWidth, viewportHeight, SETTINGS.hyphenationEnabled,
@@ -317,18 +316,18 @@ void TxtReaderActivity::renderContents(std::unique_ptr<Page> page) {
   // Font prewarm: scan pass accumulates text, then prewarm, then real render
   auto* fcm = renderer.getFontCacheManager();
   auto scope = fcm->createPrewarmScope();
-  page->render(renderer, cachedFontId, cachedOrientedMarginLeft, cachedOrientedMarginTop);  // scan pass
+  page->render(renderer, cachedFontId, cachedMargins.left, cachedMargins.top);  // scan pass
   scope.endScanAndPrewarm();
 
   // BW rendering
-  page->render(renderer, cachedFontId, cachedOrientedMarginLeft, cachedOrientedMarginTop);
+  page->render(renderer, cachedFontId, cachedMargins.left, cachedMargins.top);
   renderStatusBar();
 
   ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
 
   if (SETTINGS.textAntiAliasing) {
     ReaderUtils::renderAntiAliased(
-        renderer, [&]() { page->render(renderer, cachedFontId, cachedOrientedMarginLeft, cachedOrientedMarginTop); });
+        renderer, [&]() { page->render(renderer, cachedFontId, cachedMargins.left, cachedMargins.top); });
   }
   // scope destructor clears font cache via FontCacheManager
 }

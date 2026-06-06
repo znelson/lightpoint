@@ -203,10 +203,11 @@ int LyraTheme::getListPageItems(int contentHeight, bool hasSubtitle) const {
   return contentHeight / rowHeight;
 }
 
-void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
-                         FunctionRef<std::string(int index)> rowTitle, FunctionRef<std::string(int index)> rowSubtitle,
-                         FunctionRef<UIIcon(int index)> rowIcon, FunctionRef<std::string(int index)> rowValue,
-                         bool highlightValue, FunctionRef<bool(int index)> rowDimmed) const {
+void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, uint16_t itemCount,
+                         std::optional<uint16_t> selectedIndex, FunctionRef<std::string(int index)> rowTitle,
+                         FunctionRef<std::string(int index)> rowSubtitle, FunctionRef<UIIcon(int index)> rowIcon,
+                         FunctionRef<std::string(int index)> rowValue, bool highlightValue,
+                         FunctionRef<bool(int index)> rowDimmed) const {
   int rowHeight = rowSubtitle ? LyraMetrics::values.listWithSubtitleRowHeight : LyraMetrics::values.listRowHeight;
   int pageItems = rect.height / rowHeight;
 
@@ -216,7 +217,7 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
 
     // Draw scroll bar
     const int scrollBarHeight = (scrollAreaHeight * pageItems) / itemCount;
-    const int currentPage = selectedIndex / pageItems;
+    const int currentPage = selectedIndex.value_or(0) / pageItems;
     const int scrollBarY = rect.y + ((scrollAreaHeight - scrollBarHeight) * currentPage) / (totalPages - 1);
     const int scrollBarX = rect.x + rect.width - LyraMetrics::values.scrollBarRightOffset;
     renderer.drawLine(scrollBarX, rect.y, scrollBarX, rect.y + scrollAreaHeight, true);
@@ -228,9 +229,9 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
   int contentWidth =
       rect.width -
       (totalPages > 1 ? (LyraMetrics::values.scrollBarWidth + LyraMetrics::values.scrollBarRightOffset) : 1);
-  if (selectedIndex >= 0) {
+  if (selectedIndex) {
     renderer.fillRoundedRect(
-        rect.x + LyraMetrics::values.contentSidePadding, rect.y + selectedIndex % pageItems * rowHeight,
+        rect.x + LyraMetrics::values.contentSidePadding, rect.y + *selectedIndex % pageItems * rowHeight,
         contentWidth - LyraMetrics::values.contentSidePadding * 2, rowHeight, cornerRadius, Color::LightGray);
   }
 
@@ -244,7 +245,7 @@ void LyraTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, 
   }
 
   // Draw all items
-  const auto pageStartIndex = selectedIndex / pageItems * pageItems;
+  const auto pageStartIndex = selectedIndex.value_or(0) / pageItems * pageItems;
   int iconY = rowSubtitle ? 16 : 10;
   for (int i = pageStartIndex; i < itemCount && i < pageStartIndex + pageItems; i++) {
     const int itemY = rect.y + (i % pageItems) * rowHeight;
@@ -312,16 +313,16 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
   const GfxRenderer::Orientation orig_orientation = renderer.getOrientation();
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
 
-  const int pageHeight = renderer.getScreenHeight();
-  constexpr int buttonWidth = 80;
-  constexpr int smallButtonHeight = 15;
-  constexpr int buttonHeight = LyraMetrics::values.buttonHintsHeight;
-  constexpr int buttonY = LyraMetrics::values.buttonHintsHeight;  // Distance from bottom
-  constexpr int textYOffset = 7;                                  // Distance from top of button to text baseline
+  const uint16_t pageHeight = renderer.getScreenHeight();
+  constexpr uint8_t buttonWidth = 80;
+  constexpr uint8_t smallButtonHeight = 15;
+  constexpr uint8_t buttonHeight = LyraMetrics::values.buttonHintsHeight;
+  constexpr uint8_t buttonY = LyraMetrics::values.buttonHintsHeight;  // Distance from bottom
+  constexpr uint8_t textYOffset = 7;                                  // Distance from top of button to text baseline
   // X3 has wider screen in portrait (528 vs 480), use more spacing
-  constexpr int x4ButtonPositions[] = {58, 146, 254, 342};
-  constexpr int x3ButtonPositions[] = {65, 157, 291, 383};
-  const int* buttonPositions = halGPIO.deviceIsX3() ? x3ButtonPositions : x4ButtonPositions;
+  constexpr uint16_t x4ButtonPositions[] = {58, 146, 254, 342};
+  constexpr uint16_t x3ButtonPositions[] = {65, 157, 291, 383};
+  const uint16_t* buttonPositions = halGPIO.deviceIsX3() ? x3ButtonPositions : x4ButtonPositions;
   const char* labels[] = {btn1, btn2, btn3, btn4};
 
   for (int i = 0; i < 4; i++) {
@@ -347,10 +348,10 @@ void LyraTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const c
 }
 
 void LyraTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
-  const int screenWidth = renderer.getScreenWidth();
-  constexpr int buttonWidth = LyraMetrics::values.sideButtonHintsWidth;  // Width on screen (height when rotated)
-  constexpr int buttonHeight = 78;                                       // Height on screen (width when rotated)
-  constexpr int buttonMargin = 0;
+  const uint16_t screenWidth = renderer.getScreenWidth();
+  constexpr uint8_t buttonWidth = LyraMetrics::values.sideButtonHintsWidth;  // Width on screen (height when rotated)
+  constexpr uint8_t buttonHeight = 78;                                       // Height on screen (width when rotated)
+  constexpr uint8_t buttonMargin = 0;
 
   if (halGPIO.deviceIsX3()) {
     // X3 layout: Up on left side, Down on right side, positioned higher
@@ -396,7 +397,7 @@ void LyraTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* top
 }
 
 void LyraTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                    const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
+                                    uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
                                     bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
   const int tileWidth = rect.width - 2 * LyraMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
@@ -499,8 +500,8 @@ void LyraTheme::drawEmptyRecents(const GfxRenderer& renderer, const Rect rect) c
   renderer.drawText(UI_10_FONT_ID, rect.x + padding, rect.y + rect.height / 2 + 2, tr(STR_START_READING), true);
 }
 
-void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
-                               FunctionRef<std::string(int index)> buttonLabel,
+void LyraTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, uint16_t buttonCount,
+                               std::optional<uint16_t> selectedIndex, FunctionRef<std::string(int index)> buttonLabel,
                                FunctionRef<UIIcon(int index)> rowIcon) const {
   for (int i = 0; i < buttonCount; ++i) {
     int tileWidth = rect.width - LyraMetrics::values.contentSidePadding * 2;

@@ -25,6 +25,14 @@ class SdCardFont;
 // 0 = transparent, 1-16 = gray levels (white to black)
 enum Color : uint8_t { Clear = 0x00, White = 0x01, LightGray = 0x05, DarkGray = 0x0A, Black = 0x10 };
 
+// Top/right/bottom/left margins in pixels.
+struct ViewableMargins {
+  uint16_t top;
+  uint16_t right;
+  uint16_t bottom;
+  uint16_t left;
+};
+
 class GfxRenderer {
  public:
   enum RenderMode { BW, GRAYSCALE_LSB, GRAYSCALE_MSB };
@@ -92,10 +100,10 @@ class GfxRenderer {
   GfxRenderer(GfxRenderer&&) = delete;
   GfxRenderer& operator=(GfxRenderer&&) = delete;
 
-  static constexpr int VIEWABLE_MARGIN_TOP = 9;
-  static constexpr int VIEWABLE_MARGIN_RIGHT = 3;
-  static constexpr int VIEWABLE_MARGIN_BOTTOM = 3;
-  static constexpr int VIEWABLE_MARGIN_LEFT = 3;
+  static constexpr uint16_t VIEWABLE_MARGIN_TOP = 9;
+  static constexpr uint16_t VIEWABLE_MARGIN_RIGHT = 3;
+  static constexpr uint16_t VIEWABLE_MARGIN_BOTTOM = 3;
+  static constexpr uint16_t VIEWABLE_MARGIN_LEFT = 3;
 
   // Setup
   void begin();  // must be called right after display.begin()
@@ -131,14 +139,14 @@ class GfxRenderer {
   void setFadingFix(const bool enabled) { fadingFix = enabled; }
 
   // Screen ops
-  int getScreenWidth() const;
-  int getScreenHeight() const;
+  uint16_t getScreenWidth() const;
+  uint16_t getScreenHeight() const;
   void displayBuffer(HalDisplay::RefreshMode refreshMode = HalDisplay::FAST_REFRESH) const;
   // EXPERIMENTAL: Windowed update - display only a rectangular region
   // void displayWindow(int x, int y, int width, int height) const;
   void invertScreen() const;
   void clearScreen(uint8_t color = 0xFF) const;
-  void getOrientedViewableTRBL(int* outTop, int* outRight, int* outBottom, int* outLeft) const;
+  ViewableMargins getOrientedViewableMargins() const;
 
   // Tiled grayscale strip target. While active, drawPixel() and clearScreen()
   // operate on `scratch` (panelWidthBytes * stripRows bytes, holding physical

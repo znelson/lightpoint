@@ -662,19 +662,17 @@ void EpubReaderActivity::render(RenderLock&& lock) {
   }
 
   // Apply screen viewable areas and additional padding
-  int orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft;
-  renderer.getOrientedViewableTRBL(&orientedMarginTop, &orientedMarginRight, &orientedMarginBottom,
-                                   &orientedMarginLeft);
-  orientedMarginTop += SETTINGS.screenMargin;
-  orientedMarginLeft += SETTINGS.screenMargin;
-  orientedMarginRight += SETTINGS.screenMargin;
+  auto margins = renderer.getOrientedViewableMargins();
+  margins.top += SETTINGS.screenMargin;
+  margins.left += SETTINGS.screenMargin;
+  margins.right += SETTINGS.screenMargin;
 
   const uint8_t statusBarHeight = UITheme::getInstance().getStatusBarHeight();
 
-  orientedMarginBottom += std::max(SETTINGS.screenMargin, statusBarHeight);
+  margins.bottom += std::max(SETTINGS.screenMargin, statusBarHeight);
 
-  const uint16_t viewportWidth = renderer.getScreenWidth() - orientedMarginLeft - orientedMarginRight;
-  const uint16_t viewportHeight = renderer.getScreenHeight() - orientedMarginTop - orientedMarginBottom;
+  const uint16_t viewportWidth = renderer.getScreenWidth() - margins.left - margins.right;
+  const uint16_t viewportHeight = renderer.getScreenHeight() - margins.top - margins.bottom;
 
   if (!spineItem) {
     if (!prepareSpineItem(viewportWidth, viewportHeight)) {
@@ -788,7 +786,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     currentPageLinks = std::move(p->links);
 
     [[maybe_unused]] const auto start = halPlatform.millis();
-    renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
+    renderContents(std::move(p), margins.top, margins.right, margins.bottom, margins.left);
     LOG_DBG("ERS", "Rendered page in %dms", halPlatform.millis() - start);
   }
   saveProgress(currentSpineIndex, spineItem->currentPage, pageCount);
@@ -824,9 +822,9 @@ bool EpubReaderActivity::saveProgress(uint16_t spineIndex, uint16_t currentPage,
   LOG_DBG("ERS", "Progress saved: spine=%u page=%u", spineIndex, currentPage);
   return true;
 }
-void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
-                                        const int orientedMarginRight, const int orientedMarginBottom,
-                                        const int orientedMarginLeft) {
+void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const uint16_t orientedMarginTop,
+                                        const uint16_t orientedMarginRight, const uint16_t orientedMarginBottom,
+                                        const uint16_t orientedMarginLeft) {
   [[maybe_unused]] const auto t0 = halPlatform.millis();
 
   // Font prewarm: scan pass accumulates text, then prewarm, then real render
@@ -1031,7 +1029,7 @@ bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const ui
     if (spineRange) {
       const uint16_t firstSpine = spineRange->first;
       const uint16_t lastSpine = spineRange->last;
-      const uint16_t totalSpines = static_cast<uint16_t>(lastSpine - firstSpine + 1);
+      const uint16_t totalSpines = lastSpine - firstSpine + 1;
 
       chapterPageInfo.setChapter(*tocIndex, epub->getTocItem(*tocIndex).title);
       chapterPageInfo.segments.clear();

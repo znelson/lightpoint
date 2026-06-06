@@ -112,7 +112,7 @@ void RoundedRaffTheme::drawTabBar(const GfxRenderer& renderer, Rect rect, const 
 }
 
 void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                           const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
+                                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
                                            bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
   const int tileWidth = rect.width - 2 * RoundedRaffMetrics::values.contentSidePadding;
   const int tileHeight = rect.height;
@@ -190,7 +190,8 @@ void RoundedRaffTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
   }
 }
 
-void RoundedRaffTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
+void RoundedRaffTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, uint16_t buttonCount,
+                                      std::optional<uint16_t> selectedIndex,
                                       FunctionRef<std::string(int index)> buttonLabel,
                                       [[maybe_unused]] FunctionRef<UIIcon(int index)> rowIcon) const {
   const int sidePadding = RoundedRaffMetrics::values.contentSidePadding;
@@ -199,8 +200,7 @@ void RoundedRaffTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int butt
   const int rowGap = kSelectableRowGap;
   const int rowStep = rowHeight + rowGap;
   const int pageItems = std::max(1, rect.height / rowStep);
-  const int safeSelectedIndex = std::max(0, selectedIndex);
-  const int pageStartIndex = (safeSelectedIndex / pageItems) * pageItems;
+  const int pageStartIndex = (selectedIndex.value_or(0) / pageItems) * pageItems;
   const int menuTop = rect.y;
   const int textLineHeight = renderer.getLineHeight(kTitleFontId);
   const int menuMaxWidth = std::max(0, rect.width - sidePadding * 2);
@@ -299,8 +299,8 @@ void RoundedRaffTheme::drawKeyboardKey(const GfxRenderer& renderer, Rect rect, c
   }
 }
 
-void RoundedRaffTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
-                                FunctionRef<std::string(int index)> rowTitle,
+void RoundedRaffTheme::drawList(const GfxRenderer& renderer, Rect rect, uint16_t itemCount,
+                                std::optional<uint16_t> selectedIndex, FunctionRef<std::string(int index)> rowTitle,
                                 FunctionRef<std::string(int index)> rowSubtitle,
                                 [[maybe_unused]] FunctionRef<UIIcon(int index)> rowIcon,
                                 FunctionRef<std::string(int index)> rowValue, [[maybe_unused]] bool highlightValue,
@@ -316,7 +316,7 @@ void RoundedRaffTheme::drawList(const GfxRenderer& renderer, Rect rect, int item
   const int rowHeight = hasSubtitle ? subtitleRowHeight : RoundedRaffMetrics::values.listRowHeight;
   const int rowStep = rowHeight + kSelectableRowGap;
   const int pageItems = std::max(1, rect.height / rowStep);
-  const int pageStartIndex = std::max(0, selectedIndex / pageItems) * pageItems;
+  const int pageStartIndex = (selectedIndex.value_or(0) / pageItems) * pageItems;
 
   const int sidePadding = RoundedRaffMetrics::values.contentSidePadding;
   const int rowX = rect.x + sidePadding;
@@ -381,11 +381,11 @@ void RoundedRaffTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, 
   const GfxRenderer::Orientation origOrientation = renderer.getOrientation();
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
 
-  const int pageWidth = renderer.getScreenWidth();
-  const int pageHeight = renderer.getScreenHeight();
-  const int sidePadding = 20;
-  const int groupGap = 10;
-  const int bottomMargin = 10;
+  const uint16_t pageWidth = renderer.getScreenWidth();
+  const uint16_t pageHeight = renderer.getScreenHeight();
+  constexpr uint8_t sidePadding = 20;
+  constexpr uint8_t groupGap = 10;
+  constexpr uint8_t bottomMargin = 10;
   const int hintHeight = RoundedRaffMetrics::values.buttonHintsHeight - 10;  // 30px total guide height
   const int groupWidth = (pageWidth - sidePadding * 2 - groupGap) / 2;
   const int hintY = pageHeight - hintHeight - bottomMargin;

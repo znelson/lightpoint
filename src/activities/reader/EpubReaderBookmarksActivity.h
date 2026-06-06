@@ -51,8 +51,8 @@ class EpubReaderBookmarksActivity final : public Activity {
   ButtonNavigator buttonNavigator;
   BookmarkStore store;
   uint16_t totalCount = 0;
-  int selectorIndex = 0;
-  int confirmingDelete = 0;  // 0 = hide dialog, 1 = show dialog, 2 = allow confirmation to delete
+  uint16_t selectorIndex = 0;
+  uint8_t confirmingDelete = 0;  // 0 = hide dialog, 1 = show dialog, 2 = allow confirmation to delete
 
   // Sliding window: window[i] holds the entry at logical index windowStart+i
   // for i in [0, windowCount). EntryView::valid is false for unfilled slots
@@ -67,12 +67,12 @@ class EpubReaderBookmarksActivity final : public Activity {
   void reloadWindow();
 
   // True if logical index is within the current window range.
-  bool inWindow(int logicalIndex) const;
+  bool inWindow(uint16_t logicalIndex) const;
 
   // Pointer to the resolved view for a logical index, or nullptr if it's
   // outside the window. drawList only requests visible rows, so this is
   // always non-null in practice for the rows we care about.
-  const EntryView* viewForIndex(int logicalIndex) const;
+  const EntryView* viewForIndex(uint16_t logicalIndex) const;
 
   // Resolve display fields for a raw bookmark entry by reading the spine's
   // section cache. Best-effort: if the cache is missing or stale, the

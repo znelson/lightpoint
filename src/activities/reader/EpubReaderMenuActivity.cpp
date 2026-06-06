@@ -45,12 +45,12 @@ void EpubReaderMenuActivity::onExit() { Activity::onExit(); }
 void EpubReaderMenuActivity::loop() {
   // Handle navigation
   buttonNavigator.onNext([this] {
-    selectedIndex = ButtonNavigator::nextIndex(selectedIndex, static_cast<int>(menuItems.size()));
+    selectedIndex = ButtonNavigator::nextIndex(selectedIndex, menuItems.size());
     requestUpdate();
   });
 
   buttonNavigator.onPrevious([this] {
-    selectedIndex = ButtonNavigator::previousIndex(selectedIndex, static_cast<int>(menuItems.size()));
+    selectedIndex = ButtonNavigator::previousIndex(selectedIndex, menuItems.size());
     requestUpdate();
   });
 

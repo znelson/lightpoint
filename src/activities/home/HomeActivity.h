@@ -10,7 +10,7 @@ struct RecentBook;
 
 class HomeActivity final : public Activity {
   ButtonNavigator buttonNavigator;
-  int selectorIndex = 0;
+  uint16_t selectorIndex = 0;
   bool recentsLoading = false;
   bool recentsLoaded = false;
   bool firstRenderDone = false;
@@ -33,7 +33,7 @@ class HomeActivity final : public Activity {
   void onRecentsOpen();
   void onSettingsOpen();
 
-  int getMenuItemCount() const;
+  uint16_t getMenuItemCount() const;
   bool storeCoverBuffer();    // Store frame buffer for cover image
   bool restoreCoverBuffer();  // Restore frame buffer from stored cover
   void freeCoverBuffer();     // Free the stored cover buffer

@@ -25,7 +25,7 @@ void FontSelectionActivity::onEnter() {
 
   if (registry_) {
     const auto& families = registry_->getFamilies();
-    for (int i = 0; i < static_cast<int>(families.size()); i++) {
+    for (size_t i = 0; i < families.size(); i++) {
       fonts_.push_back({families[i].name, false, static_cast<uint8_t>(CrossPointSettings::BUILTIN_FONT_COUNT + i)});
     }
   }
@@ -34,7 +34,7 @@ void FontSelectionActivity::onEnter() {
   selectedIndex_ = 0;
   if (SETTINGS.sdFontFamilyName[0] != '\0' && registry_) {
     const auto& families = registry_->getFamilies();
-    for (int i = 0; i < static_cast<int>(families.size()); i++) {
+    for (size_t i = 0; i < families.size(); i++) {
       if (families[i].name == SETTINGS.sdFontFamilyName) {
         selectedIndex_ = CrossPointSettings::BUILTIN_FONT_COUNT + i;
         break;
@@ -60,8 +60,8 @@ void FontSelectionActivity::loop() {
     return;
   }
 
-  const int listSize = static_cast<int>(fonts_.size());
-  const int pageItems = UITheme::getNumberOfItemsPerPage(renderer, true, false, true, false);
+  const uint16_t listSize = fonts_.size();
+  const uint16_t pageItems = UITheme::getNumberOfItemsPerPage(renderer, true, false, true, false);
 
   buttonNavigator_.onNextRelease([this, listSize] {
     selectedIndex_ = ButtonNavigator::nextIndex(selectedIndex_, listSize);
@@ -113,10 +113,10 @@ void FontSelectionActivity::render(RenderLock&&) {
   const int contentHeight = pageHeight - contentTop - metrics.buttonHintsHeight - metrics.verticalSpacing;
 
   // Determine which font index is currently active (to mark as "Selected")
-  int currentFontIndex = 0;
+  uint16_t currentFontIndex = 0;
   if (SETTINGS.sdFontFamilyName[0] != '\0' && registry_) {
     const auto& families = registry_->getFamilies();
-    for (int i = 0; i < static_cast<int>(families.size()); i++) {
+    for (size_t i = 0; i < families.size(); i++) {
       if (families[i].name == SETTINGS.sdFontFamilyName) {
         currentFontIndex = CrossPointSettings::BUILTIN_FONT_COUNT + i;
         break;
@@ -127,7 +127,7 @@ void FontSelectionActivity::render(RenderLock&&) {
   }
 
   GUI.drawList(
-      renderer, Rect{0, contentTop, pageWidth, contentHeight}, static_cast<int>(fonts_.size()), selectedIndex_,
+      renderer, Rect{0, contentTop, pageWidth, contentHeight}, fonts_.size(), selectedIndex_,
       [this](int index) { return fonts_[index].name; }, nullptr, nullptr,
       [this, currentFontIndex](int index) -> std::string { return index == currentFontIndex ? tr(STR_SELECTED) : ""; },
       true);

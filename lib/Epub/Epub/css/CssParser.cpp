@@ -685,13 +685,13 @@ bool CssParser::saveToCache() const {
   file.write(CssParser::CSS_CACHE_VERSION);
 
   // Write rule count
-  const auto ruleCount = static_cast<uint16_t>(rulesBySelector_.size());
+  const uint16_t ruleCount = rulesBySelector_.size();
   file.write(reinterpret_cast<const uint8_t*>(&ruleCount), sizeof(ruleCount));
 
   // Write each rule: selector string + CssStyle fields
   for (const auto& pair : rulesBySelector_) {
     // Write selector string (length-prefixed)
-    const auto selectorLen = static_cast<uint16_t>(pair.first.size());
+    const uint16_t selectorLen = pair.first.size();
     file.write(reinterpret_cast<const uint8_t*>(&selectorLen), sizeof(selectorLen));
     file.write(reinterpret_cast<const uint8_t*>(pair.first.data()), selectorLen);
 

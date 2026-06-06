@@ -10,10 +10,10 @@ class XtcReaderChapterSelectionActivity final : public Activity {
   std::shared_ptr<Xtc> xtc;
   ButtonNavigator buttonNavigator;
   uint32_t currentPage = 0;
-  int selectorIndex = 0;
+  uint16_t selectorIndex = 0;
 
-  int getPageItems() const;
-  int findChapterIndexForPage(uint32_t page) const;
+  uint16_t getPageItems() const;
+  uint16_t findChapterIndexForPage(uint32_t page) const;
 
  public:
   explicit XtcReaderChapterSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
