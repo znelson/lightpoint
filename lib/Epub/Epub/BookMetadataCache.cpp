@@ -309,10 +309,10 @@ uint32_t BookMetadataCache::writeSpineEntry(HalFile& file, const SpineEntry& ent
   const uint32_t pos = file.position();
   serialization::writeString(file, entry.href);
   serialization::writePod(file, entry.cumulativeSize);
-  // On-disk format (book.bin v5) stores int16_t with -1 as "no TOC". Translate
-  // from std::optional<uint16_t> at the boundary so the disk format stays put.
-  const int16_t tocIdxOnDisk = entry.tocIndex ? static_cast<int16_t>(*entry.tocIndex) : int16_t{-1};
-  serialization::writePod(file, tocIdxOnDisk);
+  // tocIndex is std::optional<uint16_t>; serialization::writePod's optional
+  // overload encodes nullopt as UINT16_MAX. Bit-pattern compatible with the
+  // prior int16_t-with-(-1) encoding for values [0, INT16_MAX].
+  serialization::writePod(file, entry.tocIndex);
   return pos;
 }
 
@@ -322,9 +322,8 @@ uint32_t BookMetadataCache::writeTocEntry(HalFile& file, const TocEntry& entry) 
   serialization::writeString(file, entry.href);
   serialization::writeString(file, entry.anchor);
   serialization::writePod(file, entry.level);
-  // See writeSpineEntry: int16_t on disk, -1 = nullopt.
-  const int16_t spineIdxOnDisk = entry.spineIndex ? static_cast<int16_t>(*entry.spineIndex) : int16_t{-1};
-  serialization::writePod(file, spineIdxOnDisk);
+  // See writeSpineEntry: optional<uint16_t> with UINT16_MAX as nullopt.
+  serialization::writePod(file, entry.spineIndex);
   return pos;
 }
 
@@ -460,10 +459,10 @@ BookMetadataCache::SpineEntry BookMetadataCache::readSpineEntry(HalFile& file) c
   SpineEntry entry;
   serialization::readString(file, entry.href);
   serialization::readPod(file, entry.cumulativeSize);
-  // book.bin v5 disk format: int16_t with -1 sentinel for "no TOC".
-  int16_t tocIdxOnDisk;
-  serialization::readPod(file, tocIdxOnDisk);
-  if (tocIdxOnDisk >= 0) entry.tocIndex = static_cast<uint16_t>(tocIdxOnDisk);
+  // tocIndex on disk: uint16_t with UINT16_MAX as the nullopt sentinel.
+  // Bit-pattern compatible with the prior int16_t encoding (0xFFFF == -1 ==
+  // UINT16_MAX) for the value range actually written by older firmware.
+  serialization::readPod(file, entry.tocIndex);
   return entry;
 }
 
@@ -473,19 +472,17 @@ BookMetadataCache::TocEntry BookMetadataCache::readTocEntry(HalFile& file) const
   serialization::readString(file, entry.href);
   serialization::readString(file, entry.anchor);
   serialization::readPod(file, entry.level);
-  // See readSpineEntry: int16_t on disk, -1 = nullopt.
-  int16_t spineIdxOnDisk;
-  serialization::readPod(file, spineIdxOnDisk);
-  if (spineIdxOnDisk >= 0) entry.spineIndex = static_cast<uint16_t>(spineIdxOnDisk);
+  // See readSpineEntry: uint16_t with UINT16_MAX as nullopt.
+  serialization::readPod(file, entry.spineIndex);
   return entry;
 }
 
 void BookMetadataCache::skipSpineEntry(HalFile& file) const {
   uint32_t len;
   serialization::readPod(file, len);
-  // tocIndex is stored on disk as int16_t (see writeSpineEntry), not as the
+  // tocIndex on disk is a plain uint16_t (see writeSpineEntry), not the
   // in-memory std::optional<uint16_t>.
-  file.seek(file.position() + len + sizeof(SpineEntry::cumulativeSize) + sizeof(int16_t));
+  file.seek(file.position() + len + sizeof(SpineEntry::cumulativeSize) + sizeof(uint16_t));
 }
 
 void BookMetadataCache::skipTocEntry(HalFile& file) const {
@@ -495,6 +492,6 @@ void BookMetadataCache::skipTocEntry(HalFile& file) const {
     serialization::readPod(file, len);
     file.seek(file.position() + len);
   }
-  // spineIndex is stored on disk as int16_t (see writeTocEntry).
-  file.seek(file.position() + sizeof(TocEntry::level) + sizeof(int16_t));
+  // spineIndex on disk is a plain uint16_t (see writeTocEntry).
+  file.seek(file.position() + sizeof(TocEntry::level) + sizeof(uint16_t));
 }
