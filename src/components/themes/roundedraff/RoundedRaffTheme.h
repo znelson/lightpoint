@@ -76,7 +76,7 @@ class RoundedRaffTheme : public BaseTheme {
   void drawTabBar(const GfxRenderer& renderer, Rect rect, const std::vector<TabInfo>& tabs,
                   bool selected) const override;
   void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
+                           uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
                            FunctionRef<bool()> storeCoverBuffer) const override;
   void drawButtonMenu(GfxRenderer& renderer, Rect rect, uint16_t buttonCount, std::optional<uint16_t> selectedIndex,
                       FunctionRef<std::string(int index)> buttonLabel,

@@ -19,8 +19,9 @@ constexpr int cornerRadius = 6;
 }  // namespace
 
 void Lyra3CoversTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                           bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
+                                           uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
+                                           FunctionRef<bool()> storeCoverBuffer) const {
+  bool coverRendered = hasCachedCover;
   const int tileWidth = (rect.width - 2 * Lyra3CoversMetrics::values.contentSidePadding) / 3;
   const int tileY = rect.y;
   const bool hasContinueReading = !recentBooks.empty();
@@ -76,8 +77,8 @@ void Lyra3CoversTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
         }
       }
 
-      coverBufferStored = storeCoverBuffer();
-      coverRendered = coverBufferStored;  // Only consider it rendered if we successfully stored the buffer
+      // Only consider it rendered if the store succeeded.
+      coverRendered = storeCoverBuffer();
     }
 
     for (size_t i = 0; i < std::min<size_t>(recentBooks.size(), Lyra3CoversMetrics::values.homeRecentBooksCount); i++) {

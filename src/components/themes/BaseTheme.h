@@ -1,6 +1,7 @@
 #pragma once
 
 #include <FunctionRef.h>
+#include <Rect.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -10,15 +11,6 @@
 
 class GfxRenderer;
 struct RecentBook;
-
-struct Rect {
-  int x;
-  int y;
-  int width;
-  int height;
-
-  explicit Rect(int x = 0, int y = 0, int width = 0, int height = 0) : x(x), y(y), width(width), height(height) {}
-};
 
 struct TabInfo {
   const char* label;
@@ -198,8 +190,8 @@ class BaseTheme {
   virtual void drawTabBar(const GfxRenderer& renderer, Rect rect, const std::vector<TabInfo>& tabs,
                           bool selected) const;
   virtual void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                   uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                   bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const;
+                                   uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
+                                   FunctionRef<bool()> storeCoverBuffer) const;
   virtual void drawButtonMenu(GfxRenderer& renderer, Rect rect, uint16_t buttonCount,
                               std::optional<uint16_t> selectedIndex, FunctionRef<std::string(int index)> buttonLabel,
                               FunctionRef<UIIcon(int index)> rowIcon) const;

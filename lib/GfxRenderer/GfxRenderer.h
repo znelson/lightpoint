@@ -2,6 +2,7 @@
 
 #include <EpdFontFamily.h>
 #include <HalDisplay.h>
+#include <Rect.h>
 
 namespace BidiUtils {
 // Paragraph base direction for the Unicode BiDi algorithm (UAX#9).
@@ -261,8 +262,7 @@ class GfxRenderer {
   //
   // getRegionByteSize: required buffer length for the rect at current orientation.
   // copyRegionToBuffer / copyBufferToRegion: false if `bufSize` is smaller than that.
-  size_t getRegionByteSize(int logicalX, int logicalY, int logicalW, int logicalH) const;
-  bool copyRegionToBuffer(int logicalX, int logicalY, int logicalW, int logicalH, uint8_t* buf, size_t bufSize) const;
-  bool copyBufferToRegion(int logicalX, int logicalY, int logicalW, int logicalH, const uint8_t* buf,
-                          size_t bufSize) const;
+  size_t getRegionByteSize(Rect rect) const;
+  bool copyRegionToBuffer(Rect rect, uint8_t* buf, size_t bufSize) const;
+  bool copyBufferToRegion(Rect rect, const uint8_t* buf, size_t bufSize) const;
 };

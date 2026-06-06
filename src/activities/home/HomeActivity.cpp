@@ -6,6 +6,7 @@
 #include <GfxRenderer.h>
 #include <HalStorage.h>
 #include <I18n.h>
+#include <Memory.h>
 #include <Utf8.h>
 #include <Xtc.h>
 
@@ -74,7 +75,7 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
             RECENT_BOOKS.updateBook(book.path, book.title, book.author, "");
             book.coverBmpPath = "";
           }
-          coverRendered = false;
+          coverBuffer.reset();
           requestUpdate();
         } else if (FsHelpers::hasXtcExtension(book.path)) {
           // Handle XTC file
@@ -91,7 +92,7 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
               RECENT_BOOKS.updateBook(book.path, book.title, book.author, "");
               book.coverBmpPath = "";
             }
-            coverRendered = false;
+            coverBuffer.reset();
             requestUpdate();
           }
         }
@@ -123,47 +124,26 @@ void HomeActivity::onEnter() {
   requestUpdate();
 }
 
-void HomeActivity::onExit() {
-  Activity::onExit();
-
-  // Free the stored cover buffer if any
-  freeCoverBuffer();
-}
-
-bool HomeActivity::storeCoverBuffer() {
-  // render() must have already set the cover rect; without it we'd be back to
-  // cloning the whole framebuffer.
-  if (coverRectW <= 0 || coverRectH <= 0) return false;
-  freeCoverBuffer();
-  const size_t needed = renderer.getRegionByteSize(coverRectX, coverRectY, coverRectW, coverRectH);
+bool HomeActivity::storeCoverBuffer(Rect rect) {
+  if (rect.width <= 0 || rect.height <= 0) return false;
+  const size_t needed = renderer.getRegionByteSize(rect);
   if (needed == 0) return false;
-  coverBuffer = static_cast<uint8_t*>(malloc(needed));
+  coverBuffer = makeUniqueNoThrow<uint8_t[]>(needed);
   if (!coverBuffer) {
     LOG_ERR("HOME", "OOM: cover buffer (%u bytes)", (unsigned)needed);
     return false;
   }
-  coverBufferSize = needed;
-  if (!renderer.copyRegionToBuffer(coverRectX, coverRectY, coverRectW, coverRectH, coverBuffer, coverBufferSize)) {
-    free(coverBuffer);
-    coverBuffer = nullptr;
-    coverBufferSize = 0;
+  if (!renderer.copyRegionToBuffer(rect, coverBuffer.get(), needed)) {
+    coverBuffer.reset();
     return false;
   }
   return true;
 }
 
-bool HomeActivity::restoreCoverBuffer() {
-  if (!coverBuffer || coverRectW <= 0 || coverRectH <= 0) return false;
-  return renderer.copyBufferToRegion(coverRectX, coverRectY, coverRectW, coverRectH, coverBuffer, coverBufferSize);
-}
-
-void HomeActivity::freeCoverBuffer() {
-  if (coverBuffer) {
-    free(coverBuffer);
-    coverBuffer = nullptr;
-  }
-  coverBufferSize = 0;
-  coverBufferStored = false;
+bool HomeActivity::restoreCoverBuffer(Rect rect) {
+  if (!coverBuffer || rect.width <= 0 || rect.height <= 0) return false;
+  const size_t needed = renderer.getRegionByteSize(rect);
+  return renderer.copyBufferToRegion(rect, coverBuffer.get(), needed);
 }
 
 void HomeActivity::loop() {
@@ -204,22 +184,17 @@ void HomeActivity::render(RenderLock&&) {
   const auto pageHeight = renderer.getScreenHeight();
 
   renderer.clearScreen();
-  bool bufferRestored = coverBufferStored && restoreCoverBuffer();
+
+  // The cover tile is a sub-region of the framebuffer (~16 KB in Portrait, vs the full 48 KB).
+  // Snapshotting just this region avoids a full-framebuffer clone on every navigation.
+  const Rect coverTileRect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight};
+  const bool bufferRestored = restoreCoverBuffer(coverTileRect);
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding},
                  metrics.homeContinueReadingInMenu && !recentBooks.empty() ? recentBooks[0].title.c_str() : nullptr);
 
-  // Record the tile rect so storeCoverBuffer (called from the theme) knows
-  // which sub-region of the framebuffer to snapshot. ~16 KB in Portrait
-  // instead of the 48 KB full framebuffer the previous bind captured.
-  coverRectX = 0;
-  coverRectY = metrics.homeTopPadding;
-  coverRectW = pageWidth;
-  coverRectH = metrics.homeCoverTileHeight;
-
-  GUI.drawRecentBookCover(renderer, Rect{0, metrics.homeTopPadding, pageWidth, metrics.homeCoverTileHeight},
-                          recentBooks, selectorIndex, coverRendered, coverBufferStored, bufferRestored,
-                          std::bind(&HomeActivity::storeCoverBuffer, this));
+  GUI.drawRecentBookCover(renderer, coverTileRect, recentBooks, selectorIndex, static_cast<bool>(coverBuffer),
+                          bufferRestored, [this, coverTileRect] { return storeCoverBuffer(coverTileRect); });
 
   // Build menu items dynamically
   std::vector<const char*> menuItems = {tr(STR_BROWSE_FILES), tr(STR_MENU_RECENT_BOOKS), tr(STR_SETTINGS_TITLE)};
