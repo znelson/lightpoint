@@ -19,8 +19,8 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
-int HomeActivity::getMenuItemCount() const {
-  int count = 3;  // File Browser, Recents, Settings
+uint16_t HomeActivity::getMenuItemCount() const {
+  uint16_t count = 3;  // File Browser, Recents, Settings
   if (!recentBooks.empty()) {
     count += recentBooks.size();
   }
@@ -167,7 +167,7 @@ void HomeActivity::freeCoverBuffer() {
 }
 
 void HomeActivity::loop() {
-  const int menuCount = getMenuItemCount();
+  const uint16_t menuCount = getMenuItemCount();
 
   buttonNavigator.onNext([this, menuCount] {
     selectorIndex = ButtonNavigator::nextIndex(selectorIndex, menuCount);
@@ -231,14 +231,20 @@ void HomeActivity::render(RenderLock&&) {
     menuIcons.insert(menuIcons.begin(), Book);
   }
 
+  // selectorIndex is the global focus index. The menu's items live at
+  // [menuOffset, menuOffset + menuItems.size()); selectorIndex values below
+  // menuOffset are recent-book cards drawn separately, so map those to "no
+  // selection" in the menu.
+  const uint16_t menuOffset = metrics.homeContinueReadingInMenu ? 0 : recentBooks.size();
+  const std::optional<uint16_t> menuSelected =
+      (selectorIndex >= menuOffset) ? std::optional<uint16_t>(selectorIndex - menuOffset) : std::nullopt;
+
   GUI.drawButtonMenu(
       renderer,
       Rect{0, metrics.homeTopPadding + metrics.homeCoverTileHeight + metrics.homeMenuTopOffset, pageWidth,
            pageHeight - (metrics.headerHeight + metrics.homeTopPadding + metrics.verticalSpacing +
                          metrics.homeMenuTopOffset + metrics.buttonHintsHeight)},
-      static_cast<int>(menuItems.size()),
-      metrics.homeContinueReadingInMenu ? selectorIndex : selectorIndex - recentBooks.size(),
-      [&menuItems](int index) { return std::string(menuItems[index]); },
+      menuItems.size(), menuSelected, [&menuItems](int index) { return std::string(menuItems[index]); },
       [&menuIcons](int index) { return menuIcons[index]; });
 
   const auto labels = mappedInput.mapLabels("", tr(STR_SELECT), tr(STR_DIR_UP), tr(STR_DIR_DOWN));

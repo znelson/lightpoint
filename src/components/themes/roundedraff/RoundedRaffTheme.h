@@ -76,9 +76,9 @@ class RoundedRaffTheme : public BaseTheme {
   void drawTabBar(const GfxRenderer& renderer, Rect rect, const std::vector<TabInfo>& tabs,
                   bool selected) const override;
   void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                           int selectorIndex, bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
+                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
                            FunctionRef<bool()> storeCoverBuffer) const override;
-  void drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
+  void drawButtonMenu(GfxRenderer& renderer, Rect rect, uint16_t buttonCount, std::optional<uint16_t> selectedIndex,
                       FunctionRef<std::string(int index)> buttonLabel,
                       FunctionRef<UIIcon(int index)> rowIcon) const override;
   void drawTextField(const GfxRenderer& renderer, Rect rect, int textWidth, bool cursorMode = false,
@@ -86,7 +86,7 @@ class RoundedRaffTheme : public BaseTheme {
   void drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label, bool isSelected,
                        const char* secondaryLabel = nullptr, KeyboardKeyType keyType = KeyboardKeyType::Normal,
                        bool inactiveSelection = false) const override;
-  void drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
+  void drawList(const GfxRenderer& renderer, Rect rect, uint16_t itemCount, std::optional<uint16_t> selectedIndex,
                 FunctionRef<std::string(int index)> rowTitle, FunctionRef<std::string(int index)> rowSubtitle = nullptr,
                 FunctionRef<UIIcon(int index)> rowIcon = nullptr,
                 FunctionRef<std::string(int index)> rowValue = nullptr, bool highlightValue = false,

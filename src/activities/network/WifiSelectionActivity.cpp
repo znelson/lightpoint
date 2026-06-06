@@ -154,8 +154,8 @@ void WifiSelectionActivity::processWifiScanResults() {
   requestUpdate();
 }
 
-void WifiSelectionActivity::selectNetwork(const int index) {
-  if (index < 0 || index >= static_cast<int>(networks.size())) {
+void WifiSelectionActivity::selectNetwork(const uint16_t index) {
+  if (index >= networks.size()) {
     return;
   }
 

@@ -13,7 +13,7 @@ class RecentBooksActivity final : public Activity {
  private:
   ButtonNavigator buttonNavigator;
 
-  size_t selectorIndex = 0;
+  uint16_t selectorIndex = 0;
 
   // Set when a long-press has fired; input is swallowed until Confirm is released
   // again so the release doesn't also open the book.

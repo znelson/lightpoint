@@ -43,9 +43,9 @@ class KeyboardEntryActivity : public Activity {
 
   ButtonNavigator buttonNavigator;
 
-  int selectedRow = 0;
-  int selectedCol = 0;
-  int shiftState = 0;
+  uint8_t selectedRow = 0;
+  uint8_t selectedCol = 0;
+  uint8_t shiftState = 0;
   bool symMode = false;
   bool confirmHeld = false;
   bool confirmLongHandled = false;
@@ -222,5 +222,5 @@ class KeyboardEntryActivity : public Activity {
   bool handleKeyPress();
   bool insertChar(char c);
   void insertString(const std::string& str);
-  void mapColContentBottom(int& col, bool goingUp) const;
+  void mapColContentBottom(uint8_t& col, bool goingUp) const;
 };

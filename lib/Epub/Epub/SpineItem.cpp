@@ -116,7 +116,7 @@ bool SpineItem::createCacheFile(const int fontId, const float lineCompression, c
       }
     }
   }
-  const uint16_t tocUnresolvedCount = static_cast<uint16_t>(tocAnchors.size());
+  const uint16_t tocUnresolvedCount = tocAnchors.size();
 
   // Named local so the lambda outlives `visitor` -- ChapterHtmlSlimParser
   // stores a FunctionRef pointing at this closure, so it must live in this

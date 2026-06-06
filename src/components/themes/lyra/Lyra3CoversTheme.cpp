@@ -19,7 +19,7 @@ constexpr int cornerRadius = 6;
 }  // namespace
 
 void Lyra3CoversTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                           const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
+                                           uint16_t selectorIndex, bool& coverRendered, bool& coverBufferStored,
                                            bool& bufferRestored, FunctionRef<bool()> storeCoverBuffer) const {
   const int tileWidth = (rect.width - 2 * Lyra3CoversMetrics::values.contentSidePadding) / 3;
   const int tileY = rect.y;
@@ -30,8 +30,8 @@ void Lyra3CoversTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
   // Only load from SD on first render, then use stored buffer
   if (hasContinueReading) {
     if (!coverRendered) {
-      for (int i = 0;
-           i < std::min(static_cast<int>(recentBooks.size()), Lyra3CoversMetrics::values.homeRecentBooksCount); i++) {
+      for (size_t i = 0; i < std::min<size_t>(recentBooks.size(), Lyra3CoversMetrics::values.homeRecentBooksCount);
+           i++) {
         std::string coverPath = recentBooks[i].coverBmpPath;
         bool hasCover = true;
         int tileX = Lyra3CoversMetrics::values.contentSidePadding + tileWidth * i;
@@ -80,8 +80,7 @@ void Lyra3CoversTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, con
       coverRendered = coverBufferStored;  // Only consider it rendered if we successfully stored the buffer
     }
 
-    for (int i = 0; i < std::min(static_cast<int>(recentBooks.size()), Lyra3CoversMetrics::values.homeRecentBooksCount);
-         i++) {
+    for (size_t i = 0; i < std::min<size_t>(recentBooks.size(), Lyra3CoversMetrics::values.homeRecentBooksCount); i++) {
       bool bookSelected = (selectorIndex == i);
 
       int tileX = Lyra3CoversMetrics::values.contentSidePadding + tileWidth * i;

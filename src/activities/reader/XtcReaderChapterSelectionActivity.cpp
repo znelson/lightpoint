@@ -9,7 +9,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
-int XtcReaderChapterSelectionActivity::getPageItems() const {
+uint16_t XtcReaderChapterSelectionActivity::getPageItems() const {
   constexpr int lineHeight = 30;
 
   const int screenHeight = renderer.getScreenHeight();
@@ -24,7 +24,7 @@ int XtcReaderChapterSelectionActivity::getPageItems() const {
   return std::max(1, availableHeight / lineHeight);
 }
 
-int XtcReaderChapterSelectionActivity::findChapterIndexForPage(uint32_t page) const {
+uint16_t XtcReaderChapterSelectionActivity::findChapterIndexForPage(uint32_t page) const {
   if (!xtc) {
     return 0;
   }
@@ -32,7 +32,7 @@ int XtcReaderChapterSelectionActivity::findChapterIndexForPage(uint32_t page) co
   const auto& chapters = xtc->getChapters();
   for (size_t i = 0; i < chapters.size(); i++) {
     if (page >= chapters[i].startPage && page <= chapters[i].endPage) {
-      return static_cast<int>(i);
+      return i;
     }
   }
   return 0;
@@ -53,12 +53,12 @@ void XtcReaderChapterSelectionActivity::onEnter() {
 void XtcReaderChapterSelectionActivity::onExit() { Activity::onExit(); }
 
 void XtcReaderChapterSelectionActivity::loop() {
-  const int pageItems = getPageItems();
-  const int totalItems = static_cast<int>(xtc->getChapters().size());
+  const uint16_t pageItems = getPageItems();
+  const uint16_t totalItems = xtc->getChapters().size();
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     const auto& chapters = xtc->getChapters();
-    if (!chapters.empty() && selectorIndex >= 0 && selectorIndex < static_cast<int>(chapters.size())) {
+    if (!chapters.empty() && selectorIndex < chapters.size()) {
       setResult(PageResult{chapters[selectorIndex].startPage});
       finish();
     }
@@ -106,7 +106,7 @@ void XtcReaderChapterSelectionActivity::render(RenderLock&&) {
   const int contentWidth = pageWidth - hintGutterWidth;
   const int hintGutterHeight = isPortraitInverted ? 50 : 0;
   const int contentY = hintGutterHeight;
-  const int pageItems = getPageItems();
+  const uint16_t pageItems = getPageItems();
   // Manual centering to honor content gutters.
   const int titleX =
       contentX + (contentWidth - renderer.getTextWidth(UI_12_FONT_ID, tr(STR_SELECT_CHAPTER), EpdFontFamily::BOLD)) / 2;
@@ -121,10 +121,10 @@ void XtcReaderChapterSelectionActivity::render(RenderLock&&) {
     return;
   }
 
-  const auto pageStartIndex = selectorIndex / pageItems * pageItems;
+  const uint16_t pageStartIndex = selectorIndex / pageItems * pageItems;
   // Highlight only the content area, not the hint gutters.
   renderer.fillRect(contentX, 60 + contentY + (selectorIndex % pageItems) * 30 - 2, contentWidth - 1, 30);
-  for (int i = pageStartIndex; i < static_cast<int>(chapters.size()) && i < pageStartIndex + pageItems; i++) {
+  for (size_t i = pageStartIndex; i < chapters.size() && i < pageStartIndex + pageItems; i++) {
     const auto& chapter = chapters[i];
     const char* title = chapter.name.empty() ? tr(STR_UNNAMED) : chapter.name.c_str();
     renderer.drawText(UI_10_FONT_ID, contentX + 20, 60 + contentY + (i % pageItems) * 30, title, i != selectorIndex);

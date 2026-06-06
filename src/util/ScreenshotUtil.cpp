@@ -89,12 +89,11 @@ void ScreenshotUtil::takeScreenshot(GfxRenderer& renderer) {
 
   // Display a border around the screen to indicate a screenshot was taken
   if (renderer.storeBwBuffer()) {
-    int marginTop, marginRight, marginBottom, marginLeft;
-    renderer.getOrientedViewableTRBL(&marginTop, &marginRight, &marginBottom, &marginLeft);
-    int width = renderer.getScreenWidth() - marginLeft - marginRight - 1;
-    int height = renderer.getScreenHeight() - marginTop - marginBottom - 1;
+    const auto margins = renderer.getOrientedViewableMargins();
+    int width = renderer.getScreenWidth() - margins.left - margins.right - 1;
+    int height = renderer.getScreenHeight() - margins.top - margins.bottom - 1;
     // Add extra margin to the border to make it more visible
-    renderer.drawRect(marginLeft + 1, marginTop + 1, width - 2, height - 2, 2, true);
+    renderer.drawRect(margins.left + 1, margins.top + 1, width - 2, height - 2, 2, true);
     renderer.displayBuffer();
     halPlatform.delay(1000);
     renderer.restoreBwBuffer();

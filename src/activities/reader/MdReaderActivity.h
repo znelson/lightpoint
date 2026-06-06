@@ -34,10 +34,7 @@ class MdReaderActivity final : public Activity {
   Section cache;
 
   int cachedFontId = 0;
-  int cachedOrientedMarginTop = 0;
-  int cachedOrientedMarginRight = 0;
-  int cachedOrientedMarginBottom = 0;
-  int cachedOrientedMarginLeft = 0;
+  ViewableMargins cachedMargins = {0, 0, 0, 0};
 
   // Interactive link targets for the currently-rendered page. Populated
   // from page->links after each loadPage; consumed by the Confirm-button

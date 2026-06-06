@@ -30,5 +30,5 @@ class FontSelectionActivity final : public Activity {
   const SdCardFontRegistry* registry_;
   ButtonNavigator buttonNavigator_;
   std::vector<FontEntry> fonts_;
-  int selectedIndex_ = 0;
+  uint16_t selectedIndex_ = 0;
 };

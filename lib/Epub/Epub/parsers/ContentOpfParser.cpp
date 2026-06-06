@@ -197,7 +197,7 @@ void XMLCALL ContentOpfParser::startElement(void* userData, const XML_Char* name
     if (self->tempItemStore) {
       ItemIndexEntry entry;
       entry.idHash = fnvHash(itemId);
-      entry.idLen = static_cast<uint16_t>(itemId.size());
+      entry.idLen = itemId.size();
       entry.fileOffset = static_cast<uint32_t>(self->tempItemStore.position());
       self->itemIndex.push_back(entry);
     }
@@ -262,7 +262,7 @@ void XMLCALL ContentOpfParser::startElement(void* userData, const XML_Char* name
           if (self->useItemIndex) {
             // Fast path: binary search
             uint32_t targetHash = fnvHash(idref);
-            uint16_t targetLen = static_cast<uint16_t>(idref.size());
+            uint16_t targetLen = idref.size();
 
             auto it = std::lower_bound(self->itemIndex.begin(), self->itemIndex.end(),
                                        ItemIndexEntry{targetHash, targetLen, 0},

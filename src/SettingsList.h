@@ -64,9 +64,9 @@ inline SettingInfo buildFontFamilySetting(const SdCardFontRegistry* registry) {
   s.valueGetter = [sdFamilyNames]() -> uint8_t {
     // If an SD card font is selected, find its index
     if (SETTINGS.sdFontFamilyName[0] != '\0') {
-      for (int i = 0; i < static_cast<int>(sdFamilyNames.size()); i++) {
+      for (size_t i = 0; i < sdFamilyNames.size(); i++) {
         if (sdFamilyNames[i] == SETTINGS.sdFontFamilyName) {
-          return static_cast<uint8_t>(CrossPointSettings::BUILTIN_FONT_COUNT + i);
+          return CrossPointSettings::BUILTIN_FONT_COUNT + i;
         }
       }
       // SD font name not found in registry — fall through to built-in

@@ -37,7 +37,7 @@ void encode(const BookmarkEntry& src, RawEntry& dst) {
   dst.paragraphIndex = src.paragraphIndex;
   dst.liIndex = src.liIndex;
   const size_t n = std::min(src.summary.size(), static_cast<size_t>(BookmarkStore::SUMMARY_MAX));
-  dst.summaryLen = static_cast<uint8_t>(n);
+  dst.summaryLen = n;
   std::memcpy(dst.summary, src.summary.data(), n);
   // Zero unused tail so leftover stack/heap bytes don't leak onto disk.
   if (n < BookmarkStore::SUMMARY_MAX) std::memset(dst.summary + n, 0, BookmarkStore::SUMMARY_MAX - n);
@@ -207,7 +207,7 @@ bool BookmarkStore::eraseAt(uint16_t index) {
     return false;
   }
 
-  const uint16_t newCount = static_cast<uint16_t>(n - 1);
+  const uint16_t newCount = n - 1;
   serialization::writePod(dst, FILE_VERSION);
   serialization::writePod(dst, newCount);
 

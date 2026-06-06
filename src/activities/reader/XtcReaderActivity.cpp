@@ -174,23 +174,21 @@ void XtcReaderActivity::renderStatusBarOverlay(const StatusBarOverlayPosition po
     return;
   }
 
-  int orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft;
-  renderer.getOrientedViewableTRBL(&orientedMarginTop, &orientedMarginRight, &orientedMarginBottom,
-                                   &orientedMarginLeft);
+  const auto margins = renderer.getOrientedViewableMargins();
 
   int clearY;
   int paddingBottom = 0;
   if (position == StatusBarOverlayPosition::Bottom) {
-    clearY = renderer.getScreenHeight() - orientedMarginBottom - statusBarHeight - 4;
+    clearY = renderer.getScreenHeight() - margins.bottom - statusBarHeight - 4;
     if (clearY < 0) {
       clearY = 0;
     }
   } else {
-    clearY = orientedMarginTop;
-    paddingBottom = renderer.getScreenHeight() - statusBarHeight - orientedMarginBottom - orientedMarginTop - 4;
+    clearY = margins.top;
+    paddingBottom = renderer.getScreenHeight() - statusBarHeight - margins.bottom - margins.top - 4;
   }
   const int clearHeight = position == StatusBarOverlayPosition::Bottom
-                              ? renderer.getScreenHeight() - orientedMarginBottom - clearY
+                              ? renderer.getScreenHeight() - margins.bottom - clearY
                               : statusBarHeight + 4;
   if (clearHeight > 0) {
     renderer.fillRect(0, clearY, renderer.getScreenWidth(), clearHeight, false);

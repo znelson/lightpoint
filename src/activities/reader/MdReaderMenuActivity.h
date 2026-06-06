@@ -43,7 +43,7 @@ class MdReaderMenuActivity final : public Activity {
 
   const std::vector<MenuItem> menuItems;
 
-  int selectedIndex = 0;
+  uint16_t selectedIndex = 0;
   ButtonNavigator buttonNavigator;
   std::string title;
   int currentPage = 0;

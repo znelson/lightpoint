@@ -27,7 +27,7 @@ void ReaderLinkPickerActivity::loop() {
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(entries.size())) {
+    if (selectedIndex < entries.size()) {
       setResult(LinkResult{entries[selectedIndex].href});
       finish();
     }
@@ -83,11 +83,11 @@ void ReaderLinkPickerActivity::render(RenderLock&&) {
   const int screenWidth = renderer.getScreenWidth();
   const int marginLeft = contentX + 20;
 
-  const int visibleCount = std::max(1, (renderer.getScreenHeight() - contentY) / lineHeight);
+  const uint16_t visibleCount = std::max(1, (renderer.getScreenHeight() - contentY) / lineHeight);
   if (selectedIndex < scrollOffset) scrollOffset = selectedIndex;
   if (selectedIndex >= scrollOffset + visibleCount) scrollOffset = selectedIndex - visibleCount + 1;
 
-  for (int i = scrollOffset; i < static_cast<int>(entries.size()) && i < scrollOffset + visibleCount; i++) {
+  for (size_t i = scrollOffset; i < entries.size() && i < scrollOffset + visibleCount; i++) {
     const int y = 60 + contentY + (i - scrollOffset) * lineHeight;
     const bool isSelected = (i == selectedIndex);
 

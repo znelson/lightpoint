@@ -52,8 +52,8 @@ bool KeyboardEntryActivity::isBottomRow(const int row) const { return row == get
 char KeyboardEntryActivity::getSelectedChar() const {
   const KeyDef(*layout)[COLS] = symMode ? symLayout : (inputType == InputType::Url ? urlLayout : abcLayout);
 
-  if (selectedRow < 0 || selectedRow >= getContentRowCount()) return '\0';
-  if (selectedCol < 0 || selectedCol >= COLS) return '\0';
+  if (selectedRow >= getContentRowCount()) return '\0';
+  if (selectedCol >= COLS) return '\0';
 
   const KeyDef& key = layout[selectedRow][selectedCol];
   return (shiftState > 0 && key.secondary != '\0') ? key.secondary : key.primary;
@@ -65,8 +65,8 @@ char KeyboardEntryActivity::getAlternativeChar() const {
 
   const KeyDef(*layout)[COLS] = abcLayout;
 
-  if (selectedRow < 0 || selectedRow >= getContentRowCount()) return '\0';
-  if (selectedCol < 0 || selectedCol >= COLS) return '\0';
+  if (selectedRow >= getContentRowCount()) return '\0';
+  if (selectedCol >= COLS) return '\0';
 
   const KeyDef& key = layout[selectedRow][selectedCol];
   const char current = getSelectedChar();
@@ -177,10 +177,13 @@ bool KeyboardEntryActivity::handleKeyPress() {
   return insertChar(getSelectedChar());
 }
 
-void KeyboardEntryActivity::mapColContentBottom(int& col, bool goingUp) const {
+void KeyboardEntryActivity::mapColContentBottom(uint8_t& col, bool goingUp) const {
   if (urlMode) {
-    col = goingUp ? col - 1 : col + 1;
-    if (col < 0) col = 0;
+    if (goingUp) {
+      col = (col == 0) ? 0 : col - 1;
+    } else {
+      col = col + 1;
+    }
     if (col >= 3) col = 2;
   } else {
     col = goingUp ? col * 2 : col / 2;

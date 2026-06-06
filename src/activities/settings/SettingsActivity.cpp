@@ -72,7 +72,7 @@ void SettingsActivity::rebuildSettingsLists() {
       currentSettings = &systemSettings;
       break;
   }
-  settingsCount = static_cast<int>(currentSettings->size());
+  settingsCount = currentSettings->size();
 }
 
 void SettingsActivity::onEnter() {
@@ -164,7 +164,7 @@ void SettingsActivity::loop() {
         currentSettings = &systemSettings;
         break;
     }
-    settingsCount = static_cast<int>(currentSettings->size());
+    settingsCount = currentSettings->size();
   }
 }
 
@@ -311,7 +311,7 @@ void SettingsActivity::render(RenderLock&&) {
       Rect{0, metrics.topPadding + metrics.headerHeight + metrics.tabBarHeight + metrics.verticalSpacing, pageWidth,
            pageHeight - (metrics.topPadding + metrics.headerHeight + metrics.tabBarHeight + metrics.buttonHintsHeight +
                          metrics.verticalSpacing * 2)},
-      settingsCount, selectedSettingIndex - 1,
+      settingsCount, selectedSettingIndex > 0 ? std::optional<uint16_t>(selectedSettingIndex - 1) : std::nullopt,
       [&settings](int index) { return std::string(I18N.get(settings[index].nameId)); }, nullptr, nullptr,
       [&settings](int i) {
         const auto& setting = settings[i];
