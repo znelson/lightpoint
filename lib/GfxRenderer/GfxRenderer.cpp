@@ -1268,7 +1268,7 @@ std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* 
 }
 
 // Note: Internal driver treats screen in command orientation; this library exposes a logical orientation
-int GfxRenderer::getScreenWidth() const {
+uint16_t GfxRenderer::getScreenWidth() const {
   switch (orientation) {
     case Portrait:
     case PortraitInverted:
@@ -1282,7 +1282,7 @@ int GfxRenderer::getScreenWidth() const {
   return panelHeight;
 }
 
-int GfxRenderer::getScreenHeight() const {
+uint16_t GfxRenderer::getScreenHeight() const {
   switch (orientation) {
     case Portrait:
     case PortraitInverted:
@@ -1676,31 +1676,16 @@ void GfxRenderer::cleanupGrayscaleWithFrameBuffer() const {
   }
 }
 
-void GfxRenderer::getOrientedViewableTRBL(int* outTop, int* outRight, int* outBottom, int* outLeft) const {
+ViewableMargins GfxRenderer::getOrientedViewableMargins() const {
   switch (orientation) {
     case Portrait:
-      *outTop = VIEWABLE_MARGIN_TOP;
-      *outRight = VIEWABLE_MARGIN_RIGHT;
-      *outBottom = VIEWABLE_MARGIN_BOTTOM;
-      *outLeft = VIEWABLE_MARGIN_LEFT;
-      break;
+      return {VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT};
     case LandscapeClockwise:
-      *outTop = VIEWABLE_MARGIN_LEFT;
-      *outRight = VIEWABLE_MARGIN_TOP;
-      *outBottom = VIEWABLE_MARGIN_RIGHT;
-      *outLeft = VIEWABLE_MARGIN_BOTTOM;
-      break;
+      return {VIEWABLE_MARGIN_LEFT, VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM};
     case PortraitInverted:
-      *outTop = VIEWABLE_MARGIN_BOTTOM;
-      *outRight = VIEWABLE_MARGIN_LEFT;
-      *outBottom = VIEWABLE_MARGIN_TOP;
-      *outLeft = VIEWABLE_MARGIN_RIGHT;
-      break;
+      return {VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT, VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT};
     case LandscapeCounterClockwise:
-      *outTop = VIEWABLE_MARGIN_RIGHT;
-      *outRight = VIEWABLE_MARGIN_BOTTOM;
-      *outBottom = VIEWABLE_MARGIN_LEFT;
-      *outLeft = VIEWABLE_MARGIN_TOP;
-      break;
+      return {VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT, VIEWABLE_MARGIN_TOP};
   }
+  return {VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT};
 }

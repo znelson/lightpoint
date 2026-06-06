@@ -19,10 +19,7 @@ class TxtReaderActivity final : public Activity {
 
   // Cached settings for cache validation (different fonts/margins require re-indexing)
   int cachedFontId = 0;
-  int cachedOrientedMarginTop = 0;
-  int cachedOrientedMarginRight = 0;
-  int cachedOrientedMarginBottom = 0;
-  int cachedOrientedMarginLeft = 0;
+  ViewableMargins cachedMargins = {0, 0, 0, 0};
 
   void renderContents(std::unique_ptr<Page> page);
   void renderStatusBar() const;

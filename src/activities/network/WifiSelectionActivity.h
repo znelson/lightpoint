@@ -49,7 +49,7 @@ class WifiSelectionActivity final : public Activity {
   ButtonNavigator buttonNavigator;
 
   WifiSelectionState state = WifiSelectionState::SCANNING;
-  size_t selectedNetworkIndex = 0;
+  uint16_t selectedNetworkIndex = 0;
   std::vector<WifiNetworkInfo> networks;
 
   // Selected network for connection
@@ -93,7 +93,7 @@ class WifiSelectionActivity final : public Activity {
 
   void startWifiScan();
   void processWifiScanResults();
-  void selectNetwork(int index);
+  void selectNetwork(uint16_t index);
   void attemptConnection();
   void checkConnectionStatus();
   std::string getSignalStrengthIndicator(int32_t rssi) const;

@@ -54,11 +54,11 @@ int EpubReaderBookmarksActivity::getListHeight(const GfxRenderer& renderer) {
   return pageHeight - getGutterBottom(renderer) - LINE_HEIGHT;
 }
 
-bool EpubReaderBookmarksActivity::inWindow(int logicalIndex) const {
-  return logicalIndex >= windowStart && logicalIndex < static_cast<int>(windowStart + windowCount);
+bool EpubReaderBookmarksActivity::inWindow(uint16_t logicalIndex) const {
+  return logicalIndex >= windowStart && logicalIndex < windowStart + windowCount;
 }
 
-const EpubReaderBookmarksActivity::EntryView* EpubReaderBookmarksActivity::viewForIndex(int logicalIndex) const {
+const EpubReaderBookmarksActivity::EntryView* EpubReaderBookmarksActivity::viewForIndex(uint16_t logicalIndex) const {
   if (!inWindow(logicalIndex)) return nullptr;
   const auto& view = window[logicalIndex - windowStart];
   return view.valid ? &view : nullptr;
@@ -102,16 +102,16 @@ void EpubReaderBookmarksActivity::reloadWindow() {
   // bookmark count. Falls back to a window starting at 0 when totalCount
   // is below kMaxVisible.
   const uint16_t half = kMaxVisible / 2;
-  uint16_t start = (selectorIndex > half) ? static_cast<uint16_t>(selectorIndex - half) : 0;
+  uint16_t start = (selectorIndex > half) ? selectorIndex - half : 0;
   if (start + kMaxVisible > totalCount) {
-    start = (totalCount > kMaxVisible) ? static_cast<uint16_t>(totalCount - kMaxVisible) : 0;
+    start = (totalCount > kMaxVisible) ? totalCount - kMaxVisible : 0;
   }
-  const uint16_t end = std::min(static_cast<uint16_t>(start + kMaxVisible), totalCount);
+  const uint16_t end = std::min<uint16_t>(start + kMaxVisible, totalCount);
 
   windowStart = start;
-  windowCount = static_cast<uint16_t>(end - start);
+  windowCount = end - start;
   for (uint16_t i = 0; i < windowCount; ++i) {
-    if (auto entry = store.entryAt(static_cast<uint16_t>(start + i))) {
+    if (auto entry = store.entryAt(start + i)) {
       window[i] = resolveEntry(*entry);
     } else {
       window[i].valid = false;
@@ -131,11 +131,11 @@ void EpubReaderBookmarksActivity::loop() {
         requestUpdate();
         return;
       }
-      if (!store.eraseAt(static_cast<uint16_t>(selectorIndex))) {
-        LOG_ERR("EPB", "Failed to delete bookmark at %d", selectorIndex);
+      if (!store.eraseAt(selectorIndex)) {
+        LOG_ERR("EPB", "Failed to delete bookmark at %u", selectorIndex);
       }
       totalCount = store.count();
-      if (selectorIndex >= static_cast<int>(totalCount) && selectorIndex > 0) selectorIndex--;
+      if (selectorIndex >= totalCount && selectorIndex > 0) selectorIndex--;
       reloadWindow();
       confirmingDelete = DELETE_MODE_OFF;
       requestUpdate();
@@ -152,7 +152,7 @@ void EpubReaderBookmarksActivity::loop() {
     if (totalCount == 0) return;
     const auto* view = viewForIndex(selectorIndex);
     if (!view) {
-      LOG_ERR("EPB", "Confirm: selector %d outside window [%u,%u)", selectorIndex, windowStart,
+      LOG_ERR("EPB", "Confirm: selector %u outside window [%u,%u)", selectorIndex, windowStart,
               static_cast<unsigned>(windowStart + windowCount));
       return;
     }
@@ -225,12 +225,12 @@ void EpubReaderBookmarksActivity::render(RenderLock&&) {
   renderer.drawText(UI_12_FONT_ID, titleX, 15 + contentY, tr(STR_BOOKMARKS), true, EpdFontFamily::BOLD);
 
   const auto getBookmarkTitle = [this](int index) -> std::string {
-    const int target = (confirmingDelete >= DELETE_MODE_DISPLAY) ? selectorIndex : index;
+    const uint16_t target = (confirmingDelete >= DELETE_MODE_DISPLAY) ? selectorIndex : index;
     const auto* view = viewForIndex(target);
     return view ? view->bookmark.summary : "";
   };
   const auto getBookmarkSubtitle = [this](int index) -> std::string {
-    const int target = (confirmingDelete >= DELETE_MODE_DISPLAY) ? selectorIndex : index;
+    const uint16_t target = (confirmingDelete >= DELETE_MODE_DISPLAY) ? selectorIndex : index;
     const auto* view = viewForIndex(target);
     if (!view) return "";
     const std::string title = view->chapterTitle.empty() ? std::string(tr(STR_UNNAMED)) : view->chapterTitle;

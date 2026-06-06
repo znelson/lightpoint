@@ -35,7 +35,7 @@ class ReaderLinkPickerActivity final : public Activity {
  private:
   const std::vector<LinkEntry>& entries;
   const char* title;
-  int selectedIndex = 0;
-  int scrollOffset = 0;
+  uint16_t selectedIndex = 0;
+  uint16_t scrollOffset = 0;
   ButtonNavigator buttonNavigator;
 };

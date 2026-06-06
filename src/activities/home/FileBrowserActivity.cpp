@@ -204,7 +204,7 @@ void FileBrowserActivity::loop() {
   }
 
   const int pathReserved = renderer.getLineHeight(SMALL_FONT_ID) + UITheme::getInstance().getMetrics().verticalSpacing;
-  const int pageItems = UITheme::getNumberOfItemsPerPage(renderer, true, false, true, false, pathReserved);
+  const uint16_t pageItems = UITheme::getNumberOfItemsPerPage(renderer, true, false, true, false, pathReserved);
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (lockNextConfirmRelease) {
@@ -302,24 +302,24 @@ void FileBrowserActivity::loop() {
     }
   }
 
-  int listSize = static_cast<int>(files.size());
+  const uint16_t listSize = files.size();
   buttonNavigator.onNextRelease([this, listSize] {
-    selectorIndex = ButtonNavigator::nextIndex(static_cast<int>(selectorIndex), listSize);
+    selectorIndex = ButtonNavigator::nextIndex(selectorIndex, listSize);
     requestUpdate();
   });
 
   buttonNavigator.onPreviousRelease([this, listSize] {
-    selectorIndex = ButtonNavigator::previousIndex(static_cast<int>(selectorIndex), listSize);
+    selectorIndex = ButtonNavigator::previousIndex(selectorIndex, listSize);
     requestUpdate();
   });
 
   buttonNavigator.onNextContinuous([this, listSize, pageItems] {
-    selectorIndex = ButtonNavigator::nextPageIndex(static_cast<int>(selectorIndex), listSize, pageItems);
+    selectorIndex = ButtonNavigator::nextPageIndex(selectorIndex, listSize, pageItems);
     requestUpdate();
   });
 
   buttonNavigator.onPreviousContinuous([this, listSize, pageItems] {
-    selectorIndex = ButtonNavigator::previousPageIndex(static_cast<int>(selectorIndex), listSize, pageItems);
+    selectorIndex = ButtonNavigator::previousPageIndex(selectorIndex, listSize, pageItems);
     requestUpdate();
   });
 }
@@ -413,7 +413,7 @@ void FileBrowserActivity::render(RenderLock&&) {
   renderer.displayBuffer();
 }
 
-size_t FileBrowserActivity::findEntry(const std::string& name) const {
+uint16_t FileBrowserActivity::findEntry(const std::string& name) const {
   for (size_t i = 0; i < files.size(); i++)
     if (files[i] == name) return i;
   return 0;

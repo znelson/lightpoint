@@ -42,7 +42,7 @@ void RecentBooksActivity::onExit() {
 }
 
 void RecentBooksActivity::loop() {
-  const int pageItems = UITheme::getInstance().getNumberOfItemsPerPage(renderer, true, false, true, true);
+  const uint16_t pageItems = UITheme::getInstance().getNumberOfItemsPerPage(renderer, true, false, true, true);
 
   // After a long-press has fired, swallow input until Confirm is physically released
   // (so the release doesn't also open the book; re-arm only once the button is up).
@@ -64,7 +64,7 @@ void RecentBooksActivity::loop() {
   }
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (!recentBooks.empty() && selectorIndex < static_cast<int>(recentBooks.size())) {
+    if (!recentBooks.empty() && selectorIndex < recentBooks.size()) {
       LOG_DBG("RBA", "Selected recent book: %s", recentBooks[selectorIndex].path.c_str());
       onSelectBook(recentBooks[selectorIndex].path);
       return;
@@ -75,25 +75,25 @@ void RecentBooksActivity::loop() {
     onGoHome();
   }
 
-  int listSize = static_cast<int>(recentBooks.size());
+  const uint16_t listSize = recentBooks.size();
 
   buttonNavigator.onNextRelease([this, listSize] {
-    selectorIndex = ButtonNavigator::nextIndex(static_cast<int>(selectorIndex), listSize);
+    selectorIndex = ButtonNavigator::nextIndex(selectorIndex, listSize);
     requestUpdate();
   });
 
   buttonNavigator.onPreviousRelease([this, listSize] {
-    selectorIndex = ButtonNavigator::previousIndex(static_cast<int>(selectorIndex), listSize);
+    selectorIndex = ButtonNavigator::previousIndex(selectorIndex, listSize);
     requestUpdate();
   });
 
   buttonNavigator.onNextContinuous([this, listSize, pageItems] {
-    selectorIndex = ButtonNavigator::nextPageIndex(static_cast<int>(selectorIndex), listSize, pageItems);
+    selectorIndex = ButtonNavigator::nextPageIndex(selectorIndex, listSize, pageItems);
     requestUpdate();
   });
 
   buttonNavigator.onPreviousContinuous([this, listSize, pageItems] {
-    selectorIndex = ButtonNavigator::previousPageIndex(static_cast<int>(selectorIndex), listSize, pageItems);
+    selectorIndex = ButtonNavigator::previousPageIndex(selectorIndex, listSize, pageItems);
     requestUpdate();
   });
 }

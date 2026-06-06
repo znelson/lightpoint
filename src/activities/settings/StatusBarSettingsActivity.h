@@ -17,9 +17,9 @@ class StatusBarSettingsActivity final : public Activity {
  private:
   ButtonNavigator buttonNavigator;
 
-  int selectedIndex = 0;
+  uint8_t selectedIndex = 0;
   // Decided in onEnter() based on halClock.isAvailable() so clock entries are hidden on X4.
-  int visibleItemCount = 0;
+  uint8_t visibleItemCount = 0;
 
   void handleSelection();
 };

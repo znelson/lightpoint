@@ -66,7 +66,7 @@ bool BookMetadataCache::beginTocPass() {
       auto entry = readSpineEntry(spineFile);
       SpineHrefIndexEntry idx;
       idx.hrefHash = fnvHash64(entry.href);
-      idx.hrefLen = static_cast<uint16_t>(entry.href.size());
+      idx.hrefLen = entry.href.size();
       idx.spineIndex = i;
       spineHrefIndex[i] = idx;
     }
@@ -216,7 +216,7 @@ bool BookMetadataCache::buildBookBin(const std::string& epubPath, const BookMeta
 
       ZipFile::SizeTarget t;
       t.hash = ZipFile::fnvHash64(path.c_str(), path.size());
-      t.len = static_cast<uint16_t>(path.size());
+      t.len = path.size();
       t.index = i;
       targets[i] = t;
     }
@@ -351,7 +351,7 @@ void BookMetadataCache::createTocEntry(const std::string& title, const std::stri
 
   if (useSpineHrefIndex) {
     uint64_t targetHash = fnvHash64(href);
-    uint16_t targetLen = static_cast<uint16_t>(href.size());
+    uint16_t targetLen = href.size();
 
     auto it =
         std::lower_bound(spineHrefIndex.begin(), spineHrefIndex.end(), SpineHrefIndexEntry{targetHash, targetLen, 0},

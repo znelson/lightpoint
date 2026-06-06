@@ -73,8 +73,8 @@ int UITheme::getNumberOfItemsPerPage(const GfxRenderer& renderer, bool hasHeader
 // Screen area excluding the button hints
 Rect UITheme::getScreenSafeArea(const GfxRenderer& renderer, bool hasFrontButtonHints, bool hasSideButtonHints) {
   auto orientation = renderer.getOrientation();
-  const int screenWidth = renderer.getScreenWidth();
-  const int screenHeight = renderer.getScreenHeight();
+  const uint16_t screenWidth = renderer.getScreenWidth();
+  const uint16_t screenHeight = renderer.getScreenHeight();
   Rect safeArea = Rect{0, 0, screenWidth, screenHeight};
   switch (orientation) {
     case GfxRenderer::Orientation::Portrait:
