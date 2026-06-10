@@ -297,6 +297,30 @@ void EpubReaderActivity::loop() {
     return;
   }
 
+  // Handle short power button press for footnotes
+  if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FOOTNOTES &&
+      mappedInput.wasReleased(MappedInputManager::Button::Power) &&
+      !mappedInput.wasReleased(MappedInputManager::Button::Down)) {
+    if (footnoteDepth > 0) {
+      restoreSavedPosition();
+    } else {
+      if (currentPageLinks.size() == 1) {
+        navigateToHref(currentPageLinks[0].href, true);
+      } else if (currentPageLinks.size() > 1) {
+        startActivityForResult(
+            std::make_unique<ReaderLinkPickerActivity>(renderer, mappedInput, currentPageLinks, tr(STR_FOOTNOTES)),
+            [this](const ActivityResult& result) {
+              if (!result.isCancelled) {
+                const auto& linkResult = std::get<LinkResult>(result.data);
+                navigateToHref(linkResult.href, true);
+              }
+              requestUpdate();
+            });
+      }
+    }
+    return;
+  }
+
   const auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput);
   if (!prevTriggered && !nextTriggered) {
     return;

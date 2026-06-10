@@ -82,6 +82,7 @@ To convert your own TrueType/OpenType fonts:
 | `latin-ext` | European languages (Latin + Extended-A/B + punctuation + ligatures) |
 | `greek` | Greek + Extended Greek |
 | `cyrillic` | Cyrillic + Supplement |
+| `hebrew` | Hebrew + Alphabetic Presentation Forms |
 | `georgian` | Georgian + Georgian Supplement |
 | `armenian` | Armenian |
 | `ethiopic` | Ethiopic + Extended |
@@ -93,7 +94,7 @@ To convert your own TrueType/OpenType fonts:
 | `tifinagh` | Tifinagh |
 | `symbols` | Math, currency, arrows, box-drawing, misc symbols, dingbats |
 | `reading` | Literary fiction coverage: Latin, Greek, Cyrillic, math/symbol blocks, supplemental punctuation, and CJK quote marks |
-| `builtin` | Matches built-in Bookerly coverage exactly |
+| `builtin` | Matches the firmware's built-in font conversion intervals |
 
 Combine presets with commas: `--intervals latin-ext,greek,cyrillic`
 

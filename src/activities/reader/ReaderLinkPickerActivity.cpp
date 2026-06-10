@@ -24,7 +24,8 @@ void ReaderLinkPickerActivity::loop() {
     return;
   }
 
-  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
+  if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
+      mappedInput.wasReleased(MappedInputManager::Button::Power)) {
     if (selectedIndex < entries.size()) {
       setResult(LinkResult{entries[selectedIndex].href});
       finish();
