@@ -43,9 +43,9 @@ class KeyboardEntryActivity : public Activity {
 
   ButtonNavigator buttonNavigator;
 
-  int selectedRow = 0;
-  int selectedCol = 0;
-  int shiftState = 0;
+  uint8_t selectedRow = 0;
+  uint8_t selectedCol = 0;
+  uint8_t shiftState = 0;
   bool symMode = false;
   bool confirmHeld = false;
   bool confirmLongHandled = false;
@@ -63,13 +63,13 @@ class KeyboardEntryActivity : public Activity {
   size_t rightStartCursorPos = 0;
 
   bool urlMode = false;
-  static constexpr int URL_SNIPPET_COUNT = 9;
-  static constexpr const char* const urlSnippets[URL_SNIPPET_COUNT] = {
-      "https://", "www.", ".com", "http://", "192.168.", ".org", "/opds", ":8080", ".net"};
+  static constexpr int URL_SNIPPET_COUNT = 8;
+  static constexpr const char* const urlSnippets[URL_SNIPPET_COUNT] = {"https://", "www.", ".com",  "http://",
+                                                                       "192.168.", ".org", ":8080", ".net"};
 
   int delPressCount = 0;
   bool hintVisible = false;
-  unsigned long hintShowTime = 0;
+  uint32_t hintShowTime = 0;
 
   void onComplete(std::string text);
   void onCancel();
@@ -222,5 +222,5 @@ class KeyboardEntryActivity : public Activity {
   bool handleKeyPress();
   bool insertChar(char c);
   void insertString(const std::string& str);
-  void mapColContentBottom(int& col, bool goingUp) const;
+  void mapColContentBottom(uint8_t& col, bool goingUp) const;
 };

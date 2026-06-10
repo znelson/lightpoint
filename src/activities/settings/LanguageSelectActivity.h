@@ -20,7 +20,6 @@ class LanguageSelectActivity final : public Activity {
       : Activity("LanguageSelect", renderer, mappedInput) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   void render(RenderLock&&) override;
 
@@ -29,6 +28,6 @@ class LanguageSelectActivity final : public Activity {
 
   void onBack() { finish(); }
   ButtonNavigator buttonNavigator;
-  int selectedIndex = 0;
+  uint8_t selectedIndex = 0;
   constexpr static uint8_t totalItems = getLanguageCount();
 };

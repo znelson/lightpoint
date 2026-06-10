@@ -3,11 +3,13 @@
 #include <BidiUtils.h>
 #include <FontDecompressor.h>
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <Logging.h>
 #include <SdCardFont.h>
 #include <Utf8.h>
 
 #include <algorithm>
+#include <cmath>
 
 #include "FontCacheManager.h"
 
@@ -27,7 +29,7 @@ const char* resolveVisualText(const char* text, std::string& visualBuffer, BidiU
 }  // namespace
 
 const uint8_t* GfxRenderer::getGlyphBitmap(const EpdFontData* fontData, const EpdGlyph* glyph) const {
-  if (fontData->groups != nullptr) {
+  if (fontData->groups) {
     auto* fd = fontCacheManager_ ? fontCacheManager_->getDecompressor() : nullptr;
     if (!fd) {
       LOG_ERR("GFX", "Compressed font but no FontDecompressor set");
@@ -57,9 +59,9 @@ const uint8_t* GfxRenderer::getGlyphBitmap(const EpdFontData* fontData, const Ep
 void GfxRenderer::ensureSdCardFontReady(int fontId, const char* utf8Text, uint8_t styleMask) const {
   auto it = sdCardFonts_.find(fontId);
   if (it != sdCardFonts_.end()) {
-    int missed = it->second->buildAdvanceTable(utf8Text, styleMask);
-    if (missed > 0) {
-      LOG_DBG("GFX", "ensureSdCardFontReady: %d glyph(s) not found", missed);
+    const auto missed = it->second->buildAdvanceTable(utf8Text, styleMask);
+    if (missed && *missed > 0) {
+      LOG_DBG("GFX", "ensureSdCardFontReady: %u glyph(s) not found", *missed);
     }
   }
 }
@@ -71,9 +73,9 @@ void GfxRenderer::ensureSdCardFontReady(int fontId, const std::vector<std::strin
     // Augment the persistent advance-only table for layout measurement.
     // The table survives across paragraphs/sections (capped per font), so
     // repeated indexing of the same SD font amortizes glyph-metric SD reads.
-    int missed = it->second->buildAdvanceTable(words, includeHyphen, styleMask);
-    if (missed > 0) {
-      LOG_DBG("GFX", "ensureSdCardFontReady: %d glyph(s) not found", missed);
+    const auto missed = it->second->buildAdvanceTable(words, includeHyphen, styleMask);
+    if (missed && *missed > 0) {
+      LOG_DBG("GFX", "ensureSdCardFontReady: %u glyph(s) not found", *missed);
     }
   }
 }
@@ -248,7 +250,7 @@ static void renderCharImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode 
 
   const uint8_t* bitmap = renderer.getGlyphBitmap(fontData, glyph);
 
-  if (bitmap != nullptr) {
+  if (bitmap) {
     // For Normal:  outer loop advances screenY, inner loop advances screenX
     // For Rotated: outer loop advances screenX, inner loop advances screenY (in reverse)
     int outerBase, innerBase;
@@ -456,9 +458,7 @@ void GfxRenderer::drawText(const int fontId, const int x, const int y, const cha
       // Halve the advance so the cursor advances by the same amount the scaled glyph
       // actually occupies, keeping spacing correct without needing a separate smaller font.
       prevAdvanceFP = (prevAdvanceFP + 1) / 2;
-    }
 
-    if (isSupSub) {
       // yPos already carries the vertical offset applied by TextBlock::render().
       renderCharScaled(*this, renderMode, font, cp, lastBaseX, yPos, black, style);
     } else {
@@ -1126,10 +1126,10 @@ void GfxRenderer::fillPolygon(const int* xPoints, const int* yPoints, int numPoi
 }
 
 // For performance measurement (using static to allow "const" methods)
-static unsigned long start_ms = 0;
+static uint32_t start_ms = 0;
 
 void GfxRenderer::clearScreen(const uint8_t color) const {
-  start_ms = millis();
+  start_ms = halPlatform.millis();
   if (_stripActive) {
     // Clear only the active band's scratch, not the shared framebuffer.
     memset(_stripBuf, color, static_cast<size_t>(panelWidthBytes) * _stripRows);
@@ -1178,8 +1178,8 @@ void GfxRenderer::invertScreen() const {
 }
 
 void GfxRenderer::displayBuffer(const HalDisplay::RefreshMode refreshMode) const {
-  auto elapsed = millis() - start_ms;
-  LOG_DBG("GFX", "Time = %lu ms from clearScreen to displayBuffer", elapsed);
+  [[maybe_unused]] const auto elapsed = halPlatform.millis() - start_ms;
+  LOG_DBG("GFX", "Time = %u ms from clearScreen to displayBuffer", elapsed);
   display.displayBuffer(refreshMode, fadingFix);
 }
 
@@ -1204,16 +1204,16 @@ std::string GfxRenderer::truncatedText(const int fontId, const char* text, const
 }
 
 std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* text, const int maxWidth,
-                                                  const int maxLines, const EpdFontFamily::Style style) const {
+                                                  const size_t maxLines, const EpdFontFamily::Style style) const {
   std::vector<std::string> lines;
 
-  if (!text || maxWidth <= 0 || maxLines <= 0) return lines;
+  if (!text || maxWidth <= 0 || maxLines == 0) return lines;
 
   std::string remaining = text;
   std::string currentLine;
 
   while (!remaining.empty()) {
-    if (static_cast<int>(lines.size()) == maxLines - 1) {
+    if (lines.size() == maxLines - 1) {
       // Last available line: combine any word already started on this line with
       // the rest of the text, then let truncatedText fit it with an ellipsis.
       std::string lastContent = currentLine.empty() ? remaining : currentLine + " " + remaining;
@@ -1246,7 +1246,7 @@ std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* 
         if (getTextWidth(fontId, word.c_str(), style) > maxWidth) {
           lines.push_back(truncatedText(fontId, word.c_str(), maxWidth, style));
           currentLine.clear();
-          if (static_cast<int>(lines.size()) >= maxLines) return lines;
+          if (lines.size() >= maxLines) return lines;
         } else {
           currentLine = word;
         }
@@ -1260,7 +1260,7 @@ std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* 
     }
   }
 
-  if (!currentLine.empty() && static_cast<int>(lines.size()) < maxLines) {
+  if (!currentLine.empty() && lines.size() < maxLines) {
     lines.push_back(currentLine);
   }
 
@@ -1268,7 +1268,7 @@ std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* 
 }
 
 // Note: Internal driver treats screen in command orientation; this library exposes a logical orientation
-int GfxRenderer::getScreenWidth() const {
+uint16_t GfxRenderer::getScreenWidth() const {
   switch (orientation) {
     case Portrait:
     case PortraitInverted:
@@ -1282,7 +1282,7 @@ int GfxRenderer::getScreenWidth() const {
   return panelHeight;
 }
 
-int GfxRenderer::getScreenHeight() const {
+uint16_t GfxRenderer::getScreenHeight() const {
   switch (orientation) {
     case Portrait:
     case PortraitInverted:
@@ -1329,9 +1329,10 @@ static bool logicalRectToPhysicalBounds(GfxRenderer::Orientation orientation, in
   return true;
 }
 
-size_t GfxRenderer::getRegionByteSize(int lx, int ly, int lw, int lh) const {
+size_t GfxRenderer::getRegionByteSize(Rect rect) const {
   int x0, y0, x1, y1;
-  if (!logicalRectToPhysicalBounds(orientation, lx, ly, lw, lh, panelWidth, panelHeight, &x0, &y0, &x1, &y1)) {
+  if (!logicalRectToPhysicalBounds(orientation, rect.x, rect.y, rect.width, rect.height, panelWidth, panelHeight, &x0,
+                                   &y0, &x1, &y1)) {
     return 0;
   }
   // x bounds are in pixels; widen to byte boundaries on either side so per-row
@@ -1343,9 +1344,10 @@ size_t GfxRenderer::getRegionByteSize(int lx, int ly, int lw, int lh) const {
   return static_cast<size_t>(bytesPerRow) * static_cast<size_t>(rowCount);
 }
 
-bool GfxRenderer::copyRegionToBuffer(int lx, int ly, int lw, int lh, uint8_t* buf, size_t bufSize) const {
+bool GfxRenderer::copyRegionToBuffer(Rect rect, uint8_t* buf, size_t bufSize) const {
   int x0, y0, x1, y1;
-  if (!logicalRectToPhysicalBounds(orientation, lx, ly, lw, lh, panelWidth, panelHeight, &x0, &y0, &x1, &y1)) {
+  if (!logicalRectToPhysicalBounds(orientation, rect.x, rect.y, rect.width, rect.height, panelWidth, panelHeight, &x0,
+                                   &y0, &x1, &y1)) {
     return false;
   }
   const int byteX0 = x0 / 8;
@@ -1361,9 +1363,10 @@ bool GfxRenderer::copyRegionToBuffer(int lx, int ly, int lw, int lh, uint8_t* bu
   return true;
 }
 
-bool GfxRenderer::copyBufferToRegion(int lx, int ly, int lw, int lh, const uint8_t* buf, size_t bufSize) const {
+bool GfxRenderer::copyBufferToRegion(Rect rect, const uint8_t* buf, size_t bufSize) const {
   int x0, y0, x1, y1;
-  if (!logicalRectToPhysicalBounds(orientation, lx, ly, lw, lh, panelWidth, panelHeight, &x0, &y0, &x1, &y1)) {
+  if (!logicalRectToPhysicalBounds(orientation, rect.x, rect.y, rect.width, rect.height, panelWidth, panelHeight, &x0,
+                                   &y0, &x1, &y1)) {
     return false;
   }
   const int byteX0 = x0 / 8;
@@ -1676,31 +1679,16 @@ void GfxRenderer::cleanupGrayscaleWithFrameBuffer() const {
   }
 }
 
-void GfxRenderer::getOrientedViewableTRBL(int* outTop, int* outRight, int* outBottom, int* outLeft) const {
+ViewableMargins GfxRenderer::getOrientedViewableMargins() const {
   switch (orientation) {
     case Portrait:
-      *outTop = VIEWABLE_MARGIN_TOP;
-      *outRight = VIEWABLE_MARGIN_RIGHT;
-      *outBottom = VIEWABLE_MARGIN_BOTTOM;
-      *outLeft = VIEWABLE_MARGIN_LEFT;
-      break;
+      return {VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT};
     case LandscapeClockwise:
-      *outTop = VIEWABLE_MARGIN_LEFT;
-      *outRight = VIEWABLE_MARGIN_TOP;
-      *outBottom = VIEWABLE_MARGIN_RIGHT;
-      *outLeft = VIEWABLE_MARGIN_BOTTOM;
-      break;
+      return {VIEWABLE_MARGIN_LEFT, VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM};
     case PortraitInverted:
-      *outTop = VIEWABLE_MARGIN_BOTTOM;
-      *outRight = VIEWABLE_MARGIN_LEFT;
-      *outBottom = VIEWABLE_MARGIN_TOP;
-      *outLeft = VIEWABLE_MARGIN_RIGHT;
-      break;
+      return {VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT, VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT};
     case LandscapeCounterClockwise:
-      *outTop = VIEWABLE_MARGIN_RIGHT;
-      *outRight = VIEWABLE_MARGIN_BOTTOM;
-      *outBottom = VIEWABLE_MARGIN_LEFT;
-      *outLeft = VIEWABLE_MARGIN_TOP;
-      break;
+      return {VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT, VIEWABLE_MARGIN_TOP};
   }
+  return {VIEWABLE_MARGIN_TOP, VIEWABLE_MARGIN_RIGHT, VIEWABLE_MARGIN_BOTTOM, VIEWABLE_MARGIN_LEFT};
 }

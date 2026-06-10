@@ -1,7 +1,10 @@
 #pragma once
 
+#include <Epub/Chapter.h>
+
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -18,14 +21,8 @@ struct KeyboardResult {
 };
 
 struct MenuResult {
-  int action = -1;
+  std::optional<int> action;
   uint8_t orientation = 0;
-  uint8_t pageTurnOption = 0;
-};
-
-struct ChapterResult {
-  int spineIndex = 0;
-  std::string anchor;
 };
 
 struct PercentResult {
@@ -40,18 +37,12 @@ struct PageResult {
   uint32_t page = 0;
 };
 
-struct ProgressChangeResult {
-  int spineIndex = 0;
-  int page = 0;
+struct PositionResult {
+  uint16_t spineIndex = 0;
+  uint16_t page = 0;
 };
 
-enum class NetworkMode;
-
-struct NetworkModeResult {
-  NetworkMode mode;
-};
-
-struct FootnoteResult {
+struct LinkResult {
   std::string href;
 };
 
@@ -59,9 +50,8 @@ struct FilePathResult {
   std::string path;
 };
 
-using ResultVariant =
-    std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult, IntervalResult,
-                 PageResult, ProgressChangeResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterTarget, PercentResult,
+                                   IntervalResult, PageResult, PositionResult, LinkResult, FilePathResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

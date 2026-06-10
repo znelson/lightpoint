@@ -48,7 +48,7 @@ class WifiSelectionActivity final : public Activity {
   ButtonNavigator buttonNavigator;
 
   WifiSelectionState state = WifiSelectionState::SCANNING;
-  size_t selectedNetworkIndex = 0;
+  uint16_t selectedNetworkIndex = 0;
   std::vector<WifiNetworkInfo> networks;
 
   // Selected network for connection
@@ -79,8 +79,8 @@ class WifiSelectionActivity final : public Activity {
   int forgetPromptSelection = 0;
 
   // Connection timeout
-  static constexpr unsigned long CONNECTION_TIMEOUT_MS = 15000;
-  unsigned long connectionStartTime = 0;
+  static constexpr uint32_t CONNECTION_TIMEOUT_MS = 15000;
+  uint32_t connectionStartTime = 0;
 
   void renderNetworkList(const Rect* screen, const ThemeMetrics* metrics) const;
   void renderPasswordEntry(const Rect* screen, const ThemeMetrics* metrics) const;
@@ -92,7 +92,7 @@ class WifiSelectionActivity final : public Activity {
 
   void startWifiScan();
   void processWifiScanResults();
-  void selectNetwork(int index);
+  void selectNetwork(uint16_t index);
   void attemptConnection();
   void checkConnectionStatus();
   std::string getSignalStrengthIndicator(int32_t rssi) const;

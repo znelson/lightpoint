@@ -2,7 +2,7 @@ name: CI (build)
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -44,6 +44,18 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Compute PlatformIO packages cache key
+        id: pio-cache-key
+        run: echo "key=${{ runner.os }}-pio-packages-$(python3 scripts/pio_cache_key.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore PlatformIO packages cache
+        id: pio-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.platformio/packages
+          key: ${{ steps.pio-cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-pio-packages-
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -51,17 +63,17 @@ jobs:
           enable-cache: false
 
       - name: Install PlatformIO Core
-        run: uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
-
-      - name: Cache PlatformIO packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.platformio
-          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
-          restore-keys: pio-${{ runner.os }}-
+        run: uv pip install --system -U platformio
 
       - name: Run cppcheck
         run: pio check --fail-on-defect low --fail-on-defect medium --fail-on-defect high
+
+      - name: Save PlatformIO packages cache
+        if: github.ref == 'refs/heads/main' && steps.pio-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.platformio/packages
+          key: ${{ steps.pio-cache-key.outputs.key }}
 
   build:
     runs-on: ubuntu-latest
@@ -74,6 +86,18 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Compute PlatformIO packages cache key
+        id: pio-cache-key
+        run: echo "key=${{ runner.os }}-pio-packages-$(python3 scripts/pio_cache_key.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore PlatformIO packages cache
+        id: pio-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.platformio/packages
+          key: ${{ steps.pio-cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-pio-packages-
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -81,16 +105,9 @@ jobs:
           enable-cache: false
 
       - name: Install PlatformIO Core
-        run: uv pip install --system -U https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.19.zip
+        run: uv pip install --system -U platformio
 
-      - name: Cache PlatformIO packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.platformio
-          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
-          restore-keys: pio-${{ runner.os }}-
-
-      - name: Build CrossPoint
+      - name: Build LightPoint
         run: |
           set -euo pipefail
           pio run | tee pio.log
@@ -116,6 +133,13 @@ jobs:
           path: .pio/build/default/firmware.bin
           if-no-files-found: error
 
+      - name: Save PlatformIO packages cache
+        if: github.ref == 'refs/heads/main' && steps.pio-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.platformio/packages
+          key: ${{ steps.pio-cache-key.outputs.key }}
+
   unit-tests:
     runs-on: ubuntu-latest
     steps:
@@ -128,11 +152,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build
 
-      - name: Cache googletest source
-        uses: actions/cache@v4
+      - name: Compute googletest cache key
+        id: gtest-cache-key
+        run: |
+          tag=$(grep -E '^[[:space:]]*GIT_TAG' test/CMakeLists.txt | awk '{print $2}')
+          echo "key=${{ runner.os }}-googletest-${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore googletest source cache
+        id: gtest-cache-restore
+        uses: actions/cache/restore@v4
         with:
           path: build/test/_deps/googletest-src
-          key: ${{ runner.os }}-googletest-${{ hashFiles('test/CMakeLists.txt') }}
+          key: ${{ steps.gtest-cache-key.outputs.key }}
 
       - name: Configure
         run: cmake -S test -B build/test -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -142,6 +173,13 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir build/test --output-on-failure -j
+
+      - name: Save googletest source cache
+        if: github.ref == 'refs/heads/main' && steps.gtest-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/test/_deps/googletest-src
+          key: ${{ steps.gtest-cache-key.outputs.key }}
 
   # This job is used as the PR required actions check, allows for changes to other steps in the future without breaking
   # PR requirements.

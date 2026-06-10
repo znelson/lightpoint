@@ -1,8 +1,9 @@
 #include "OtaUpdateActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
+#include <HalWifi.h>
 #include <I18n.h>
-#include <WiFi.h>
 
 #include "MappedInputManager.h"
 #include "SilentRestart.h"
@@ -56,7 +57,11 @@ void OtaUpdateActivity::onEnter() {
 
   // Turn on WiFi immediately
   LOG_DBG("OTA", "Turning on WiFi...");
-  WiFi.mode(WIFI_STA);
+  if (!halWifi.init()) {
+    LOG_ERR("OTA", "WiFi init failed");
+    finish();
+    return;
+  }
 
   // Launch WiFi selection subactivity
   LOG_DBG("OTA", "Launching WifiSelectionActivity...");
@@ -67,13 +72,12 @@ void OtaUpdateActivity::onEnter() {
 void OtaUpdateActivity::onExit() {
   Activity::onExit();
 
-  // Success path reboots via the SHUTTING_DOWN state's plain ESP.restart()
-  // (loop() above) so the new firmware boots normally. Back-out paths land
-  // here with wifi still active; silent-restart to free the LWIP/mbedTLS
-  // fragmentation, same as the other wifi activities.
-  if (WiFi.getMode() != WIFI_MODE_NULL) {
-    WiFi.disconnect(false);
-    delay(30);
+  // Success path reboots via the SHUTTING_DOWN state's halPlatform.hardRestart() so the
+  // new firmware boots normally. Back-out paths deinit WiFi first (frees the
+  // driver heap cleanly), then silentRestart to reclaim LWIP/mbedTLS pools
+  // that esp_wifi_deinit cannot release.
+  if (halWifi.isActive()) {
+    halWifi.deinit();
     silentRestart();
   }
 }
@@ -105,7 +109,7 @@ void OtaUpdateActivity::render(RenderLock&&) {
   } else if (state == WAITING_CONFIRMATION) {
     renderer.drawCenteredText(UI_10_FONT_ID, top, tr(STR_NEW_UPDATE), true, EpdFontFamily::BOLD);
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, top + height + metrics.verticalSpacing,
-                      (std::string(tr(STR_CURRENT_VERSION)) + CROSSPOINT_VERSION).c_str());
+                      (std::string(tr(STR_CURRENT_VERSION)) + LIGHTPOINT_VERSION).c_str());
     renderer.drawText(UI_10_FONT_ID, metrics.contentSidePadding, top + height * 2 + metrics.verticalSpacing * 2,
                       (std::string(tr(STR_NEW_VERSION)) + updater.getLatestVersion()).c_str());
 
@@ -177,7 +181,7 @@ void OtaUpdateActivity::loop() {
       }
       requestUpdateAndWait();
       // Hold the completion screen briefly so the user sees it, then restart.
-      delay(3000);
+      halPlatform.delay(3000);
       {
         RenderLock lock(*this);
         state = SHUTTING_DOWN;
@@ -206,6 +210,6 @@ void OtaUpdateActivity::loop() {
   }
 
   if (state == SHUTTING_DOWN) {
-    ESP.restart();
+    halPlatform.hardRestart();
   }
 }

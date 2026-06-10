@@ -2,9 +2,9 @@
 
 #include <GfxRenderer.h>
 #include <HalClock.h>
+#include <HalWifi.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <WiFi.h>
 
 #include <cstdio>
 
@@ -20,10 +20,8 @@ void ClockSyncActivity::onEnter() {
   requestUpdate();
 }
 
-void ClockSyncActivity::onExit() { Activity::onExit(); }
-
 void ClockSyncActivity::runSync() {
-  if (WiFi.status() != WL_CONNECTED) {
+  if (!halWifi.isConnected()) {
     LOG_INF("CLK", "Manual sync requested but WiFi is not connected");
     state = NO_WIFI;
     requestUpdate();

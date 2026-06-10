@@ -14,6 +14,8 @@ class SdCardFontManager {
   ~SdCardFontManager();
   SdCardFontManager(const SdCardFontManager&) = delete;
   SdCardFontManager& operator=(const SdCardFontManager&) = delete;
+  SdCardFontManager(SdCardFontManager&&) = delete;
+  SdCardFontManager& operator=(SdCardFontManager&&) = delete;
 
   // Load the font file matching fontSizeEnum (SMALL=0 .. EXTRA_LARGE=3) by
   // ordinal position in the family's sorted size list. Only one .cpfont file
@@ -42,7 +44,7 @@ class SdCardFontManager {
     int fontId;
     uint8_t size;
   };
-  static int computeFontId(uint32_t contentHash, const char* familyName, uint8_t pointSize);
+  static int computeFontId(size_t contentHash, const char* familyName, uint8_t pointSize);
 
   std::string loadedFamilyName_;
   uint8_t loadedPointSize_ = 0;

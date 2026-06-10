@@ -1,6 +1,7 @@
 #include "SdCardFontManager.h"
 
 #include <EpdFontFamily.h>
+#include <Fnv1a.h>
 #include <GfxRenderer.h>
 #include <Logging.h>
 #include <SdCardFont.h>
@@ -15,15 +16,10 @@ SdCardFontManager::~SdCardFontManager() {
 // FNV-1a continuation: seeds with contentHash, then hashes family name + point size.
 // Produces a deterministic ID that is stable across load/unload cycles and reboots,
 // and changes when font content changes (different header/TOC = different contentHash).
-int SdCardFontManager::computeFontId(uint32_t contentHash, const char* familyName, uint8_t pointSize) {
-  static constexpr uint32_t FNV_PRIME = 16777619u;
-  uint32_t hash = contentHash;
-  while (*familyName) {
-    hash ^= static_cast<uint8_t>(*familyName++);
-    hash *= FNV_PRIME;
-  }
-  hash ^= pointSize;
-  hash *= FNV_PRIME;
+int SdCardFontManager::computeFontId(size_t contentHash, const char* familyName, uint8_t pointSize) {
+  size_t hash = contentHash;
+  while (*familyName) hash = Fnv1a::mix(hash, static_cast<unsigned char>(*familyName++));
+  hash = Fnv1a::mix(hash, pointSize);
   int id = static_cast<int>(hash);
   return id != 0 ? id : 1;  // 0 is reserved as "not found" sentinel
 }

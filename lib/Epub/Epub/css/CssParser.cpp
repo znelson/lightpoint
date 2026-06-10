@@ -1,13 +1,13 @@
 #include "CssParser.h"
 
-#include <Arduino.h>
+#include <Fnv1a.h>
+#include <HalPlatform.h>
 #include <Logging.h>
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <charconv>
-#include <cstring>
 #include <string_view>
 
 namespace {
@@ -92,21 +92,6 @@ void forEachDelimitedToken(std::string_view s, Pred isDelimiter, F&& fn) {
   }
 }
 
-// FNV-1a per Fowler/Noll/Vo, sized to match size_t on the target. The firmware
-// runs on a 32-bit core where size_t is 32 bits, so naively using the 64-bit
-// constants would silently truncate FNV_PRIME to a non-prime and wreck hash
-// distribution. The selection below picks the canonical 32- or 64-bit
-// constants at compile time so the same source works in a 64-bit host
-// simulator. `fnv1aMix` is the per-byte mix step; callers apply any
-// byte-level transform (e.g. asciiToLower) first.
-static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "FNV constants are only defined for 32- or 64-bit size_t");
-constexpr size_t FNV_OFFSET_BASIS =
-    sizeof(size_t) == 8 ? static_cast<size_t>(14695981039346656037ULL) : static_cast<size_t>(2166136261U);
-constexpr size_t FNV_PRIME =
-    sizeof(size_t) == 8 ? static_cast<size_t>(1099511628211ULL) : static_cast<size_t>(16777619U);
-
-constexpr size_t fnv1aMix(size_t hash, unsigned char byte) { return (hash ^ byte) * FNV_PRIME; }
-
 // Parse the entirety of s as a number into `out`. Accepts an optional leading
 // '+' (which std::from_chars rejects by spec) so callers can pass CSS-style
 // signed numbers without manual trimming. Returns false on empty input, a
@@ -162,8 +147,8 @@ std::string_view stripTrailingImportant(std::string_view value) {
 // with the other ASCII helpers in this translation unit.
 
 size_t CssParser::SvHash::operator()(std::string_view sv) const noexcept {
-  size_t h = FNV_OFFSET_BASIS;
-  for (char c : sv) h = fnv1aMix(h, asciiToLower(c));
+  size_t h = Fnv1a::kOffsetBasis;
+  for (char c : sv) h = Fnv1a::mix(h, asciiToLower(c));
   return h;
 }
 
@@ -172,9 +157,9 @@ size_t CssParser::SvHash::operator()(const std::string& s) const noexcept { retu
 size_t CssParser::SvHash::operator()(CompositeKey k) const noexcept {
   // Hash the case-folded concatenation of every piece without materializing
   // it — the running hash continues across pieces as if they were one buffer.
-  size_t h = FNV_OFFSET_BASIS;
+  size_t h = Fnv1a::kOffsetBasis;
   for (std::string_view piece : k.pieces) {
-    for (char c : piece) h = fnv1aMix(h, asciiToLower(c));
+    for (char c : piece) h = Fnv1a::mix(h, asciiToLower(c));
   }
   return h;
 }
@@ -216,15 +201,15 @@ bool CssParser::SvEqual::operator()(std::string_view sv, CompositeKey k) const n
 
 // Property value interpreters
 
-CssTextAlign CssParser::interpretAlignment(std::string_view val) {
+TextAlign CssParser::interpretAlignment(std::string_view val) {
   val = trimCssWhitespace(val);
 
-  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return CssTextAlign::Left;
-  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return CssTextAlign::Right;
-  if (iequalsAscii(val, "center")) return CssTextAlign::Center;
-  if (iequalsAscii(val, "justify")) return CssTextAlign::Justify;
+  if (iequalsAscii(val, "left") || iequalsAscii(val, "start")) return TextAlign::Left;
+  if (iequalsAscii(val, "right") || iequalsAscii(val, "end")) return TextAlign::Right;
+  if (iequalsAscii(val, "center")) return TextAlign::Center;
+  if (iequalsAscii(val, "justify")) return TextAlign::Justify;
 
-  return CssTextAlign::Left;
+  return TextAlign::Left;
 }
 
 CssFontStyle CssParser::interpretFontStyle(std::string_view val) {
@@ -632,11 +617,11 @@ bool CssParser::loadFromStream(HalFile& source) {
 
 CssStyle CssParser::resolveStyle(std::string_view tagName, std::string_view classAttr) const {
   static bool lowHeapWarningLogged = false;
-  if (ESP.getFreeHeap() < MIN_FREE_HEAP_FOR_CSS) {
+  if (halPlatform.freeHeap() < MIN_FREE_HEAP_FOR_CSS) {
     if (!lowHeapWarningLogged) {
       lowHeapWarningLogged = true;
       LOG_DBG("CSS", "Warning: low heap (%u bytes) below MIN_FREE_HEAP_FOR_CSS (%u), returning empty style",
-              ESP.getFreeHeap(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
+              halPlatform.freeHeap(), static_cast<unsigned>(MIN_FREE_HEAP_FOR_CSS));
     }
     return CssStyle{};
   }
@@ -680,10 +665,10 @@ CssStyle CssParser::parseInlineStyle(std::string_view styleValue) { return parse
 // Cache file name (version is CssParser::CSS_CACHE_VERSION)
 constexpr char rulesCache[] = "/css_rules.cache";
 
-bool CssParser::hasCache() const { return Storage.exists((cachePath + rulesCache).c_str()); }
+bool CssParser::hasCache() const { return halStorage.exists((cachePath + rulesCache).c_str()); }
 
 void CssParser::deleteCache() const {
-  if (hasCache()) Storage.remove((cachePath + rulesCache).c_str());
+  if (hasCache()) halStorage.remove((cachePath + rulesCache).c_str());
 }
 
 bool CssParser::saveToCache() const {
@@ -692,7 +677,7 @@ bool CssParser::saveToCache() const {
   }
 
   HalFile file;
-  if (!Storage.openFileForWrite("CSS", cachePath + rulesCache, file)) {
+  if (!halStorage.openFileForWrite("CSS", cachePath + rulesCache, file)) {
     return false;
   }
 
@@ -700,13 +685,13 @@ bool CssParser::saveToCache() const {
   file.write(CssParser::CSS_CACHE_VERSION);
 
   // Write rule count
-  const auto ruleCount = static_cast<uint16_t>(rulesBySelector_.size());
+  const uint16_t ruleCount = rulesBySelector_.size();
   file.write(reinterpret_cast<const uint8_t*>(&ruleCount), sizeof(ruleCount));
 
   // Write each rule: selector string + CssStyle fields
   for (const auto& pair : rulesBySelector_) {
     // Write selector string (length-prefixed)
-    const auto selectorLen = static_cast<uint16_t>(pair.first.size());
+    const uint16_t selectorLen = pair.first.size();
     file.write(reinterpret_cast<const uint8_t*>(&selectorLen), sizeof(selectorLen));
     file.write(reinterpret_cast<const uint8_t*>(pair.first.data()), selectorLen);
 
@@ -771,7 +756,7 @@ bool CssParser::loadFromCache() {
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("CSS", cachePath + rulesCache, file)) {
+  if (!halStorage.openFileForRead("CSS", cachePath + rulesCache, file)) {
     return false;
   }
 
@@ -783,9 +768,9 @@ bool CssParser::loadFromCache() {
   if (file.read(&version, 1) != 1 || version != CssParser::CSS_CACHE_VERSION) {
     LOG_DBG("CSS", "Cache version mismatch (got %u, expected %u), removing stale cache for rebuild", version,
             CssParser::CSS_CACHE_VERSION);
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove((cachePath + rulesCache).c_str());
+    halStorage.remove((cachePath + rulesCache).c_str());
     return false;
   }
 
@@ -850,7 +835,7 @@ bool CssParser::loadFromCache() {
       rulesBySelector_.clear();
       return false;
     }
-    style.textAlign = static_cast<CssTextAlign>(enumVal);
+    style.textAlign = static_cast<TextAlign>(enumVal);
 
     if (file.read(&enumVal, 1) != 1) {
       rulesBySelector_.clear();
@@ -937,6 +922,10 @@ bool CssParser::loadFromCache() {
     style.defined.display = (definedBits & 1 << 15) != 0;
     style.defined.direction = (definedBits & 1 << 16) != 0;
     style.defined.verticalAlign = (definedBits & 1 << 17) != 0;
+
+    // Guard against pre-bump caches or future-corrupted records that contain rules with
+    // no usable properties. Mirrors the check in processRuleBlockWithStyle.
+    if (!style.defined.anySet()) continue;
 
     rulesBySelector_[selector] = style;
   }

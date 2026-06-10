@@ -3,10 +3,13 @@
 #include <Epub.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <I18n.h>
 #include <Txt.h>
 #include <Xtc.h>
+
+#include <cmath>
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
@@ -58,13 +61,13 @@ void SleepActivity::onEnter() {
 void SleepActivity::renderCustomSleepScreen() const {
   // Check if we have a /.sleep (preferred) or /sleep directory
   const char* sleepDir = nullptr;
-  auto dir = Storage.open("/.sleep");
+  auto dir = halStorage.open("/.sleep");
 
   // Look for sleep.bmp on the root of the sd card to determine if we should
   // render a custom sleep screen instead of the default.
   // This takes priority over the /sleep folder.
   HalFile file;
-  if (Storage.openFileForRead("SLP", "/sleep.bmp", file)) {
+  if (halStorage.openFileForRead("SLP", "/sleep.bmp", file)) {
     Bitmap bitmap(file, true);
     if (bitmap.parseHeaders() == BmpReaderError::Ok) {
       LOG_DBG("SLP", "Loading: /sleep.bmp");
@@ -79,7 +82,7 @@ void SleepActivity::renderCustomSleepScreen() const {
   if (dir && dir.isDirectory()) {
     sleepDir = "/.sleep";
   } else {
-    dir = Storage.open("/sleep");
+    dir = halStorage.open("/sleep");
     if (dir && dir.isDirectory()) {
       sleepDir = "/sleep";
     }
@@ -122,17 +125,17 @@ void SleepActivity::renderCustomSleepScreen() const {
       const uint16_t fileCount = static_cast<uint16_t>(std::min(numFiles, static_cast<size_t>(UINT16_MAX)));
       const uint8_t window =
           static_cast<uint8_t>(std::min(static_cast<size_t>(APP_STATE.recentSleepFill), numFiles - 1));
-      auto randomFileIndex = static_cast<uint16_t>(random(fileCount));
+      auto randomFileIndex = static_cast<uint16_t>(halPlatform.randomU32() % fileCount);
       for (uint8_t attempt = 0; attempt < 20 && APP_STATE.isRecentSleep(randomFileIndex, window); attempt++) {
-        randomFileIndex = static_cast<uint16_t>(random(fileCount));
+        randomFileIndex = static_cast<uint16_t>(halPlatform.randomU32() % fileCount);
       }
       APP_STATE.pushRecentSleep(randomFileIndex);
       APP_STATE.saveToFile();
       const auto filename = std::string(sleepDir) + "/" + files[randomFileIndex];
       HalFile randFile;
-      if (Storage.openFileForRead("SLP", filename, randFile)) {
+      if (halStorage.openFileForRead("SLP", filename, randFile)) {
         LOG_DBG("SLP", "Randomly loading: %s/%s", sleepDir, files[randomFileIndex].c_str());
-        delay(100);
+        halPlatform.delay(100);
         Bitmap bitmap(randFile, true);
         if (bitmap.parseHeaders() == BmpReaderError::Ok) {
           renderBitmapSleepScreen(bitmap);
@@ -155,7 +158,7 @@ void SleepActivity::renderDefaultSleepScreen() const {
 
   renderer.clearScreen();
   renderer.drawImage(Logo120, (pageWidth - 120) / 2, (pageHeight - 120) / 2, 120, 120);
-  renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 70, tr(STR_CROSSPOINT), true, EpdFontFamily::BOLD);
+  renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 70, tr(STR_LIGHTPOINT), true, EpdFontFamily::BOLD);
   renderer.drawCenteredText(SMALL_FONT_ID, pageHeight / 2 + 95, tr(STR_SLEEPING));
 
   // Make sleep screen dark unless light is selected in settings
@@ -305,7 +308,7 @@ void SleepActivity::renderCoverSleepScreen() const {
   }
 
   HalFile file;
-  if (Storage.openFileForRead("SLP", coverBmpPath, file)) {
+  if (halStorage.openFileForRead("SLP", coverBmpPath, file)) {
     Bitmap bitmap(file);
     if (bitmap.parseHeaders() == BmpReaderError::Ok) {
       LOG_DBG("SLP", "Rendering sleep cover: %s", coverBmpPath.c_str());

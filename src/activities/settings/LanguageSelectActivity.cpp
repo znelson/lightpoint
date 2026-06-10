@@ -24,8 +24,6 @@ void LanguageSelectActivity::onEnter() {
   requestUpdate();
 }
 
-void LanguageSelectActivity::onExit() { Activity::onExit(); }
-
 void LanguageSelectActivity::loop() {
   if (mappedInput.wasPressed(MappedInputManager::Button::Back)) {
     onBack();
@@ -41,22 +39,22 @@ void LanguageSelectActivity::loop() {
 
   // Handle navigation
   buttonNavigator.onNextRelease([this] {
-    selectedIndex = ButtonNavigator::nextIndex(static_cast<int>(selectedIndex), totalItems);
+    selectedIndex = ButtonNavigator::nextIndex(selectedIndex, totalItems);
     requestUpdate();
   });
 
   buttonNavigator.onPreviousRelease([this] {
-    selectedIndex = ButtonNavigator::previousIndex(static_cast<int>(selectedIndex), totalItems);
+    selectedIndex = ButtonNavigator::previousIndex(selectedIndex, totalItems);
     requestUpdate();
   });
 
   buttonNavigator.onNextContinuous([this, pageItems] {
-    selectedIndex = ButtonNavigator::nextPageIndex(static_cast<int>(selectedIndex), totalItems, pageItems);
+    selectedIndex = ButtonNavigator::nextPageIndex(selectedIndex, totalItems, pageItems);
     requestUpdate();
   });
 
   buttonNavigator.onPreviousContinuous([this, pageItems] {
-    selectedIndex = ButtonNavigator::previousPageIndex(static_cast<int>(selectedIndex), totalItems, pageItems);
+    selectedIndex = ButtonNavigator::previousPageIndex(selectedIndex, totalItems, pageItems);
     requestUpdate();
   });
 }

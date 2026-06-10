@@ -1,10 +1,10 @@
-# CrossPoint Reader Development Guide
+# LightPoint Reader Development Guide
 
 Project: Open-source e-reader firmware for Xteink X4 (ESP32-C3)
 Mission: Provide a lightweight, high-performance reading experience focused on EPUB rendering on constrained hardware.
 
 ## AI Agent Identity and Cognitive Rules
-* Role: Senior Embedded Systems Engineer (ESP-IDF/Arduino-ESP32 specialized).
+* Role: Senior Embedded Systems Engineer (ESP-IDF specialized).
 * Primary Constraint: 380KB RAM is the hard ceiling. Stability is non-negotiable.
 * Evidence-Based Reasoning: Before proposing a change, you MUST cite the specific file path and line numbers that justify the modification.
 * Anti-Hallucination: Do not assume the existence of libraries or ESP-IDF functions. If you are unsure of an API's availability for the ESP32-C3 RISC-V target, check the open-x4-sdk or official docs first.
@@ -53,11 +53,11 @@ find src -name "*.cpp" -o -name "*.h" | xargs clang-format -i
 1. Stack Safety: Limit local function variables to < 256 bytes. The ESP32-C3 default stack is small; use std::unique_ptr or static pools for larger buffers.
 2. Heap Fragmentation: Avoid repeated new/delete in loops. Allocate buffers once during onEnter() and reuse them.
 3. Flash Persistence: Large constant data (UI strings, lookup tables) MUST be marked static const to stay in Flash (Instruction Bus), freeing DRAM.
-4. String Policy: Prohibit std::string and Arduino String in hot paths. Use std::string_view for read-only access and snprintf with fixed char[] buffers for construction.
+4. String Policy: Prohibit std::string in hot paths. Use std::string_view for read-only access and snprintf with fixed char[] buffers for construction.
 5. UI Strings: All user-facing text must use the `tr()` macro (e.g., `tr(STR_LOADING)`) for i18n support. Never hardcode UI strings directly. For the avoidance of doubt, logging messages (LOG_DBG/LOG_ERR) can be hardcoded, but user-facing text must use `tr()`.
 6. `constexpr` First: Compile-time constants and lookup tables must be `constexpr`, not just `static const`. This moves computation to compile time, enables dead-branch elimination, and guarantees flash placement. Use `static constexpr` for class-level constants.
 7. `std::vector` Pre-allocation: Always call `.reserve(N)` before any `push_back()` loop. Each growth event allocates a new block (2×), copies all elements, then frees the old one — three heap operations that fragment DRAM. When the final size is unknown, estimate conservatively.
-8. SPIFFS Write Throttling: Never write a settings file on every user interaction. Guard all writes with a value-change check (`if (newVal == _current) return;`). Progress saves during reading must be debounced — write on activity exit or every N page turns, not on every turn. SPIFFS sectors have a finite erase cycle limit.
+8. SD Write Throttling: Settings (`/.crosspoint/settings.json`) and reader progress (`/.crosspoint/epub_<hash>/progress.bin`) both persist to the SD card via `HalStorage` -- not SPIFFS or NVS. The reader does not use SPIFFS for runtime state at all. Even so, throttle writes: an SD write is ~20-30 ms on the page-turn hot path (measured), and FatFS over SD-SPI serialises against other SD I/O. Guard settings writes with a value-change check (`if (newVal == _current) return;`). Debounce progress saves -- write on activity exit or every N page turns, not on every turn. SD wear is not the driver here (the card has wear-leveling and a 6-byte write per turn is negligible); page-turn latency is.
 9. `new` is not nothrow on ESP32: With `-fno-exceptions`, bare `new` that fails calls `abort()` — it does NOT return `nullptr`. Always use `new (std::nothrow)` and null-check the result, or use `makeUniqueNoThrow<T>()` from `lib/Memory/Memory.h`. Never write bare `new` for any fallible allocation.
 
 ---
@@ -95,26 +95,34 @@ find src -name "*.cpp" -o -name "*.h" | xargs clang-format -i
   * `slim`: Minimal build (no serial logging)
 
 ### Critical Build Flags
-These flags in `platformio.ini` fundamentally affect firmware behavior:
+These flags in `platformio.ini` and `sdkconfig.defaults` fundamentally affect firmware behavior.
 
+**platformio.ini compile flags**:
 ```cpp
 -DEINK_DISPLAY_SINGLE_BUFFER_MODE=1  // Single framebuffer (saves 48KB RAM!)
--DARDUINO_USB_MODE=1                 // Enable USB CDC
--DARDUINO_USB_CDC_ON_BOOT=1          // Serial available immediately at boot
--DXML_CONTEXT_BYTES=1024             // XML parser memory limit (EPUB parsing)
--DUSE_UTF8_LONG_NAMES=1              // SD card long filename support
--DMINIZ_NO_ZLIB_COMPATIBLE_NAMES=1   // Avoid zlib name conflicts
 -DXML_GE=0                           // Disable XML general entities (security)
--DDESTRUCTOR_CLOSES_FILE=1           // FsFile destructor auto-closes (SdFat)
+-DXML_CONTEXT_BYTES=1024             // expat memory limit per parse (EPUB parsing)
+-DPNG_MAX_BUFFERED_PIXELS=16416      // PNGdec scanline buffer for up to 2048px-wide images
+-std=gnu++2a                         // C++20
+-fno-exceptions                      // matches CONFIG_COMPILER_CXX_EXCEPTIONS=n
 ```
 
-**DESTRUCTOR_CLOSES_FILE implications**:
-- SdFat's `FsBaseFile` destructor calls `close()` automatically when the object goes out of scope
-- **Do NOT add explicit `file.close()` calls** for local `FsFile` variables — the destructor handles it
-- Explicit `close()` is still required in these cases:
-  1. **Close before delete**: Must close before `Storage.remove()` on the same path
-  2. **Close before reopen**: Must close before reopening the same `FsFile` variable (e.g., write then reopen for read, or rewrite the same path)
-  3. **Member variables**: `FsFile` members persist beyond any single function scope, so close at the intended release point (e.g., in `onExit()`)
+**Relevant sdkconfig.defaults settings**:
+- `CONFIG_FATFS_LFN_HEAP=y` + `CONFIG_FATFS_MAX_LFN=255` — SD long filename support (heap-allocated)
+- `CONFIG_FATFS_CODEPAGE=437` — DOS code page (US/Western Europe)
+- `CONFIG_FREERTOS_UNICORE=y` — ESP32-C3 is single-core; drops dual-core overhead
+- `CONFIG_FREERTOS_HZ=1000` — 1 ms tick
+- `CONFIG_COMPILER_CXX_EXCEPTIONS=n` / `CONFIG_COMPILER_CXX_RTTI=n` — no exceptions, no RTTI
+- `CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192` — IDF default 3584 was too small for our init chain
+- `CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y` — USB-JTAG console
+
+**HalFile resource lifetime**:
+- `HalFile` wraps a `FILE*` or `DIR*` (POSIX via ESP-IDF VFS, not SdFat). It auto-closes on scope exit via `HalFile::Impl::~Impl()`'s `fclose`/`closedir`. The legacy `FsFile` alias was removed in the post-Arduino refactor — use `HalFile` everywhere.
+- **Do NOT add explicit `file.close()` calls** for local variables — the destructor handles it.
+- Explicit `close()` IS required when:
+  1. **Close before delete**: Must close before `Storage.remove()` on the same path (FatFS won't unlink an open file)
+  2. **Close before reopen**: Must close before reopening the same variable (e.g., write then reopen for read, or rewrite the same path)
+  3. **Members when early release matters**: Members auto-close when the owning object is destroyed, so explicit close in `onExit()` is only needed if you want deterministic SD release before destruction
 
 **SINGLE_BUFFER_MODE implications**:
 - Only ONE framebuffer exists (not double-buffered)
@@ -127,18 +135,18 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
   * lib/hal/: Hardware Abstraction Layer (HalDisplay, HalGPIO, HalStorage)
   * lib/I18n/: Internationalization (translations in `translations/*.yaml`, generated string tables)
 * src/activities/: UI logic using the Activity Lifecycle (onEnter, loop, onExit)
-* open-x4-sdk/: Low-level SDK (EInkDisplay, InputManager, BatteryMonitor, SDCardManager)
+* open-x4-sdk/: Low-level SDK (EInkDisplay, InputManager, BatteryMonitor). SD I/O is now handled by HalStorage directly via ESP-IDF VFS, not SDCardManager.
 * .crosspoint/: SD-based binary cache for EPUB metadata and pre-rendered layout sections
 
 ### Hardware Abstraction Layer (HAL)
 
 **CRITICAL**: Always use HAL classes, NOT SDK classes directly.
 
-| HAL Class | Wraps SDK Class | Purpose | Singleton Macro |
-|-----------|----------------|---------|-----------------|
-| `HalDisplay` | `EInkDisplay` | E-ink display control | *(none)* |
-| `HalGPIO` | `InputManager` | Button input handling | *(none)* |
-| `HalStorage` | `SDCardManager` | SD card file I/O | `Storage` |
+| HAL Class | Backed by | Purpose | Singleton Macro |
+|-----------|-----------|---------|-----------------|
+| `HalDisplay` | `EInkDisplay` (open-x4-sdk) | E-ink display control | *(none)* |
+| `HalGPIO` | `InputManager` (open-x4-sdk) | Button input handling | *(none)* |
+| `HalStorage` | ESP-IDF VFS + FatFS over SD-SPI | SD card file I/O | `Storage` |
 
 **Location**: [lib/hal/](../lib/hal/)
 
@@ -155,16 +163,16 @@ These flags in `platformio.ini` fundamentally affect firmware behavior:
 HalFile file;
 if (Storage.openFileForRead("MODULE", "/path/to/file.bin", file)) {
   // Read from file
-  // No file.close() needed — DESTRUCTOR_CLOSES_FILE=1 handles it at scope exit
+  // No file.close() needed — Impl destructor's fclose() handles it at scope exit
 }
 ```
 
-**Usage**: Use `HalFile` (the mutex-wrapping handle), NOT raw SdFat `FsFile` or Arduino `File`. Do NOT add `file.close()` for local variables (see DESTRUCTOR_CLOSES_FILE above).
+**Usage**: Always use `HalFile`. The legacy `FsFile` alias was removed; if it shows up in a merge from upstream, rename it. Do NOT add `file.close()` for local variables (see HalFile resource lifetime above).
 
-**SdFat is not thread-safe; all SD access MUST go through HalStorage**:
-- SdFat's `SdSpiCard` tracks SPI bus state with an unsynchronized `m_spiActive` bool. Two tasks calling SdFat concurrently can confuse that state machine and end with one task calling `SPIClass::endTransaction()` against a paramLock the *other* task is holding. That trips FreeRTOS's `xTaskPriorityDisinherit` assert (`tasks.c:5156, pxTCB == pxCurrentTCBs[0]`) and panics the system. See SdFat issue #518.
-- `HalStorage` serializes everything via `storageMutex`. Downstream code uses `HalFile` (declared in `<HalStorage.h>`); every method call (read, write, seek, close) takes the mutex. `HalFile`'s destructor also takes the mutex before letting the underlying SdFat `FsFile` close.
-- **Never** call into `SdFat` / `SdSpiCard` / `FsBaseFile` / `SDCardManager` / raw `FsFile` directly — that bypasses the mutex.
+**StorageLock policy** (when modifying HalStorage internals):
+- FatFS is compiled with `FF_FS_REENTRANT=1`, so ESP-IDF's VFS layer takes a per-volume mutex around every `fopen`/`fread`/`fwrite`/`fclose`/`stat`/`mkdir`/etc. Single-call wrappers rely on that and do NOT take `StorageLock`.
+- Use `StorageLock` only for compound operations whose atomicity matters across tasks: `stat`+`open` or `stat`+`mkdir` (TOCTOU), `opendir`+`readdir` loops (snapshot consistency), `fopen`+`fread*`+`fclose` sequences, and multi-step `HalFile` state changes (`close`, `rename`, `openNextFile`).
+- `StorageLock` is a private class on `HalStorage` (non-recursive `xSemaphoreCreateMutex`). Holding it while calling another locked method on the same task self-deadlocks; locked methods must not nest.
 
 ---
 
@@ -182,12 +190,12 @@ if (Storage.openFileForRead("MODULE", "/path/to/file.bin", file)) {
 
 ### Memory Safety and RAII
 * Smart Pointers: Prefer std::unique_ptr. Avoid std::shared_ptr (unnecessary atomic overhead for a single-core RISC-V).
-* RAII: Use destructors for cleanup. Call `vTaskDelete()` explicitly for deterministic task release. Do NOT call `file.close()` on local `FsFile` variables — `DESTRUCTOR_CLOSES_FILE=1` handles it at scope exit (see Critical Build Flags).
+* RAII: Use destructors for cleanup. Call `vTaskDelete()` explicitly for deterministic task release. Do NOT call `file.close()` on local `HalFile` variables — `Impl::~Impl()`'s `fclose` handles it at scope exit (see HalFile resource lifetime in Critical Build Flags).
 
 ### ESP32-C3 Platform Pitfalls
 
 #### `std::string_view` and Null Termination
-`string_view` is *not* null-terminated. Passing `.data()` to any C-style API (`drawText`, `snprintf`, `strcmp`, SdFat file paths) is undefined behaviour when the view is a substring or a view of a non-null-terminated buffer.
+`string_view` is *not* null-terminated. Passing `.data()` to any C-style API (`drawText`, `snprintf`, `strcmp`, `fopen` paths) is undefined behaviour when the view is a substring or a view of a non-null-terminated buffer.
 
 **Rule**: `string_view` is safe only when passing to C++ APIs that accept `string_view`. For any C API boundary, convert explicitly:
 ```cpp
@@ -257,6 +265,19 @@ struct Callback { void* ctx; void (*fn)(void*); };
 ```
 
 When a template is necessary, limit instantiations: use explicit template instantiation in a `.cpp` file to prevent the compiler from generating duplicates across translation units.
+
+#### `fputc`/`putc`/`putchar` are unsafe — use `fwrite`
+Picolibc 1.8.6 (bundled with the toolchain; still unfixed at HEAD 1.8.11-324) has an off-by-one in `__bufio_put`: it writes `buf[bf->len++]` before bounds-checking. If `fwrite` exits with `bf->len == bf->size` (data exactly fills the 128-byte buffer), the next `fputc` writes one byte past the buffer and corrupts the heap poison tail canary — observed as a deterministic crash at the file's `fclose()`. The bug also inserts a stray byte into the file on disk.
+
+```cpp
+// AVOID: hits the picolibc __bufio_put off-by-one
+fputc(b, fp);
+
+// PREFER: fwrite bounds-checks at loop entry and flushes first when buffer is full
+fwrite(&b, 1, 1, fp);
+```
+
+`HalFile::write(uint8_t)` was fixed to route through `fwrite`. Don't introduce new direct `fputc`/`putc`/`putchar` calls; reach for `fwrite(&b, 1, 1, fp)` or use `HalFile`. See [docs/picolibc-bufio-bug.md](../docs/picolibc-bufio-bug.md) for the upstream bug report, and [docs/debugging-heap-corruption.md](../docs/debugging-heap-corruption.md) for the debugging history.
 
 ---
 
@@ -426,13 +447,13 @@ void enterNewActivity(Activity* activity) {
 - Activity navigation = `delete` old activity + `new` create next activity
 - Any memory allocated in `onEnter()` MUST be freed in `onExit()`
 - FreeRTOS tasks MUST be deleted in `onExit()` before activity destruction
-- Member `FsFile` handles MUST be closed in `onExit()` (local `FsFile` variables auto-close via destructor)
+- Member `HalFile` handles auto-close when the activity object is destroyed; close them explicitly in `onExit()` only when you want deterministic SD release before the `delete` (local variables already auto-close on scope exit)
 
 **Activity Pattern**:
 ```cpp
 void onEnter()  { Activity::onEnter(); /* alloc: buffer, tasks */ render(); }
 void loop()     { mappedInput.update(); /* handle input */ }
-void onExit()   { /* free: vTaskDelete, free buffer, close member FsFiles */ Activity::onExit(); }
+void onExit()   { /* free: vTaskDelete, free buffer, (optionally) close member HalFiles */ Activity::onExit(); }
 ```
 
 **Critical**: Free resources in reverse order. Delete tasks BEFORE activity destruction.
@@ -457,6 +478,7 @@ void onExit()   { /* free: vTaskDelete, free buffer, close member FsFiles */ Act
 **All fonts are loaded as global static objects** at firmware startup:
 - Noto Serif: 12, 14, 16, 18pt (4 styles each: regular, bold, italic, bold-italic)
 - Noto Sans: 12, 14, 16, 18pt (4 styles each)
+- Courier Prime: 12, 14, 16, 18pt (4 styles each)
 - Ubuntu UI fonts: 10, 12pt (2 styles)
 
 **Total**: ~80+ global `EpdFont` and `EpdFontFamily` objects
@@ -607,8 +629,8 @@ git status --short
 
 **Example Output** (forked repository):
 ```text
-origin      https://github.com/<your-username>/crosspoint-reader.git (fetch/push)
-upstream    https://github.com/crosspoint-reader/crosspoint-reader.git (fetch/push)
+origin      https://github.com/<your-username>/lightpoint.git (fetch/push)
+upstream    https://github.com/znelson/lightpoint.git (fetch/push)
 ```
 
 ### Git Operation Rules
@@ -786,6 +808,28 @@ build_flags =
 - **NEVER commit** `platformio.local.ini`
 - **NEVER put** personal info (serial ports, credentials) in main `platformio.ini`
 - Use `${base.build_flags}` to extend (not replace) base flags
+
+### compile_commands.json (IDE / clangd Support)
+
+**Purpose**: PlatformIO-generated compilation database that lets clangd-based tools (VS Code clangd extension, Neovim LSP, JetBrains, etc.) resolve includes and provide accurate diagnostics. Without it, clangd reports `EpdFontFamily.h file not found` and a cascade of bogus errors because the project's ~233 `-I` paths are unknown.
+
+**Generate**:
+```bash
+pio run -t compiledb
+```
+Drops `compile_commands.json` at the project root. Gitignored — each contributor regenerates locally.
+
+**Regenerate when**:
+- Adding/removing a library under `lib/`
+- Editing `build_flags` or `lib_deps` in `platformio.ini`
+- Updating ESP-IDF / framework versions
+- Day-to-day source edits do NOT require regeneration
+
+**Companion file**: `.clangd` (committed) strips gcc-only flags (`-fno-shrink-wrap`, `-fno-tree-switch-conversion`, `-fno-jump-tables`, `-fstrict-volatile-bitfields`, `-mlongcalls`) that gcc accepts but clangd warns on. This has no effect on the real build, which uses `riscv32-esp-elf-gcc`.
+
+**Rules**:
+- **NEVER commit** `compile_commands.json` — it embeds absolute paths to `$HOME` and the local PlatformIO install
+- **DO commit** `.clangd` — it's a project-wide tooling config
 
 ---
 

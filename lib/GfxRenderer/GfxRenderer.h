@@ -2,6 +2,7 @@
 
 #include <EpdFontFamily.h>
 #include <HalDisplay.h>
+#include <Rect.h>
 
 namespace BidiUtils {
 // Paragraph base direction for the Unicode BiDi algorithm (UAX#9).
@@ -24,6 +25,14 @@ class SdCardFont;
 // Color representation: uint8_t mapped to 4x4 Bayer matrix dithering levels
 // 0 = transparent, 1-16 = gray levels (white to black)
 enum Color : uint8_t { Clear = 0x00, White = 0x01, LightGray = 0x05, DarkGray = 0x0A, Black = 0x10 };
+
+// Top/right/bottom/left margins in pixels.
+struct ViewableMargins {
+  uint16_t top;
+  uint16_t right;
+  uint16_t bottom;
+  uint16_t left;
+};
 
 class GfxRenderer {
  public:
@@ -87,10 +96,15 @@ class GfxRenderer {
       : display(halDisplay), renderMode(BW), orientation(Portrait), fadingFix(false) {}
   ~GfxRenderer() { freeBwBufferChunks(); }
 
-  static constexpr int VIEWABLE_MARGIN_TOP = 9;
-  static constexpr int VIEWABLE_MARGIN_RIGHT = 3;
-  static constexpr int VIEWABLE_MARGIN_BOTTOM = 3;
-  static constexpr int VIEWABLE_MARGIN_LEFT = 3;
+  GfxRenderer(const GfxRenderer&) = delete;
+  GfxRenderer& operator=(const GfxRenderer&) = delete;
+  GfxRenderer(GfxRenderer&&) = delete;
+  GfxRenderer& operator=(GfxRenderer&&) = delete;
+
+  static constexpr uint16_t VIEWABLE_MARGIN_TOP = 9;
+  static constexpr uint16_t VIEWABLE_MARGIN_RIGHT = 3;
+  static constexpr uint16_t VIEWABLE_MARGIN_BOTTOM = 3;
+  static constexpr uint16_t VIEWABLE_MARGIN_LEFT = 3;
 
   // Setup
   void begin();  // must be called right after display.begin()
@@ -126,14 +140,14 @@ class GfxRenderer {
   void setFadingFix(const bool enabled) { fadingFix = enabled; }
 
   // Screen ops
-  int getScreenWidth() const;
-  int getScreenHeight() const;
+  uint16_t getScreenWidth() const;
+  uint16_t getScreenHeight() const;
   void displayBuffer(HalDisplay::RefreshMode refreshMode = HalDisplay::FAST_REFRESH) const;
   // EXPERIMENTAL: Windowed update - display only a rectangular region
   // void displayWindow(int x, int y, int width, int height) const;
   void invertScreen() const;
   void clearScreen(uint8_t color = 0xFF) const;
-  void getOrientedViewableTRBL(int* outTop, int* outRight, int* outBottom, int* outLeft) const;
+  ViewableMargins getOrientedViewableMargins() const;
 
   // Tiled grayscale strip target. While active, drawPixel() and clearScreen()
   // operate on `scratch` (panelWidthBytes * stripRows bytes, holding physical
@@ -207,7 +221,7 @@ class GfxRenderer {
   /// Word-wrap \p text into at most \p maxLines lines, each no wider than
   /// \p maxWidth pixels. Overflowing words and excess lines are UTF-8-safely
   /// truncated with an ellipsis (U+2026).
-  std::vector<std::string> wrappedText(int fontId, const char* text, int maxWidth, int maxLines,
+  std::vector<std::string> wrappedText(int fontId, const char* text, int maxWidth, size_t maxLines,
                                        EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
 
   // Helper for drawing rotated text (90 degrees clockwise, for side buttons)
@@ -248,8 +262,7 @@ class GfxRenderer {
   //
   // getRegionByteSize: required buffer length for the rect at current orientation.
   // copyRegionToBuffer / copyBufferToRegion: false if `bufSize` is smaller than that.
-  size_t getRegionByteSize(int logicalX, int logicalY, int logicalW, int logicalH) const;
-  bool copyRegionToBuffer(int logicalX, int logicalY, int logicalW, int logicalH, uint8_t* buf, size_t bufSize) const;
-  bool copyBufferToRegion(int logicalX, int logicalY, int logicalW, int logicalH, const uint8_t* buf,
-                          size_t bufSize) const;
+  size_t getRegionByteSize(Rect rect) const;
+  bool copyRegionToBuffer(Rect rect, uint8_t* buf, size_t bufSize) const;
+  bool copyBufferToRegion(Rect rect, const uint8_t* buf, size_t bufSize) const;
 };

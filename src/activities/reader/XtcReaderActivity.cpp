@@ -174,23 +174,21 @@ void XtcReaderActivity::renderStatusBarOverlay(const StatusBarOverlayPosition po
     return;
   }
 
-  int orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft;
-  renderer.getOrientedViewableTRBL(&orientedMarginTop, &orientedMarginRight, &orientedMarginBottom,
-                                   &orientedMarginLeft);
+  const auto margins = renderer.getOrientedViewableMargins();
 
   int clearY;
   int paddingBottom = 0;
   if (position == StatusBarOverlayPosition::Bottom) {
-    clearY = renderer.getScreenHeight() - orientedMarginBottom - statusBarHeight - 4;
+    clearY = renderer.getScreenHeight() - margins.bottom - statusBarHeight - 4;
     if (clearY < 0) {
       clearY = 0;
     }
   } else {
-    clearY = orientedMarginTop;
-    paddingBottom = renderer.getScreenHeight() - statusBarHeight - orientedMarginBottom - orientedMarginTop - 4;
+    clearY = margins.top;
+    paddingBottom = renderer.getScreenHeight() - statusBarHeight - margins.bottom - margins.top - 4;
   }
   const int clearHeight = position == StatusBarOverlayPosition::Bottom
-                              ? renderer.getScreenHeight() - orientedMarginBottom - clearY
+                              ? renderer.getScreenHeight() - margins.bottom - clearY
                               : statusBarHeight + 4;
   if (clearHeight > 0) {
     renderer.fillRect(0, clearY, renderer.getScreenWidth(), clearHeight, false);
@@ -376,7 +374,7 @@ void XtcReaderActivity::renderPage() {
 
 void XtcReaderActivity::saveProgress() const {
   HalFile f;
-  if (Storage.openFileForWrite("XTR", xtc->getCachePath() + "/progress.bin", f)) {
+  if (halStorage.openFileForWrite("XTR", xtc->getCachePath() + "/progress.bin", f)) {
     uint8_t data[4];
     data[0] = currentPage & 0xFF;
     data[1] = (currentPage >> 8) & 0xFF;
@@ -389,7 +387,7 @@ void XtcReaderActivity::saveProgress() const {
 
 void XtcReaderActivity::loadProgress() {
   HalFile f;
-  if (Storage.openFileForRead("XTR", xtc->getCachePath() + "/progress.bin", f)) {
+  if (halStorage.openFileForRead("XTR", xtc->getCachePath() + "/progress.bin", f)) {
     uint8_t data[4];
     if (f.read(data, 4) == 4) {
       currentPage = data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);

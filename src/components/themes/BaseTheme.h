@@ -1,22 +1,16 @@
 #pragma once
 
+#include <FunctionRef.h>
+#include <Rect.h>
+
 #include <cstddef>
 #include <cstdint>
-#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
 class GfxRenderer;
 struct RecentBook;
-
-struct Rect {
-  int x;
-  int y;
-  int width;
-  int height;
-
-  explicit Rect(int x = 0, int y = 0, int width = 0, int height = 0) : x(x), y(y), width(width), height(height) {}
-};
 
 struct TabInfo {
   const char* label;
@@ -24,80 +18,80 @@ struct TabInfo {
 };
 
 struct ThemeMetrics {
-  int batteryWidth;
-  int batteryHeight;
+  uint8_t batteryWidth;
+  uint8_t batteryHeight;
 
-  int topPadding;
-  int batteryBarHeight;
-  int headerHeight;
-  int verticalSpacing;
+  uint8_t topPadding;
+  uint8_t batteryBarHeight;
+  uint8_t headerHeight;
+  uint8_t verticalSpacing;
 
-  int contentSidePadding;
-  int listRowHeight;
-  int listWithSubtitleRowHeight;
-  int menuRowHeight;
-  int menuSpacing;
+  uint8_t contentSidePadding;
+  uint8_t listRowHeight;
+  uint8_t listWithSubtitleRowHeight;
+  uint8_t menuRowHeight;
+  uint8_t menuSpacing;
 
-  int tabSpacing;
-  int tabBarHeight;
+  uint8_t tabSpacing;
+  uint8_t tabBarHeight;
 
-  int scrollBarWidth;
-  int scrollBarRightOffset;
+  uint8_t scrollBarWidth;
+  int8_t scrollBarRightOffset;
 
-  int homeTopPadding;
-  int homeCoverHeight;
-  int homeCoverTileHeight;
-  int homeRecentBooksCount;
+  uint8_t homeTopPadding;
+  uint16_t homeCoverHeight;
+  uint16_t homeCoverTileHeight;
+  uint8_t homeRecentBooksCount;
   bool homeContinueReadingInMenu;
-  int homeMenuTopOffset;
+  uint8_t homeMenuTopOffset;
 
-  int buttonHintsHeight;
-  int sideButtonHintsWidth;
+  uint8_t buttonHintsHeight;
+  uint8_t sideButtonHintsWidth;
 
-  int progressBarHeight;
-  int progressBarMarginTop;
-  int statusBarHorizontalMargin;
-  int statusBarVerticalMargin;
+  uint8_t progressBarHeight;
+  uint8_t progressBarMarginTop;
+  uint8_t statusBarHorizontalMargin;
+  uint8_t statusBarVerticalMargin;
 
-  int keyboardKeyWidth;
-  int keyboardKeyHeight;
-  int keyboardKeySpacing;
-  int keyboardBottomKeyHeight;
-  int keyboardBottomKeySpacing;
+  uint8_t keyboardKeyWidth;
+  uint8_t keyboardKeyHeight;
+  uint8_t keyboardKeySpacing;
+  uint8_t keyboardBottomKeyHeight;
+  uint8_t keyboardBottomKeySpacing;
   bool keyboardBottomAligned;
   bool keyboardCenteredText;
-  int keyboardVerticalOffset;
-  int keyboardTextFieldWidthPercent;
-  int keyboardWidthPercent;
-  int keyboardKeyCornerRadius;
+  int8_t keyboardVerticalOffset;
+  uint8_t keyboardTextFieldWidthPercent;
+  uint8_t keyboardWidthPercent;
+  uint8_t keyboardKeyCornerRadius;
   bool keyboardFillUnselected;
   bool keyboardOutlineAllUnselected;
   bool keyboardDrawSpecialOutlineWhenUnselected;
-  int keyboardSecondaryLabelRightPadding;
-  int keyboardSecondaryLabelTopPadding;
-  int keyboardMinArrowHeadSize;
+  uint8_t keyboardSecondaryLabelRightPadding;
+  uint8_t keyboardSecondaryLabelTopPadding;
+  uint8_t keyboardMinArrowHeadSize;
 
   float popupTopOffsetRatio;
-  int popupMarginX;
-  int popupMarginY;
-  int popupFrameThickness;
-  int popupCornerRadius;
+  uint8_t popupMarginX;
+  uint8_t popupMarginY;
+  uint8_t popupFrameThickness;
+  uint8_t popupCornerRadius;
   bool popupTextBold;
   bool popupTextInverted;
-  int popupTextBaselineOffsetY;
-  int popupProgressBarHeight;
+  int8_t popupTextBaselineOffsetY;
+  uint8_t popupProgressBarHeight;
   bool popupProgressDrawOutline;
   bool popupProgressClampPercent;
   bool popupProgressFillInverted;
   bool popupProgressOutlineInverted;
 
-  int textFieldHorizontalPadding;
-  int textFieldNormalThickness;
-  int textFieldCursorThickness;
-  int textFieldLineEndOffset;
+  uint8_t textFieldHorizontalPadding;
+  uint8_t textFieldNormalThickness;
+  uint8_t textFieldCursorThickness;
+  int8_t textFieldLineEndOffset;
 };
 
-enum UIIcon { None = 0, Folder, Text, Image, Book, File, Recent, Settings, Transfer, Library, Wifi, Hotspot, Bookmark };
+enum UIIcon { None = 0, Folder, Text, Image, Book, File, Recent, Settings, Library, Wifi, Bookmark };
 
 enum class KeyboardKeyType { Normal, Shift, Mode, Space, Del, Ok, Disabled };
 
@@ -183,12 +177,12 @@ class BaseTheme {
                                const char* btn4) const;
   virtual void drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const;
   virtual int getListPageItems(int contentHeight, bool hasSubtitle) const;
-  virtual void drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
-                        const std::function<std::string(int index)>& rowTitle,
-                        const std::function<std::string(int index)>& rowSubtitle = nullptr,
-                        const std::function<UIIcon(int index)>& rowIcon = nullptr,
-                        const std::function<std::string(int index)>& rowValue = nullptr, bool highlightValue = false,
-                        const std::function<bool(int index)>& rowDimmed = nullptr) const;
+  virtual void drawList(const GfxRenderer& renderer, Rect rect, uint16_t itemCount,
+                        std::optional<uint16_t> selectedIndex, FunctionRef<std::string(int index)> rowTitle,
+                        FunctionRef<std::string(int index)> rowSubtitle = nullptr,
+                        FunctionRef<UIIcon(int index)> rowIcon = nullptr,
+                        FunctionRef<std::string(int index)> rowValue = nullptr, bool highlightValue = false,
+                        FunctionRef<bool(int index)> rowDimmed = nullptr) const;
   virtual void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title,
                           const char* subtitle = nullptr) const;
   virtual void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
@@ -196,11 +190,11 @@ class BaseTheme {
   virtual void drawTabBar(const GfxRenderer& renderer, Rect rect, const std::vector<TabInfo>& tabs,
                           bool selected) const;
   virtual void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
-                                   const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
-                                   bool& bufferRestored, std::function<bool()> storeCoverBuffer) const;
-  virtual void drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
-                              const std::function<std::string(int index)>& buttonLabel,
-                              const std::function<UIIcon(int index)>& rowIcon) const;
+                                   uint16_t selectorIndex, bool hasCachedCover, bool bufferRestored,
+                                   FunctionRef<bool()> storeCoverBuffer) const;
+  virtual void drawButtonMenu(GfxRenderer& renderer, Rect rect, uint16_t buttonCount,
+                              std::optional<uint16_t> selectedIndex, FunctionRef<std::string(int index)> buttonLabel,
+                              FunctionRef<UIIcon(int index)> rowIcon) const;
   virtual Rect drawPopup(const GfxRenderer& renderer, const char* message) const;
   virtual void fillPopupProgress(const GfxRenderer& renderer, const Rect& layout, const int progress) const;
   void drawStatusBar(GfxRenderer& renderer, const float bookProgress, const int currentPage, const int pageCount,

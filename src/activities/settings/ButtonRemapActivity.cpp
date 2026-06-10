@@ -1,6 +1,7 @@
 #include "ButtonRemapActivity.h"
 
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <I18n.h>
 
 #include "CrossPointSettings.h"
@@ -14,7 +15,7 @@ constexpr uint8_t kRoleCount = 4;
 // Marker used when a role has not been assigned yet.
 constexpr uint8_t kUnassigned = 0xFF;
 // Duration to show temporary error text when reassigning a button.
-constexpr unsigned long kErrorDisplayMs = 1500;
+constexpr uint32_t kErrorDisplayMs = 1500;
 }  // namespace
 
 void ButtonRemapActivity::onEnter() {
@@ -31,11 +32,9 @@ void ButtonRemapActivity::onEnter() {
   requestUpdate();
 }
 
-void ButtonRemapActivity::onExit() { Activity::onExit(); }
-
 void ButtonRemapActivity::loop() {
   // Clear any temporary warning after its timeout.
-  if (errorUntil > 0 && millis() > errorUntil) {
+  if (errorUntil > 0 && halPlatform.millis() > errorUntil) {
     errorMessage.clear();
     errorUntil = 0;
     requestUpdate();
@@ -68,18 +67,18 @@ void ButtonRemapActivity::loop() {
     RenderLock lock(*this);
 
     // Wait for a front button press to assign to the current role.
-    const int pressedButton = mappedInput.getPressedFrontButton();
-    if (pressedButton < 0) {
+    const auto pressedButton = mappedInput.getPressedFrontButton();
+    if (!pressedButton) {
       return;
     }
 
     // Update temporary mapping and advance the remap step.
     // Only accept the press if this hardware button isn't already assigned elsewhere.
-    if (!validateUnassigned(static_cast<uint8_t>(pressedButton))) {
+    if (!validateUnassigned(*pressedButton)) {
       requestUpdate();
       return;
     }
-    tempMapping[currentStep] = static_cast<uint8_t>(pressedButton);
+    tempMapping[currentStep] = *pressedButton;
     currentStep++;
 
     if (currentStep >= kRoleCount) {
@@ -162,7 +161,7 @@ bool ButtonRemapActivity::validateUnassigned(const uint8_t pressedButton) {
   for (uint8_t i = 0; i < kRoleCount; i++) {
     if (tempMapping[i] == pressedButton && i != currentStep) {
       errorMessage = tr(STR_ALREADY_ASSIGNED);
-      errorUntil = millis() + kErrorDisplayMs;
+      errorUntil = halPlatform.millis() + kErrorDisplayMs;
       return false;
     }
   }

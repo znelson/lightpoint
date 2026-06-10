@@ -1,9 +1,9 @@
 #include "ScreenshotUtil.h"
 
-#include <Arduino.h>
 #include <BitmapHelpers.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
+#include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
 
@@ -14,17 +14,17 @@
 #include "activities/Activity.h"
 
 void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t bufSize) {
-  const unsigned long ts = millis();
+  const unsigned int ts = static_cast<unsigned int>(halPlatform.millis());
 
   if (info.readerType == ScreenshotInfo::ReaderType::None || info.title[0] == '\0') {
-    snprintf(buf, bufSize, "/screenshots/screenshot-%lu.bmp", ts);
+    snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);
     return;
   }
 
   char sanitizedTitle[64];
   FsHelpers::sanitizePathComponentForFat32(info.title, sanitizedTitle, sizeof(sanitizedTitle));
   if (sanitizedTitle[0] == '\0') {
-    snprintf(buf, bufSize, "/screenshots/screenshot-%lu.bmp", ts);
+    snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);
     return;
   }
 
@@ -32,15 +32,16 @@ void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t
   if (pct < 0) pct = 0;
   if (pct > 100) pct = 100;
 
+  const bool hasChapter = info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex.has_value();
   // Display spine index as 1-based for user-facing filenames
-  const int chapterNum = info.spineIndex + 1;
+  const int chapterNum = hasChapter ? *info.spineIndex + 1 : 0;
 
-  if (info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex >= 0) {
-    snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
+  if (hasChapter) {
+    snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
              info.currentPage, pct, ts);
   } else {
-    snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, info.currentPage,
-             pct, ts);
+    snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, info.currentPage, pct,
+             ts);
   }
 
   // Truncate title if total path exceeds FAT32 limit
@@ -54,15 +55,15 @@ void ScreenshotUtil::buildFilename(const ScreenshotInfo& info, char* buf, size_t
         maxTitleLen--;
       }
       sanitizedTitle[maxTitleLen] = '\0';
-      if (info.readerType == ScreenshotInfo::ReaderType::Epub && info.spineIndex >= 0) {
-        snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
+      if (hasChapter) {
+        snprintf(buf, bufSize, "/screenshots/%s/%s_ch%d_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, chapterNum,
                  info.currentPage, pct, ts);
       } else {
-        snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%lu.bmp", sanitizedTitle, sanitizedTitle, info.currentPage,
+        snprintf(buf, bufSize, "/screenshots/%s/%s_p%d_%dpct_%u.bmp", sanitizedTitle, sanitizedTitle, info.currentPage,
                  pct, ts);
       }
     } else {
-      snprintf(buf, bufSize, "/screenshots/screenshot-%lu.bmp", ts);
+      snprintf(buf, bufSize, "/screenshots/screenshot-%u.bmp", ts);
     }
   }
 }
@@ -88,14 +89,13 @@ void ScreenshotUtil::takeScreenshot(GfxRenderer& renderer) {
 
   // Display a border around the screen to indicate a screenshot was taken
   if (renderer.storeBwBuffer()) {
-    int marginTop, marginRight, marginBottom, marginLeft;
-    renderer.getOrientedViewableTRBL(&marginTop, &marginRight, &marginBottom, &marginLeft);
-    int width = renderer.getScreenWidth() - marginLeft - marginRight - 1;
-    int height = renderer.getScreenHeight() - marginTop - marginBottom - 1;
+    const auto margins = renderer.getOrientedViewableMargins();
+    int width = renderer.getScreenWidth() - margins.left - margins.right - 1;
+    int height = renderer.getScreenHeight() - margins.top - margins.bottom - 1;
     // Add extra margin to the border to make it more visible
-    renderer.drawRect(marginLeft + 1, marginTop + 1, width - 2, height - 2, 2, true);
+    renderer.drawRect(margins.left + 1, margins.top + 1, width - 2, height - 2, 2, true);
     renderer.displayBuffer();
-    delay(1000);
+    halPlatform.delay(1000);
     renderer.restoreBwBuffer();
     renderer.displayBuffer(HalDisplay::RefreshMode::HALF_REFRESH);
   }
@@ -114,15 +114,15 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   size_t last_slash = path.find_last_of('/');
   if (last_slash != std::string::npos) {
     std::string dir = path.substr(0, last_slash);
-    if (!Storage.exists(dir.c_str())) {
-      if (!Storage.mkdir(dir.c_str())) {
+    if (!halStorage.exists(dir.c_str())) {
+      if (!halStorage.mkdir(dir.c_str())) {
         return false;
       }
     }
   }
 
   HalFile file;
-  if (!Storage.openFileForWrite("SCR", filename, file)) {
+  if (!halStorage.openFileForWrite("SCR", filename, file)) {
     LOG_ERR("SCR", "Failed to save screenshot");
     return false;
   }
@@ -137,9 +137,9 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   }
 
   if (write_error) {
-    // Explicitly close() file before calling Storage.remove()
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove(filename);
+    halStorage.remove(filename);
     return false;
   }
 
@@ -147,10 +147,10 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
   // Max row size for 528px height (X3) after rotation = 68 bytes; use fixed buffer to avoid VLA
   constexpr size_t kMaxRowSize = 68;
   if (rowSizePadded > kMaxRowSize) {
-    LOG_ERR("SCR", "Row size %u exceeds buffer capacity", rowSizePadded);
-    // Explicitly close() file before calling Storage.remove()
+    LOG_ERR("SCR", "Row size %u exceeds buffer capacity", static_cast<unsigned int>(rowSizePadded));
+    // Explicitly close() file before calling halStorage.remove()
     file.close();
-    Storage.remove(filename);
+    halStorage.remove(filename);
     return false;
   }
 
@@ -175,11 +175,11 @@ bool ScreenshotUtil::saveFramebufferAsBmp(const char* filename, const uint8_t* f
     memset(rowBuffer, 0, rowSizePadded);  // Clear the buffer for the next row
   }
 
-  // Explicitly close() file before calling Storage.remove()
+  // Explicitly close() file before calling halStorage.remove()
   file.close();
 
   if (write_error) {
-    Storage.remove(filename);
+    halStorage.remove(filename);
     return false;
   }
 

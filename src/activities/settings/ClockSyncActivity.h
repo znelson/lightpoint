@@ -10,7 +10,6 @@ class ClockSyncActivity final : public Activity {
       : Activity("ClockSync", renderer, mappedInput) {}
 
   void onEnter() override;
-  void onExit() override;
   void loop() override;
   bool skipLoopDelay() override { return true; }
   void render(RenderLock&&) override;

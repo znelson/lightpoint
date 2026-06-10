@@ -1,6 +1,7 @@
 #include "KeyboardEntryActivity.h"
 
 #include <HalGPIO.h>
+#include <HalPlatform.h>
 #include <I18n.h>
 
 #include <algorithm>
@@ -51,8 +52,8 @@ bool KeyboardEntryActivity::isBottomRow(const int row) const { return row == get
 char KeyboardEntryActivity::getSelectedChar() const {
   const KeyDef(*layout)[COLS] = symMode ? symLayout : (inputType == InputType::Url ? urlLayout : abcLayout);
 
-  if (selectedRow < 0 || selectedRow >= getContentRowCount()) return '\0';
-  if (selectedCol < 0 || selectedCol >= COLS) return '\0';
+  if (selectedRow >= getContentRowCount()) return '\0';
+  if (selectedCol >= COLS) return '\0';
 
   const KeyDef& key = layout[selectedRow][selectedCol];
   return (shiftState > 0 && key.secondary != '\0') ? key.secondary : key.primary;
@@ -64,8 +65,8 @@ char KeyboardEntryActivity::getAlternativeChar() const {
 
   const KeyDef(*layout)[COLS] = abcLayout;
 
-  if (selectedRow < 0 || selectedRow >= getContentRowCount()) return '\0';
-  if (selectedCol < 0 || selectedCol >= COLS) return '\0';
+  if (selectedRow >= getContentRowCount()) return '\0';
+  if (selectedCol >= COLS) return '\0';
 
   const KeyDef& key = layout[selectedRow][selectedCol];
   const char current = getSelectedChar();
@@ -143,7 +144,7 @@ bool KeyboardEntryActivity::handleKeyPress() {
         delPressCount++;
         if (delPressCount >= 2) {
           hintVisible = true;
-          hintShowTime = millis();
+          hintShowTime = halPlatform.millis();
         }
         if (cursorPos > 0 && !text.empty()) {
           text.erase(cursorPos - 1, 1);
@@ -176,10 +177,13 @@ bool KeyboardEntryActivity::handleKeyPress() {
   return insertChar(getSelectedChar());
 }
 
-void KeyboardEntryActivity::mapColContentBottom(int& col, bool goingUp) const {
+void KeyboardEntryActivity::mapColContentBottom(uint8_t& col, bool goingUp) const {
   if (urlMode) {
-    col = goingUp ? col - 1 : col + 1;
-    if (col < 0) col = 0;
+    if (goingUp) {
+      col = (col == 0) ? 0 : col - 1;
+    } else {
+      col = col + 1;
+    }
     if (col >= 3) col = 2;
   } else {
     col = goingUp ? col * 2 : col / 2;
@@ -199,7 +203,7 @@ void KeyboardEntryActivity::loop() {
     cursorMode = true;
     upLongHandled = true;
     hintVisible = true;
-    hintShowTime = millis();
+    hintShowTime = halPlatform.millis();
     requestUpdate();
   }
 
@@ -353,7 +357,7 @@ void KeyboardEntryActivity::loop() {
     onCancel();
   }
 
-  if (hintVisible && !cursorMode && millis() - hintShowTime > 4000) {
+  if (hintVisible && !cursorMode && halPlatform.millis() - hintShowTime > 4000) {
     hintVisible = false;
     requestUpdate();
   }
@@ -393,7 +397,7 @@ void KeyboardEntryActivity::render(RenderLock&&) {
 
   const bool isPassword = (inputType == InputType::Password);
   int availableWidth = pageWidth;
-  if (gpio.deviceIsX3()) {
+  if (halGPIO.deviceIsX3()) {
     availableWidth -= 2 * metrics.sideButtonHintsWidth;
   }
   const int effectiveMargin = (pageWidth - availableWidth * metrics.keyboardTextFieldWidthPercent / 100) / 2;

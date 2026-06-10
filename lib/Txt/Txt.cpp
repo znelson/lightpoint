@@ -16,13 +16,13 @@ bool Txt::load() {
     return true;
   }
 
-  if (!Storage.exists(filepath.c_str())) {
+  if (!halStorage.exists(filepath.c_str())) {
     LOG_ERR("TXT", "File does not exist: %s", filepath.c_str());
     return false;
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("TXT", filepath, file)) {
+  if (!halStorage.openFileForRead("TXT", filepath, file)) {
     LOG_ERR("TXT", "Failed to open file: %s", filepath.c_str());
     return false;
   }
@@ -49,11 +49,11 @@ std::string Txt::getTitle() const {
 }
 
 void Txt::setupCacheDir() const {
-  if (!Storage.exists(cacheBasePath.c_str())) {
-    Storage.mkdir(cacheBasePath.c_str());
+  if (!halStorage.exists(cacheBasePath.c_str())) {
+    halStorage.mkdir(cacheBasePath.c_str());
   }
-  if (!Storage.exists(cachePath.c_str())) {
-    Storage.mkdir(cachePath.c_str());
+  if (!halStorage.exists(cachePath.c_str())) {
+    halStorage.mkdir(cachePath.c_str());
   }
 }
 
@@ -74,7 +74,7 @@ std::string Txt::findCoverImage() const {
   // First priority: look for image with same name as txt file (e.g., mybook.jpg)
   for (const auto& ext : extensions) {
     std::string coverPath = folder + "/" + baseName + ext;
-    if (Storage.exists(coverPath.c_str())) {
+    if (halStorage.exists(coverPath.c_str())) {
       LOG_DBG("TXT", "Found matching cover image: %s", coverPath.c_str());
       return coverPath;
     }
@@ -85,7 +85,7 @@ std::string Txt::findCoverImage() const {
   for (const auto& name : coverNames) {
     for (const auto& ext : extensions) {
       std::string coverPath = folder + "/" + std::string(name) + ext;
-      if (Storage.exists(coverPath.c_str())) {
+      if (halStorage.exists(coverPath.c_str())) {
         LOG_DBG("TXT", "Found fallback cover image: %s", coverPath.c_str());
         return coverPath;
       }
@@ -99,7 +99,7 @@ std::string Txt::getCoverBmpPath() const { return cachePath + "/cover.bmp"; }
 
 bool Txt::generateCoverBmp() const {
   // Already generated, return true
-  if (Storage.exists(getCoverBmpPath().c_str())) {
+  if (halStorage.exists(getCoverBmpPath().c_str())) {
     return true;
   }
 
@@ -116,10 +116,10 @@ bool Txt::generateCoverBmp() const {
     // Copy BMP file to cache
     LOG_DBG("TXT", "Copying BMP cover image to cache");
     HalFile src, dst;
-    if (!Storage.openFileForRead("TXT", coverImagePath, src)) {
+    if (!halStorage.openFileForRead("TXT", coverImagePath, src)) {
       return false;
     }
-    if (!Storage.openFileForWrite("TXT", getCoverBmpPath(), dst)) {
+    if (!halStorage.openFileForWrite("TXT", getCoverBmpPath(), dst)) {
       return false;
     }
     uint8_t buffer[1024];
@@ -133,17 +133,17 @@ bool Txt::generateCoverBmp() const {
     // Convert JPG/JPEG to BMP (same approach as Epub)
     LOG_DBG("TXT", "Generating BMP from JPG cover image");
     HalFile coverJpg, coverBmp;
-    if (!Storage.openFileForRead("TXT", coverImagePath, coverJpg)) {
+    if (!halStorage.openFileForRead("TXT", coverImagePath, coverJpg)) {
       return false;
     }
-    if (!Storage.openFileForWrite("TXT", getCoverBmpPath(), coverBmp)) {
+    if (!halStorage.openFileForWrite("TXT", getCoverBmpPath(), coverBmp)) {
       return false;
     }
     const bool success = JpegToBmpConverter::jpegFileToBmpStream(coverJpg, coverBmp);
 
     if (!success) {
       LOG_ERR("TXT", "Failed to generate BMP from JPG cover image");
-      Storage.remove(getCoverBmpPath().c_str());
+      halStorage.remove(getCoverBmpPath().c_str());
     } else {
       LOG_DBG("TXT", "Generated BMP from JPG cover image");
     }
@@ -156,12 +156,12 @@ bool Txt::generateCoverBmp() const {
 }
 
 bool Txt::clearCache() const {
-  if (!Storage.exists(cachePath.c_str())) {
+  if (!halStorage.exists(cachePath.c_str())) {
     LOG_DBG("TXT", "Cache does not exist, no action needed");
     return true;
   }
 
-  if (!Storage.removeDir(cachePath.c_str())) {
+  if (!halStorage.removeDir(cachePath.c_str())) {
     LOG_ERR("TXT", "Failed to clear cache");
     return false;
   }
@@ -176,7 +176,7 @@ bool Txt::readContent(uint8_t* buffer, size_t offset, size_t length) const {
   }
 
   HalFile file;
-  if (!Storage.openFileForRead("TXT", filepath, file)) {
+  if (!halStorage.openFileForRead("TXT", filepath, file)) {
     return false;
   }
 

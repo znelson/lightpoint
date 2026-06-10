@@ -20,7 +20,7 @@ class FileBrowserActivity final : public Activity {
 
   ButtonNavigator buttonNavigator;
 
-  size_t selectorIndex = 0;
+  uint16_t selectorIndex = 0;
 
   bool lockLongPressBack = false;
   // True when this activity was entered while Confirm was already held; we must swallow the next
@@ -36,7 +36,7 @@ class FileBrowserActivity final : public Activity {
 
   // Data loading
   void loadFiles();
-  size_t findEntry(const std::string& name) const;
+  uint16_t findEntry(const std::string& name) const;
 
  public:
   explicit FileBrowserActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string initialPath = "/",

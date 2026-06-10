@@ -1,17 +1,19 @@
 #pragma once
 
-#include <functional>
+#include <FunctionRef.h>
+
+#include <optional>
 #include <vector>
 
 #include "MappedInputManager.h"
 
 class ButtonNavigator final {
-  using Callback = std::function<void()>;
+  using Callback = FunctionRef<void()>;
   using Buttons = std::vector<MappedInputManager::Button>;
 
   const uint16_t continuousStartMs;
   const uint16_t continuousIntervalMs;
-  uint32_t lastContinuousNavTime = 0;
+  std::optional<uint32_t> lastContinuousNavTime;
   static const MappedInputManager* mappedInput;
 
   [[nodiscard]] bool shouldNavigateContinuously() const;
@@ -38,11 +40,11 @@ class ButtonNavigator final {
   void onPreviousContinuous(const Callback& callback);
   void onContinuous(const Buttons& buttons, const Callback& callback);
 
-  [[nodiscard]] static int nextIndex(int currentIndex, int totalItems);
-  [[nodiscard]] static int previousIndex(int currentIndex, int totalItems);
+  [[nodiscard]] static uint16_t nextIndex(uint16_t currentIndex, uint16_t totalItems);
+  [[nodiscard]] static uint16_t previousIndex(uint16_t currentIndex, uint16_t totalItems);
 
-  [[nodiscard]] static int nextPageIndex(int currentIndex, int totalItems, int itemsPerPage);
-  [[nodiscard]] static int previousPageIndex(int currentIndex, int totalItems, int itemsPerPage);
+  [[nodiscard]] static uint16_t nextPageIndex(uint16_t currentIndex, uint16_t totalItems, uint16_t itemsPerPage);
+  [[nodiscard]] static uint16_t previousPageIndex(uint16_t currentIndex, uint16_t totalItems, uint16_t itemsPerPage);
 
   [[nodiscard]] static Buttons getNextButtons() {
     return {MappedInputManager::Button::Down, MappedInputManager::Button::Right};

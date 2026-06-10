@@ -1,5 +1,9 @@
 #include "ButtonNavigator.h"
 
+#include <HalPlatform.h>
+
+#include <algorithm>
+
 const MappedInputManager* ButtonNavigator::mappedInput = nullptr;
 
 void ButtonNavigator::onNext(const Callback& callback) {
@@ -31,7 +35,7 @@ void ButtonNavigator::onPreviousContinuous(const Callback& callback) { onContinu
 
 void ButtonNavigator::onPress(const Buttons& buttons, const Callback& callback) {
   const bool wasPressed = std::any_of(buttons.begin(), buttons.end(), [](const MappedInputManager::Button button) {
-    return mappedInput != nullptr && mappedInput->wasPressed(button);
+    return mappedInput && mappedInput->wasPressed(button);
   });
 
   if (wasPressed) {
@@ -41,26 +45,26 @@ void ButtonNavigator::onPress(const Buttons& buttons, const Callback& callback) 
 
 void ButtonNavigator::onRelease(const Buttons& buttons, const Callback& callback) {
   const bool wasReleased = std::any_of(buttons.begin(), buttons.end(), [](const MappedInputManager::Button button) {
-    return mappedInput != nullptr && mappedInput->wasReleased(button);
+    return mappedInput && mappedInput->wasReleased(button);
   });
 
   if (wasReleased) {
-    if (lastContinuousNavTime == 0) {
+    if (!lastContinuousNavTime) {
       callback();
     }
 
-    lastContinuousNavTime = 0;
+    lastContinuousNavTime.reset();
   }
 }
 
 void ButtonNavigator::onContinuous(const Buttons& buttons, const Callback& callback) {
   const bool isPressed = std::any_of(buttons.begin(), buttons.end(), [this](const MappedInputManager::Button button) {
-    return mappedInput != nullptr && mappedInput->isPressed(button) && shouldNavigateContinuously();
+    return mappedInput && mappedInput->isPressed(button) && shouldNavigateContinuously();
   });
 
   if (isPressed) {
     callback();
-    lastContinuousNavTime = millis();
+    lastContinuousNavTime = halPlatform.millis();
   }
 }
 
@@ -68,35 +72,37 @@ bool ButtonNavigator::shouldNavigateContinuously() const {
   if (!mappedInput) return false;
 
   const bool buttonHeldLongEnough = mappedInput->getHeldTime() > continuousStartMs;
-  const bool navigationIntervalElapsed = (millis() - lastContinuousNavTime) > continuousIntervalMs;
+  const bool navigationIntervalElapsed =
+      !lastContinuousNavTime || (halPlatform.millis() - *lastContinuousNavTime) > continuousIntervalMs;
 
   return buttonHeldLongEnough && navigationIntervalElapsed;
 }
 
-int ButtonNavigator::nextIndex(const int currentIndex, const int totalItems) {
-  if (totalItems <= 0) return 0;
+uint16_t ButtonNavigator::nextIndex(const uint16_t currentIndex, const uint16_t totalItems) {
+  if (totalItems == 0) return 0;
 
   // Calculate the next index with wrap-around
   return (currentIndex + 1) % totalItems;
 }
 
-int ButtonNavigator::previousIndex(const int currentIndex, const int totalItems) {
-  if (totalItems <= 0) return 0;
+uint16_t ButtonNavigator::previousIndex(const uint16_t currentIndex, const uint16_t totalItems) {
+  if (totalItems == 0) return 0;
 
   // Calculate the previous index with wrap-around
   return (currentIndex + totalItems - 1) % totalItems;
 }
 
-int ButtonNavigator::nextPageIndex(const int currentIndex, const int totalItems, const int itemsPerPage) {
-  if (totalItems <= 0 || itemsPerPage <= 0) return 0;
+uint16_t ButtonNavigator::nextPageIndex(const uint16_t currentIndex, const uint16_t totalItems,
+                                        const uint16_t itemsPerPage) {
+  if (totalItems == 0 || itemsPerPage == 0) return 0;
 
   // When items fit on one page, use index navigation instead
   if (totalItems <= itemsPerPage) {
     return nextIndex(currentIndex, totalItems);
   }
 
-  const int lastPageIndex = (totalItems - 1) / itemsPerPage;
-  const int currentPageIndex = currentIndex / itemsPerPage;
+  const uint16_t lastPageIndex = (totalItems - 1) / itemsPerPage;
+  const uint16_t currentPageIndex = currentIndex / itemsPerPage;
 
   if (currentPageIndex < lastPageIndex) {
     return (currentPageIndex + 1) * itemsPerPage;
@@ -105,16 +111,17 @@ int ButtonNavigator::nextPageIndex(const int currentIndex, const int totalItems,
   return 0;
 }
 
-int ButtonNavigator::previousPageIndex(const int currentIndex, const int totalItems, const int itemsPerPage) {
-  if (totalItems <= 0 || itemsPerPage <= 0) return 0;
+uint16_t ButtonNavigator::previousPageIndex(const uint16_t currentIndex, const uint16_t totalItems,
+                                            const uint16_t itemsPerPage) {
+  if (totalItems == 0 || itemsPerPage == 0) return 0;
 
   // When items fit on one page, use index navigation instead
   if (totalItems <= itemsPerPage) {
     return previousIndex(currentIndex, totalItems);
   }
 
-  const int lastPageIndex = (totalItems - 1) / itemsPerPage;
-  const int currentPageIndex = currentIndex / itemsPerPage;
+  const uint16_t lastPageIndex = (totalItems - 1) / itemsPerPage;
+  const uint16_t currentPageIndex = currentIndex / itemsPerPage;
 
   if (currentPageIndex > 0) {
     return (currentPageIndex - 1) * itemsPerPage;

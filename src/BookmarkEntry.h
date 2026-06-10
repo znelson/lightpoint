@@ -2,13 +2,22 @@
 #include <cstdint>
 #include <string>
 
-// A single bookmark entry — a position in a book.
+// A single bookmark entry: a content-anchored position in a book.
+//
+// spineIndex + paragraphIndex are the stable identity -- both are content
+// coordinates that survive reflow (font, size, viewport, orientation
+// changes), unlike page numbers. liIndex narrows resolution within
+// list-heavy content where one paragraph slot spans many on-screen
+// positions; NO_LI_INDEX means "this bookmark is not inside a list."
+//
+// summary is the first ~70 characters of the bookmarked page, sanitized
+// down to printable text. Used purely for human identification in the
+// bookmark list -- never reparsed.
 struct BookmarkEntry {
-  std::string xpath;    // XPath-like progress string
-  std::string summary;  // First few words of a page to help identify it
-  float percentage;     // Progress percentage (0.0 to 1.0)
+  static constexpr uint16_t NO_LI_INDEX = 0xFFFF;
 
-  uint16_t computedSpineIndex = 0;        // Spine index at the time of bookmarking
-  uint16_t computedChapterPageCount = 0;  // Total page count of the chapter at the time of bookmarking
-  uint16_t computedChapterProgress = 0;   // Number of pages into the chapter at the time of bookmarking
+  uint16_t spineIndex = 0;
+  uint16_t paragraphIndex = 0;
+  uint16_t liIndex = NO_LI_INDEX;
+  std::string summary;
 };

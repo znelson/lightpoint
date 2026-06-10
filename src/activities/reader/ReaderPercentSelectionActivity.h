@@ -1,0 +1,28 @@
+#pragma once
+
+#include "MappedInputManager.h"
+#include "activities/Activity.h"
+#include "util/ButtonNavigator.h"
+
+class ReaderPercentSelectionActivity final : public Activity {
+ public:
+  // Slider-style percent selector for jumping within a book. Used by every
+  // reader (EPUB, Txt, Md) -- the activity returns PercentResult{percent}
+  // and the caller maps that to a page in its own way.
+  explicit ReaderPercentSelectionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                          const int initialPercent)
+      : Activity("ReaderPercentSelection", renderer, mappedInput), percent(initialPercent) {}
+
+  void onEnter() override;
+  void loop() override;
+  void render(RenderLock&&) override;
+
+ private:
+  // Current percent value (0-100) shown on the slider.
+  int percent = 0;
+
+  ButtonNavigator buttonNavigator;
+
+  // Change the current percent by a delta and clamp within bounds.
+  void adjustPercent(int delta);
+};

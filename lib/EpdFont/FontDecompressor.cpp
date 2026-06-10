@@ -1,6 +1,6 @@
 #include "FontDecompressor.h"
 
-#include <Arduino.h>
+#include <HalPlatform.h>
 #include <Logging.h>
 #include <Utf8.h>
 
@@ -43,7 +43,7 @@ void FontDecompressor::freeHotGroup() {
 
 uint16_t FontDecompressor::getGroupIndex(const EpdFontData* fontData, uint32_t glyphIndex) {
   // O(1) path for frequency-grouped fonts with glyphToGroup mapping
-  if (fontData->glyphToGroup != nullptr) {
+  if (fontData->glyphToGroup) {
     return fontData->glyphToGroup[glyphIndex];
   }
 
@@ -61,15 +61,15 @@ bool FontDecompressor::decompressGroup(const EpdFontData* fontData, uint16_t gro
                                        uint32_t outSize) {
   const EpdFontGroup& group = fontData->groups[groupIndex];
 
-  const uint32_t tDecomp = millis();
+  const uint32_t tDecomp = halPlatform.millis();
   inflateReader.init(false);
   inflateReader.setSource(&fontData->bitmap[group.compressedOffset], group.compressedSize);
   if (!inflateReader.read(outBuf, outSize)) {
-    stats.decompressTimeMs += millis() - tDecomp;
+    stats.decompressTimeMs += halPlatform.millis() - tDecomp;
     LOG_ERR("FDC", "Decompression failed for group %u", groupIndex);
     return false;
   }
-  stats.decompressTimeMs += millis() - tDecomp;
+  stats.decompressTimeMs += halPlatform.millis() - tDecomp;
   return true;
 }
 
@@ -129,11 +129,11 @@ void FontDecompressor::compactSingleGlyph(const uint8_t* alignedSrc, uint8_t* pa
 // --- getBitmap: page buffer → hot group → decompress ---
 
 const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const EpdGlyph* glyph, uint32_t glyphIndex) {
-  const uint32_t tStart = micros();
+  const uint32_t tStart = halPlatform.micros();
   stats.getBitmapCalls++;
 
   if (!fontData->groups || fontData->groupCount == 0) {
-    stats.getBitmapTimeUs += micros() - tStart;
+    stats.getBitmapTimeUs += halPlatform.micros() - tStart;
     return &fontData->bitmap[glyph->dataOffset];
   }
 
@@ -148,7 +148,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
       if (slot.glyphs[mid].glyphIndex == glyphIndex) {
         if (slot.glyphs[mid].bufferOffset != UINT32_MAX) {
           stats.cacheHits++;
-          stats.getBitmapTimeUs += micros() - tStart;
+          stats.getBitmapTimeUs += halPlatform.micros() - tStart;
           return &slot.buffer[slot.glyphs[mid].bufferOffset];
         }
         break;  // Not extracted during prewarm; fall through to hot-group path
@@ -165,7 +165,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
   uint16_t groupIndex = getGroupIndex(fontData, glyphIndex);
   if (groupIndex >= fontData->groupCount) {
     LOG_ERR("FDC", "Glyph %u not found in any group", glyphIndex);
-    stats.getBitmapTimeUs += micros() - tStart;
+    stats.getBitmapTimeUs += halPlatform.micros() - tStart;
     return nullptr;
   }
 
@@ -179,7 +179,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
       LOG_ERR("FDC", "Failed to allocate %u bytes for hot group %u", group.uncompressedSize, groupIndex);
       hotGroupFont = nullptr;
       hotGroupIndex = UINT16_MAX;
-      stats.getBitmapTimeUs += micros() - tStart;
+      stats.getBitmapTimeUs += halPlatform.micros() - tStart;
       return nullptr;
     }
 
@@ -188,7 +188,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
       hotGroup.shrink_to_fit();
       hotGroupFont = nullptr;
       hotGroupIndex = UINT16_MAX;
-      stats.getBitmapTimeUs += micros() - tStart;
+      stats.getBitmapTimeUs += halPlatform.micros() - tStart;
       return nullptr;
     }
 
@@ -204,13 +204,13 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
     hotGlyphBuf.resize(glyph->dataLength);
   }
   if (hotGlyphBuf.empty()) {
-    stats.getBitmapTimeUs += micros() - tStart;
+    stats.getBitmapTimeUs += halPlatform.micros() - tStart;
     return nullptr;
   }
 
   uint32_t alignedOff = getAlignedOffset(fontData, groupIndex, glyphIndex);
   compactSingleGlyph(&hotGroup[alignedOff], hotGlyphBuf.data(), glyph->width, glyph->height);
-  stats.getBitmapTimeUs += micros() - tStart;
+  stats.getBitmapTimeUs += halPlatform.micros() - tStart;
   return hotGlyphBuf.data();
 }
 
@@ -242,13 +242,13 @@ int32_t FontDecompressor::findGlyphIndex(const EpdFontData* fontData, uint32_t c
   return -1;
 }
 
-int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8Text) {
+std::optional<uint32_t> FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8Text) {
   if (!fontData || !fontData->groups || !utf8Text) return 0;
 
   // Allocate the next available slot (caller must call freePageBuffer/clearCache to reset)
   if (pageSlotCount >= MAX_PAGE_SLOTS) {
     LOG_ERR("FDC", "All %u page buffer slots full, cannot prewarm fontData=%p", MAX_PAGE_SLOTS, (void*)fontData);
-    return -1;
+    return std::nullopt;
   }
   PageSlot& slot = pageSlots[pageSlotCount];
 
@@ -456,7 +456,7 @@ int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8
 
   // Step 4: For each unique group, decompress to temp buffer and extract needed glyphs
   uint32_t writeOffset = 0;
-  int missed = 0;
+  uint32_t missed = 0;
 
   for (uint8_t g = 0; g < groupCount; g++) {
     uint16_t groupIdx = neededGroups[g];
@@ -493,7 +493,7 @@ int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8
     free(tempBuf);
   }
 
-  LOG_DBG("FDC", "Prewarm: %u glyphs in %u bytes from %u groups (%d missed)", glyphCount, writeOffset, groupCount,
+  LOG_DBG("FDC", "Prewarm: %u glyphs in %u bytes from %u groups (%u missed)", glyphCount, writeOffset, groupCount,
           missed);
 
   return missed;
@@ -504,14 +504,14 @@ int FontDecompressor::prewarmCache(const EpdFontData* fontData, const char* utf8
 void FontDecompressor::resetStats() { stats = Stats{}; }
 
 void FontDecompressor::logStats(const char* label) {
-  const uint32_t total = stats.cacheHits + stats.cacheMisses;
-  LOG_DBG("FDC", "[%s] hits=%lu misses=%lu (%.1f%% hit rate)", label, stats.cacheHits, stats.cacheMisses,
+  [[maybe_unused]] const uint32_t total = stats.cacheHits + stats.cacheMisses;
+  LOG_DBG("FDC", "[%s] hits=%u misses=%u (%.1f%% hit rate)", label, stats.cacheHits, stats.cacheMisses,
           total > 0 ? 100.0f * stats.cacheHits / total : 0.0f);
-  LOG_DBG("FDC", "[%s] decompress=%lums groups_accessed=%u", label, stats.decompressTimeMs, stats.uniqueGroupsAccessed);
-  LOG_DBG("FDC", "[%s] mem: pageBuf=%lu pageGlyphs=%lu hotGroup=%lu peakTemp=%lu", label, stats.pageBufferBytes,
+  LOG_DBG("FDC", "[%s] decompress=%ums groups_accessed=%u", label, stats.decompressTimeMs, stats.uniqueGroupsAccessed);
+  LOG_DBG("FDC", "[%s] mem: pageBuf=%u pageGlyphs=%u hotGroup=%u peakTemp=%u", label, stats.pageBufferBytes,
           stats.pageGlyphsBytes, stats.hotGroupBytes, stats.peakTempBytes);
   if (stats.getBitmapCalls > 0) {
-    LOG_DBG("FDC", "[%s] getBitmap: %lu calls, %luus total, %luus/call avg", label, stats.getBitmapCalls,
+    LOG_DBG("FDC", "[%s] getBitmap: %u calls, %uus total, %uus/call avg", label, stats.getBitmapCalls,
             stats.getBitmapTimeUs, stats.getBitmapTimeUs / stats.getBitmapCalls);
   }
   resetStats();

@@ -7,7 +7,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 
-int EpubReaderChapterSelectionActivity::getTotalItems() const { return epub->getTocItemsCount(); }
+uint16_t EpubReaderChapterSelectionActivity::getTotalItems() const { return epub->getTocItemsCount(); }
 
 void EpubReaderChapterSelectionActivity::onEnter() {
   Activity::onEnter();
@@ -16,30 +16,29 @@ void EpubReaderChapterSelectionActivity::onEnter() {
     return;
   }
 
-  selectorIndex = epub->getTocIndexForSpineIndex(currentSpineIndex);
-  if (selectorIndex == -1) {
-    selectorIndex = 0;
+  if (currentTocIndex && *currentTocIndex < epub->getTocItemsCount()) {
+    selectorIndex = *currentTocIndex;
+  } else {
+    selectorIndex = epub->getTocIndexForSpineIndex(currentSpineIndex).value_or(0);
   }
 
   // Trigger first update
   requestUpdate();
 }
 
-void EpubReaderChapterSelectionActivity::onExit() { Activity::onExit(); }
-
 void EpubReaderChapterSelectionActivity::loop() {
   const int pageItems = UITheme::getInstance().getNumberOfItemsPerPage(renderer, true, false, true, false);
   const int totalItems = getTotalItems();
 
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
-    const auto tocItem = epub->getTocItem(selectorIndex);
-    if (tocItem.spineIndex == -1) {
+    const auto newSpineIndex = epub->getSpineIndexForTocIndex(selectorIndex);
+    if (!newSpineIndex) {
       ActivityResult result;
       result.isCancelled = true;
       setResult(std::move(result));
       finish();
     } else {
-      setResult(ChapterResult{tocItem.spineIndex, tocItem.anchor});
+      setResult(ChapterTarget{selectorIndex, *newSpineIndex});
       finish();
     }
   } else if (mappedInput.wasReleased(MappedInputManager::Button::Back)) {
