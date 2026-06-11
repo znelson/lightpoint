@@ -97,25 +97,21 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
   const size_t fileSize = file.fileSize();
   if (fileSize < MIN_FIRMWARE_SIZE) {
     LOG_ERR("FLASH", "validate: too small: %u", static_cast<unsigned>(fileSize));
-    file.close();
     return Result::TOO_SMALL;
   }
   if (partitionSize > 0 && fileSize > partitionSize) {
     LOG_ERR("FLASH", "validate: too large: %u > %u", static_cast<unsigned>(fileSize),
             static_cast<unsigned>(partitionSize));
-    file.close();
     return Result::TOO_LARGE;
   }
 
   uint8_t header[HEADER_SIZE];
   if (file.read(header, HEADER_SIZE) != static_cast<int>(HEADER_SIZE)) {
     LOG_ERR("FLASH", "validate: header read failed");
-    file.close();
     return Result::READ_FAIL;
   }
   if (header[0] != ESP_IMAGE_MAGIC) {
     LOG_ERR("FLASH", "validate: bad magic 0x%02X", header[0]);
-    file.close();
     return Result::BAD_MAGIC;
   }
   const uint8_t segCount = header[1];
@@ -124,12 +120,14 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
   auto buf = makeUniqueNoThrow<uint8_t[]>(CHUNK);
   if (!buf) {
     LOG_ERR("FLASH", "OOM chunk buffer (%u bytes)", static_cast<unsigned>(CHUNK));
-    file.close();
     return Result::OOM;
   }
 
   psa_hash_operation_t shaCtx = PSA_HASH_OPERATION_INIT;
   psa_hash_setup(&shaCtx, PSA_ALG_SHA_256);
+  // Releases the PSA hash context on every exit path; safe after psa_hash_finish
+  // (abort on an inactive operation is a no-op). The local HalFile closes itself.
+  const ScopedCleanup hashCleanup{[&shaCtx] { psa_hash_abort(&shaCtx); }};
   psa_hash_update(&shaCtx, header, HEADER_SIZE);
 
   uint8_t xorAccum = CHECKSUM_SEED;
@@ -138,14 +136,10 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
   for (uint8_t i = 0; i < segCount; i++) {
     if (pos + SEG_HEADER_SIZE > fileSize) {
       LOG_ERR("FLASH", "validate: seg %u header overruns EOF at %u", i, static_cast<unsigned>(pos));
-      psa_hash_abort(&shaCtx);
-      file.close();
       return Result::BAD_SEGMENTS;
     }
     uint8_t segHdr[SEG_HEADER_SIZE];
     if (file.read(segHdr, SEG_HEADER_SIZE) != static_cast<int>(SEG_HEADER_SIZE)) {
-      psa_hash_abort(&shaCtx);
-      file.close();
       return Result::READ_FAIL;
     }
     psa_hash_update(&shaCtx, segHdr, SEG_HEADER_SIZE);
@@ -156,15 +150,11 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
     if (pos + dataLen > fileSize) {
       LOG_ERR("FLASH", "validate: seg %u data overruns EOF (%u + %u > %u)", i, static_cast<unsigned>(pos),
               static_cast<unsigned>(dataLen), static_cast<unsigned>(fileSize));
-      psa_hash_abort(&shaCtx);
-      file.close();
       return Result::BAD_SEGMENTS;
     }
 
     const Result feedRes = feedHashAndChecksum(file, dataLen, &xorAccum, &shaCtx, buf.get());
     if (feedRes != Result::OK) {
-      psa_hash_abort(&shaCtx);
-      file.close();
       return feedRes;
     }
     pos += dataLen;
@@ -177,8 +167,6 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
     LOG_ERR("FLASH", "validate: size mismatch body+pad=%u sha=%u expected=%u actual=%u", static_cast<unsigned>(padEnd),
             static_cast<unsigned>(hashAppended ? SHA_TRAILER : 0), static_cast<unsigned>(expectedTotal),
             static_cast<unsigned>(fileSize));
-    psa_hash_abort(&shaCtx);
-    file.close();
     return Result::BAD_SIZE;
   }
 
@@ -186,13 +174,9 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
   const size_t padLen = padEnd - pos;
   uint8_t padBuf[16];
   if (padLen > sizeof(padBuf)) {
-    psa_hash_abort(&shaCtx);
-    file.close();
     return Result::BAD_SIZE;
   }
   if (padLen > 0 && file.read(padBuf, padLen) != static_cast<int>(padLen)) {
-    psa_hash_abort(&shaCtx);
-    file.close();
     return Result::READ_FAIL;
   }
   psa_hash_update(&shaCtx, padBuf, padLen);
@@ -200,8 +184,6 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
   const uint8_t storedChecksum = padBuf[padLen - 1];
   if ((xorAccum & 0xFF) != storedChecksum) {
     LOG_ERR("FLASH", "validate: checksum mismatch computed=0x%02X stored=0x%02X", xorAccum, storedChecksum);
-    psa_hash_abort(&shaCtx);
-    file.close();
     return Result::BAD_CHECKSUM;
   }
 
@@ -211,20 +193,14 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
     psa_hash_finish(&shaCtx, computed, SHA_TRAILER, &computedLen);
     uint8_t stored[SHA_TRAILER];
     if (file.read(stored, SHA_TRAILER) != static_cast<int>(SHA_TRAILER)) {
-      psa_hash_abort(&shaCtx);
-      file.close();
       return Result::READ_FAIL;
     }
     if (std::memcmp(computed, stored, SHA_TRAILER) != 0) {
       LOG_ERR("FLASH", "validate: SHA256 mismatch");
-      psa_hash_abort(&shaCtx);
-      file.close();
       return Result::BAD_SHA;
     }
   }
 
-  psa_hash_abort(&shaCtx);
-  file.close();
   return Result::OK;
 }
 
@@ -263,7 +239,6 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
   auto buffer = makeUniqueNoThrow<uint8_t[]>(CHUNK);
   if (!buffer) {
     LOG_ERR("FLASH", "OOM chunk buffer (%u bytes)", static_cast<unsigned>(CHUNK));
-    file.close();
     return Result::OOM;
   }
 
@@ -279,7 +254,6 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
       if (esp_partition_erase_range(dest, streamPos, eraseLen) != ESP_OK) {
         LOG_ERR("FLASH", "erase @%u (len=%u) failed", static_cast<unsigned>(streamPos),
                 static_cast<unsigned>(eraseLen));
-        file.close();
         return Result::ERASE_FAIL;
       }
       erasedUpto = streamPos + eraseLen;
@@ -289,12 +263,10 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
     const int read = file.read(buffer.get(), want);
     if (read <= 0 || static_cast<size_t>(read) != want) {
       LOG_ERR("FLASH", "read @%u: got=%d want=%u", static_cast<unsigned>(streamPos), read, static_cast<unsigned>(want));
-      file.close();
       return Result::READ_FAIL;
     }
     if (esp_partition_write(dest, streamPos, buffer.get(), want) != ESP_OK) {
       LOG_ERR("FLASH", "write @%u failed", static_cast<unsigned>(streamPos));
-      file.close();
       return Result::WRITE_FAIL;
     }
     streamPos += want;

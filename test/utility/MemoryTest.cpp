@@ -210,6 +210,25 @@ TEST(ScopedCleanupTest, CapturesByReferenceForObservableEffect) {
   EXPECT_EQ(counter, 42);
 }
 
+TEST(ScopedCleanupTest, DismissPreventsCleanup) {
+  int fired = 0;
+  {
+    ScopedCleanup cleanup{[&] { ++fired; }};
+    cleanup.dismiss();
+  }
+  EXPECT_EQ(fired, 0);
+}
+
+TEST(ScopedCleanupTest, DismissIsIdempotent) {
+  int fired = 0;
+  {
+    ScopedCleanup cleanup{[&] { ++fired; }};
+    cleanup.dismiss();
+    cleanup.dismiss();
+  }
+  EXPECT_EQ(fired, 0);
+}
+
 namespace {
 
 // Compile-time guarantees: ScopedCleanup is RAII-only -- cannot be copied
