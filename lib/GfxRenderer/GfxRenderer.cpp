@@ -361,8 +361,8 @@ void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
   }
 }
 
-int GfxRenderer::getTextWidth(const int fontId, const char* text, const EpdFontFamily::Style style,
-                              const BidiUtils::BidiBaseDir baseDir) const {
+uint16_t GfxRenderer::getTextWidth(const int fontId, const char* text, const EpdFontFamily::Style style,
+                                   const BidiUtils::BidiBaseDir baseDir) const {
   if (text == nullptr || *text == '\0') {
     return 0;
   }
@@ -750,8 +750,8 @@ void GfxRenderer::maskRoundedRectOutsideCorners(const int x, const int y, const 
 }
 
 template <Color color>
-void GfxRenderer::fillArc(const int maxRadius, const int cx, const int cy, const int xDir, const int yDir) const {
-  if (maxRadius <= 0) return;
+void GfxRenderer::fillArc(const uint16_t maxRadius, const int cx, const int cy, const int xDir, const int yDir) const {
+  if (maxRadius == 0) return;
 
   if constexpr (color == Color::Clear) {
     return;
@@ -825,7 +825,7 @@ void GfxRenderer::fillRoundedRect(const int x, const int y, const int width, con
     fillRectDither(x + width - maxRadius - 1, rightFillTop, maxRadius + 1, rightFillBottom - rightFillTop + 1, color);
   }
 
-  auto fillArcTemplated = [this](int maxRadius, int cx, int cy, int xDir, int yDir, Color color) {
+  auto fillArcTemplated = [this](uint16_t maxRadius, int cx, int cy, int xDir, int yDir, Color color) {
     switch (color) {
       case Color::Clear:
         break;
@@ -1138,11 +1138,11 @@ void GfxRenderer::clearScreen(const uint8_t color) const {
   display.clearScreen(color);
 }
 
-void GfxRenderer::beginStripTarget(uint8_t* scratch, int stripY0, int stripRows) const {
+void GfxRenderer::beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t stripRows) const {
   // Band is caller-guaranteed in-bounds (the reader's grayscale loop computes
   // it); assert catches future misuse in debug before it mis-renders or wraps
   // the downstream uint16_t cast in writeGrayscalePlaneStrip.
-  assert(scratch != nullptr && stripRows > 0 && stripY0 >= 0 && stripY0 <= static_cast<int>(panelHeight) - stripRows);
+  assert(scratch != nullptr && stripRows > 0 && stripY0 + stripRows <= panelHeight);
   _stripBuf = scratch;
   _stripY0 = stripY0;
   _stripRows = stripRows;
@@ -1183,14 +1183,14 @@ void GfxRenderer::displayBuffer(const HalDisplay::RefreshMode refreshMode) const
   display.displayBuffer(refreshMode, fadingFix);
 }
 
-std::string GfxRenderer::truncatedText(const int fontId, const char* text, const int maxWidth,
+std::string GfxRenderer::truncatedText(const int fontId, const char* text, const uint16_t maxWidth,
                                        const EpdFontFamily::Style style) const {
-  if (!text || maxWidth <= 0) return "";
+  if (!text || maxWidth == 0) return "";
 
   std::string item = text;
   // U+2026 HORIZONTAL ELLIPSIS (UTF-8: 0xE2 0x80 0xA6)
   const char* ellipsis = "\xe2\x80\xa6";
-  int textWidth = getTextWidth(fontId, item.c_str(), style);
+  const uint16_t textWidth = getTextWidth(fontId, item.c_str(), style);
   if (textWidth <= maxWidth) {
     // Text fits, return as is
     return item;
@@ -1203,11 +1203,11 @@ std::string GfxRenderer::truncatedText(const int fontId, const char* text, const
   return item.empty() ? ellipsis : item + ellipsis;
 }
 
-std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* text, const int maxWidth,
-                                                  const size_t maxLines, const EpdFontFamily::Style style) const {
+std::vector<std::string> GfxRenderer::wrappedText(const int fontId, const char* text, const uint16_t maxWidth,
+                                                  const uint8_t maxLines, const EpdFontFamily::Style style) const {
   std::vector<std::string> lines;
 
-  if (!text || maxWidth <= 0 || maxLines == 0) return lines;
+  if (!text || maxWidth == 0 || maxLines == 0) return lines;
 
   std::string remaining = text;
   std::string currentLine;
@@ -1382,7 +1382,7 @@ bool GfxRenderer::copyBufferToRegion(Rect rect, const uint8_t* buf, size_t bufSi
   return true;
 }
 
-int GfxRenderer::getSpaceWidth(const int fontId, const EpdFontFamily::Style style) const {
+uint16_t GfxRenderer::getSpaceWidth(const int fontId, const EpdFontFamily::Style style) const {
   // Advance table fast-path for SD card fonts during layout
   auto sdIt = sdCardFonts_.find(fontId);
   if (sdIt != sdCardFonts_.end() && sdIt->second->hasAdvanceTable()) {
@@ -1423,8 +1423,8 @@ int GfxRenderer::getSpaceAdvance(const int fontId, const uint32_t leftCp, const 
   return fp4::toPixel(spaceAdvanceFP + kernFP);
 }
 
-int GfxRenderer::getKerning(const int fontId, const uint32_t leftCp, const uint32_t rightCp,
-                            const EpdFontFamily::Style style) const {
+int8_t GfxRenderer::getKerning(const int fontId, const uint32_t leftCp, const uint32_t rightCp,
+                               const EpdFontFamily::Style style) const {
   const auto fontIt = fontMap.find(fontId);
   if (fontIt == fontMap.end()) return 0;
   const int kernFP = fontIt->second.getKerning(leftCp, rightCp, style);  // 4.4 fixed-point
@@ -1492,7 +1492,7 @@ int GfxRenderer::getFontAscenderSize(const int fontId) const {
   return fontIt->second.getData(EpdFontFamily::REGULAR)->ascender;
 }
 
-int GfxRenderer::getLineHeight(const int fontId) const {
+uint8_t GfxRenderer::getLineHeight(const int fontId) const {
   const auto fontIt = fontMap.find(fontId);
   if (fontIt == fontMap.end()) {
     LOG_ERR("GFX", "Font %d not found", fontId);

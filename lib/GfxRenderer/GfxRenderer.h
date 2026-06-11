@@ -79,17 +79,15 @@ class GfxRenderer {
   // the BW framebuffer (no storeBwBuffer). Mutable because the render path is
   // const. See beginStripTarget()/endStripTarget().
   mutable uint8_t* _stripBuf = nullptr;
-  mutable int _stripY0 = 0;
-  mutable int _stripRows = 0;
+  mutable uint16_t _stripY0 = 0;
+  mutable uint16_t _stripRows = 0;
   mutable bool _stripActive = false;
 
-  void renderChar(const EpdFontFamily& fontFamily, uint32_t cp, int* x, int* y, bool pixelState,
-                  EpdFontFamily::Style style) const;
   void freeBwBufferChunks();
   template <Color color>
   void drawPixelDither(int x, int y) const;
   template <Color color>
-  void fillArc(int maxRadius, int cx, int cy, int xDir, int yDir) const;
+  void fillArc(uint16_t maxRadius, int cx, int cy, int xDir, int yDir) const;
 
  public:
   explicit GfxRenderer(HalDisplay& halDisplay)
@@ -155,7 +153,7 @@ class GfxRenderer {
   // whose physical row falls outside the band are clipped. The clip is applied
   // after the orientation rotate, so it is orientation-agnostic. Used to render
   // grayscale planes band-by-band without a full second buffer.
-  void beginStripTarget(uint8_t* scratch, int stripY0, int stripRows) const;
+  void beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t stripRows) const;
   void endStripTarget() const;
 
   // Band culling for tiled grayscale. Takes a glyph bounding box in logical
@@ -171,8 +169,8 @@ class GfxRenderer {
   // framebuffer ([0, panelHeight)). Writers subtract the origin and clip to the
   // extent, so they honor tiled-grayscale banding without per-pixel method calls.
   uint8_t* getWriteTarget() const { return _stripActive ? _stripBuf : frameBuffer; }
-  int getWriteOriginY() const { return _stripActive ? _stripY0 : 0; }
-  int getWriteRows() const { return _stripActive ? _stripRows : panelHeight; }
+  uint16_t getWriteOriginY() const { return _stripActive ? _stripY0 : 0; }
+  uint16_t getWriteRows() const { return _stripActive ? _stripRows : panelHeight; }
 
   // Drawing
   void drawPixel(int x, int y, bool state = true) const;
@@ -198,30 +196,30 @@ class GfxRenderer {
   void fillPolygon(const int* xPoints, const int* yPoints, int numPoints, bool state = true) const;
 
   // Text
-  int getTextWidth(int fontId, const char* text, EpdFontFamily::Style style = EpdFontFamily::REGULAR,
-                   BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
+  uint16_t getTextWidth(int fontId, const char* text, EpdFontFamily::Style style = EpdFontFamily::REGULAR,
+                        BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
   void drawCenteredText(int fontId, int y, const char* text, bool black = true,
                         EpdFontFamily::Style style = EpdFontFamily::REGULAR,
                         BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
   void drawText(int fontId, int x, int y, const char* text, bool black = true,
                 EpdFontFamily::Style style = EpdFontFamily::REGULAR,
                 BidiUtils::BidiBaseDir baseDir = BidiUtils::BidiBaseDir::AUTO) const;
-  int getSpaceWidth(int fontId, EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+  uint16_t getSpaceWidth(int fontId, EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
   /// Returns the total inter-word advance: fp4::toPixel(spaceAdvance + kern(leftCp,' ') + kern(' ',rightCp)).
   /// Using a single snap avoids the +/-1 px rounding error that arises when space advance and kern are
   /// snapped separately and then added as integers.
   int getSpaceAdvance(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style) const;
   /// Returns the kerning adjustment between two adjacent codepoints.
-  int getKerning(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style) const;
+  int8_t getKerning(int fontId, uint32_t leftCp, uint32_t rightCp, EpdFontFamily::Style style) const;
   int getTextAdvanceX(int fontId, const char* text, EpdFontFamily::Style style) const;
   int getFontAscenderSize(int fontId) const;
-  int getLineHeight(int fontId) const;
-  std::string truncatedText(int fontId, const char* text, int maxWidth,
+  uint8_t getLineHeight(int fontId) const;
+  std::string truncatedText(int fontId, const char* text, uint16_t maxWidth,
                             EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
   /// Word-wrap \p text into at most \p maxLines lines, each no wider than
   /// \p maxWidth pixels. Overflowing words and excess lines are UTF-8-safely
   /// truncated with an ellipsis (U+2026).
-  std::vector<std::string> wrappedText(int fontId, const char* text, int maxWidth, size_t maxLines,
+  std::vector<std::string> wrappedText(int fontId, const char* text, uint16_t maxWidth, uint8_t maxLines,
                                        EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
 
   // Helper for drawing rotated text (90 degrees clockwise, for side buttons)
