@@ -890,7 +890,7 @@ void GfxRenderer::drawIcon(const uint8_t bitmap[], const int x, const int y, con
   display.drawImageTransparent(bitmap, y, getScreenWidth() - width - x, height, width);
 }
 
-void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, const int maxWidth, const int maxHeight,
+void GfxRenderer::drawBitmap(Bitmap& bitmap, const int x, const int y, const int maxWidth, const int maxHeight,
                              const float cropX, const float cropY) const {
   if (fontCacheManager_ && fontCacheManager_->isScanning()) return;
   // For 1-bit bitmaps, use optimized 1-bit rendering path (no crop support for 1-bit)
@@ -991,7 +991,7 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
   }
 }
 
-void GfxRenderer::drawBitmap1Bit(const Bitmap& bitmap, const int x, const int y, const int maxWidth,
+void GfxRenderer::drawBitmap1Bit(Bitmap& bitmap, const int x, const int y, const int maxWidth,
                                  const int maxHeight) const {
   float scale = 1.0f;
   bool isScaled = false;
@@ -1124,7 +1124,7 @@ void GfxRenderer::clearScreen(const uint8_t color) const {
   display.clearScreen(color);
 }
 
-void GfxRenderer::beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t stripRows) const {
+void GfxRenderer::beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t stripRows) {
   // Band is caller-guaranteed in-bounds (the reader's grayscale loop computes
   // it); assert catches future misuse in debug before it mis-renders or wraps
   // the downstream uint16_t cast in writeGrayscalePlaneStrip.
@@ -1135,7 +1135,7 @@ void GfxRenderer::beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t 
   _stripActive = true;
 }
 
-void GfxRenderer::endStripTarget() const {
+void GfxRenderer::endStripTarget() {
   _stripActive = false;
   _stripBuf = nullptr;
   _stripY0 = 0;

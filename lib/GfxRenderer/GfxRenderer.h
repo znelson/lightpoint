@@ -77,12 +77,12 @@ class GfxRenderer {
   // rows [_stripY0, _stripY0 + _stripRows) (panelWidthBytes wide) instead of
   // the shared framebuffer, clipping pixels outside the band. Lets grayscale
   // planes render band-by-band straight to the controller without destroying
-  // the BW framebuffer (no storeBwBuffer). Mutable because the render path is
-  // const. See beginStripTarget()/endStripTarget().
-  mutable uint8_t* _stripBuf = nullptr;
-  mutable uint16_t _stripY0 = 0;
-  mutable uint16_t _stripRows = 0;
-  mutable bool _stripActive = false;
+  // the BW framebuffer (no storeBwBuffer). The const render path only reads
+  // this state; beginStripTarget()/endStripTarget() (non-const) mutate it.
+  uint8_t* _stripBuf = nullptr;
+  uint16_t _stripY0 = 0;
+  uint16_t _stripRows = 0;
+  bool _stripActive = false;
 
   void freeBwBufferChunks();
   template <Color color>
@@ -154,8 +154,8 @@ class GfxRenderer {
   // whose physical row falls outside the band are clipped. The clip is applied
   // after the orientation rotate, so it is orientation-agnostic. Used to render
   // grayscale planes band-by-band without a full second buffer.
-  void beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t stripRows) const;
-  void endStripTarget() const;
+  void beginStripTarget(uint8_t* scratch, uint16_t stripY0, uint16_t stripRows);
+  void endStripTarget();
 
   // Band culling for tiled grayscale. Takes a glyph bounding box in logical
   // screen coords and returns false only when a strip is active AND the box's
@@ -191,9 +191,8 @@ class GfxRenderer {
                        bool roundBottomLeft, bool roundBottomRight, Color color) const;
   void drawImage(const uint8_t bitmap[], int x, int y, int width, int height) const;
   void drawIcon(const uint8_t bitmap[], int x, int y, int width, int height) const;
-  void drawBitmap(const Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight, float cropX = 0,
-                  float cropY = 0) const;
-  void drawBitmap1Bit(const Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight) const;
+  void drawBitmap(Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight, float cropX = 0, float cropY = 0) const;
+  void drawBitmap1Bit(Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight) const;
   void fillPolygon(const int* xPoints, const int* yPoints, int numPoints, bool state = true) const;
 
   // Text
