@@ -59,7 +59,7 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
   const int bytesPerRow = (cachedWidth + 3) / 4;  // 2 bits per pixel, 4 pixels per byte
   uint8_t* rowBuffer = (uint8_t*)malloc(bytesPerRow);
   if (!rowBuffer) {
-    LOG_ERR("IMG", "Failed to allocate row buffer");
+    LOG_ERR("IMG", "OOM row buffer");
     return false;
   }
 

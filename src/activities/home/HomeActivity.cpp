@@ -130,7 +130,7 @@ bool HomeActivity::storeCoverBuffer(Rect rect) {
   if (needed == 0) return false;
   coverBuffer = makeUniqueNoThrow<uint8_t[]>(needed);
   if (!coverBuffer) {
-    LOG_ERR("HOME", "OOM: cover buffer (%u bytes)", (unsigned)needed);
+    LOG_ERR("HOME", "OOM cover buffer (%u bytes)", (unsigned)needed);
     return false;
   }
   if (!renderer.copyRegionToBuffer(rect, coverBuffer.get(), needed)) {

@@ -277,7 +277,7 @@ bool ZipFile::loadZipDetails() {
   const int scanRange = fileSize > 1024 ? 1024 : fileSize;
   const auto buffer = static_cast<uint8_t*>(malloc(scanRange));
   if (!buffer) {
-    LOG_ERR("ZIP", "Failed to allocate memory for EOCD scan buffer");
+    LOG_ERR("ZIP", "OOM EOCD scan buffer");
     return false;
   }
 
@@ -424,7 +424,7 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
   const auto dataSize = trailingNullByte ? inflatedDataSize + 1 : inflatedDataSize;
   const auto data = static_cast<uint8_t*>(malloc(dataSize));
   if (!data) {
-    LOG_ERR("ZIP", "Failed to allocate memory for output buffer (%zu bytes)", dataSize);
+    LOG_ERR("ZIP", "OOM output buffer (%zu bytes)", dataSize);
     return nullptr;
   }
 
@@ -443,7 +443,7 @@ uint8_t* ZipFile::readFileToMemory(const char* filename, size_t* size, const boo
     // Read out deflated content from file
     const auto deflatedData = static_cast<uint8_t*>(malloc(deflatedDataSize));
     if (!deflatedData) {
-      LOG_ERR("ZIP", "Failed to allocate memory for decompression buffer");
+      LOG_ERR("ZIP", "OOM decompression buffer");
       free(data);
       return nullptr;
     }
@@ -502,7 +502,7 @@ bool ZipFile::readFileToStream(const char* filename, Print& out, const size_t ch
     // no deflation, just read content
     const auto buffer = static_cast<uint8_t*>(malloc(chunkSize));
     if (!buffer) {
-      LOG_ERR("ZIP", "Failed to allocate memory for buffer");
+      LOG_ERR("ZIP", "OOM buffer");
       return false;
     }
 
@@ -530,13 +530,13 @@ bool ZipFile::readFileToStream(const char* filename, Print& out, const size_t ch
   if (fileStat.method == ZIP_METHOD_DEFLATED) {
     auto* fileReadBuffer = static_cast<uint8_t*>(malloc(chunkSize));
     if (!fileReadBuffer) {
-      LOG_ERR("ZIP", "Failed to allocate memory for zip file read buffer");
+      LOG_ERR("ZIP", "OOM zip file read buffer");
       return false;
     }
 
     auto* outputBuffer = static_cast<uint8_t*>(malloc(chunkSize));
     if (!outputBuffer) {
-      LOG_ERR("ZIP", "Failed to allocate memory for output buffer");
+      LOG_ERR("ZIP", "OOM output buffer");
       free(fileReadBuffer);
       return false;
     }

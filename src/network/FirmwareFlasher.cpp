@@ -3,6 +3,7 @@
 #include <HalPlatform.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <Memory.h>
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
 #include <psa/crypto.h>
@@ -120,8 +121,9 @@ Result validateImageFile(const char* sdPath, size_t partitionSize) {
   const uint8_t segCount = header[1];
   const bool hashAppended = header[23] != 0;
 
-  auto buf = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[CHUNK]);
+  auto buf = makeUniqueNoThrow<uint8_t[]>(CHUNK);
   if (!buf) {
+    LOG_ERR("FLASH", "OOM chunk buffer (%u bytes)", static_cast<unsigned>(CHUNK));
     file.close();
     return Result::OOM;
   }
@@ -258,9 +260,9 @@ Result flashFromSdPath(const char* sdPath, ProgressCb onProgress, void* ctx, boo
   LOG_INF("FLASH", "src=%s size=%u dest=%s @0x%x partsize=%u", sdPath, static_cast<unsigned>(firmwareSize), dest->label,
           static_cast<unsigned>(dest->address), static_cast<unsigned>(dest->size));
 
-  auto buffer = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[CHUNK]);
+  auto buffer = makeUniqueNoThrow<uint8_t[]>(CHUNK);
   if (!buffer) {
-    LOG_ERR("FLASH", "OOM");
+    LOG_ERR("FLASH", "OOM chunk buffer (%u bytes)", static_cast<unsigned>(CHUNK));
     file.close();
     return Result::OOM;
   }

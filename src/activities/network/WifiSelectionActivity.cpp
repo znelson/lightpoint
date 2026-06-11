@@ -111,7 +111,7 @@ void WifiSelectionActivity::processWifiScanResults() {
   if (count > 0) {
     auto aps = makeUniqueNoThrow<wifi_ap_record_t[]>(count);
     if (!aps) {
-      LOG_ERR("WIFI", "OOM: scan results (%u APs)", count);
+      LOG_ERR("WIFI", "OOM scan results (%u APs)", count);
       state = WifiSelectionState::NETWORK_LIST;
       requestUpdate();
       return;

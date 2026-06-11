@@ -176,7 +176,7 @@ const uint8_t* FontDecompressor::getBitmap(const EpdFontData* fontData, const Ep
 
     hotGroup.resize(group.uncompressedSize);
     if (hotGroup.empty()) {
-      LOG_ERR("FDC", "Failed to allocate %u bytes for hot group %u", group.uncompressedSize, groupIndex);
+      LOG_ERR("FDC", "OOM %u bytes for hot group %u", group.uncompressedSize, groupIndex);
       hotGroupFont = nullptr;
       hotGroupIndex = UINT16_MAX;
       stats.getBitmapTimeUs += halPlatform.micros() - tStart;
@@ -355,7 +355,7 @@ std::optional<uint32_t> FontDecompressor::prewarmCache(const EpdFontData* fontDa
   slot.buffer = static_cast<uint8_t*>(malloc(totalBytes));
   slot.glyphs = static_cast<PageGlyphEntry*>(malloc(glyphCount * sizeof(PageGlyphEntry)));
   if (!slot.buffer || !slot.glyphs) {
-    LOG_ERR("FDC", "Failed to allocate page buffer (%u bytes, %u glyphs)", totalBytes, glyphCount);
+    LOG_ERR("FDC", "OOM page buffer (%u bytes, %u glyphs)", totalBytes, glyphCount);
     free(slot.buffer);
     free(slot.glyphs);
     slot = {};
@@ -464,7 +464,7 @@ std::optional<uint32_t> FontDecompressor::prewarmCache(const EpdFontData* fontDa
 
     auto* tempBuf = static_cast<uint8_t*>(malloc(group.uncompressedSize));
     if (!tempBuf) {
-      LOG_ERR("FDC", "Failed to allocate temp buffer (%u bytes) for group %u", group.uncompressedSize, groupIdx);
+      LOG_ERR("FDC", "OOM temp buffer (%u bytes) for group %u", group.uncompressedSize, groupIdx);
       missed++;
       continue;
     }

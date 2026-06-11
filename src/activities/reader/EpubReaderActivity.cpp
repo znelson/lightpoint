@@ -909,7 +909,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const uint16
 
     auto scratch = makeUniqueNoThrow<uint8_t[]>(static_cast<size_t>(gwBytes) * STRIP_ROWS);
     if (!scratch) {
-      LOG_ERR("ERS", "OOM: grayscale strip scratch (%d bytes); skipping AA this page", gwBytes * STRIP_ROWS);
+      LOG_ERR("ERS", "OOM grayscale strip scratch (%d bytes); skipping AA this page", gwBytes * STRIP_ROWS);
     } else {
       // Bands may be streamed in any order: X4 windows each via setRamArea, X3
       // via PTL.

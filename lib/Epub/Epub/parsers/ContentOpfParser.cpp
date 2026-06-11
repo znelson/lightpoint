@@ -35,7 +35,7 @@ bool startsWithImageMediaType(const std::string& mediaType) {
 bool ContentOpfParser::setup() {
   parser = XML_ParserCreate(nullptr);
   if (!parser) {
-    LOG_DBG("COF", "Couldn't allocate memory for parser");
+    LOG_DBG("COF", "OOM parser");
     return false;
   }
 
@@ -68,7 +68,7 @@ size_t ContentOpfParser::write(const uint8_t* buffer, const size_t size) {
     void* const buf = XML_GetBuffer(parser, 1024);
 
     if (!buf) {
-      LOG_ERR("COF", "Couldn't allocate memory for buffer");
+      LOG_ERR("COF", "OOM buffer");
       destroyXmlParser(parser);
       return 0;
     }

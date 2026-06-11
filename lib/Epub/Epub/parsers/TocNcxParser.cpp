@@ -9,7 +9,7 @@
 bool TocNcxParser::setup() {
   parser = XML_ParserCreate(nullptr);
   if (!parser) {
-    LOG_DBG("TOC", "Couldn't allocate memory for parser");
+    LOG_DBG("TOC", "OOM parser");
     return false;
   }
 
@@ -32,7 +32,7 @@ size_t TocNcxParser::write(const uint8_t* buffer, const size_t size) {
   while (remainingInBuffer > 0) {
     void* const buf = XML_GetBuffer(parser, 1024);
     if (!buf) {
-      LOG_DBG("TOC", "Couldn't allocate memory for buffer");
+      LOG_DBG("TOC", "OOM buffer");
       destroyXmlParser(parser);
       return 0;
     }

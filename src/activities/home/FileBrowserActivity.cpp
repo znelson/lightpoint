@@ -68,7 +68,7 @@ void FileBrowserActivity::onEnter() {
 
   fileNameBuffer = makeUniqueNoThrow<char[]>(NAME_BUFFER_SIZE);
   if (!fileNameBuffer) {
-    LOG_ERR("FileBrowser", "malloc failed for name buffer");
+    LOG_ERR("FileBrowser", "OOM name buffer");
     return;
   }
 

@@ -398,7 +398,7 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(HalFile& jpegFile, Print& b
 
   const auto jpeg = makeUniqueNoThrow<JPEGDEC>();
   if (!jpeg) {
-    LOG_ERR("JPG", "OOM: JPEG decoder");
+    LOG_ERR("JPG", "OOM JPEG decoder");
     return false;
   }
 
@@ -502,14 +502,14 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(HalFile& jpegFile, Print& b
   // MCU row buffer: MAX_MCU_HEIGHT rows × decoded srcWidth columns of grayscale
   ctx.mcuBuf = makeUniqueNoThrow<uint8_t[]>(MAX_MCU_HEIGHT * ctx.srcWidth);
   if (!ctx.mcuBuf) {
-    LOG_ERR("JPG", "OOM: MCU buffer (%d bytes)", MAX_MCU_HEIGHT * ctx.srcWidth);
+    LOG_ERR("JPG", "OOM MCU buffer (%d bytes)", MAX_MCU_HEIGHT * ctx.srcWidth);
     return false;
   }
   memset(ctx.mcuBuf.get(), 0, MAX_MCU_HEIGHT * ctx.srcWidth);
 
   ctx.bmpRow = makeUniqueNoThrow<uint8_t[]>(bytesPerRow);
   if (!ctx.bmpRow) {
-    LOG_ERR("JPG", "OOM: BMP row buffer");
+    LOG_ERR("JPG", "OOM BMP row buffer");
     return false;
   }
 
@@ -517,7 +517,7 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(HalFile& jpegFile, Print& b
     ctx.rowAccum = makeUniqueNoThrow<uint32_t[]>(outWidth);
     ctx.rowCount = makeUniqueNoThrow<uint32_t[]>(outWidth);
     if (!ctx.rowAccum || !ctx.rowCount) {
-      LOG_ERR("JPG", "OOM: scaling buffers");
+      LOG_ERR("JPG", "OOM scaling buffers");
       return false;
     }
     ctx.nextOutY_srcStart = scaleY_fp;
@@ -525,21 +525,21 @@ bool JpegToBmpConverter::jpegFileToBmpStreamInternal(HalFile& jpegFile, Print& b
 
   if (oneBit) {
     ctx.atkinson1BitDitherer = makeUniqueNoThrow<Atkinson1BitDitherer>(outWidth);
-    if (!ctx.atkinson1BitDitherer) {
-      LOG_ERR("JPG", "OOM: Atkinson1BitDitherer");
+    if (!ctx.atkinson1BitDitherer || !ctx.atkinson1BitDitherer->valid()) {
+      LOG_ERR("JPG", "OOM Atkinson1BitDitherer");
       return false;
     }
   } else if (!USE_8BIT_OUTPUT) {
     if (USE_ATKINSON) {
       ctx.atkinsonDitherer = makeUniqueNoThrow<AtkinsonDitherer>(outWidth);
-      if (!ctx.atkinsonDitherer) {
-        LOG_ERR("JPG", "OOM: AtkinsonDitherer");
+      if (!ctx.atkinsonDitherer || !ctx.atkinsonDitherer->valid()) {
+        LOG_ERR("JPG", "OOM AtkinsonDitherer");
         return false;
       }
     } else if (USE_FLOYD_STEINBERG) {
       ctx.fsDitherer = makeUniqueNoThrow<FloydSteinbergDitherer>(outWidth);
-      if (!ctx.fsDitherer) {
-        LOG_ERR("JPG", "OOM: FloydSteinbergDitherer");
+      if (!ctx.fsDitherer || !ctx.fsDitherer->valid()) {
+        LOG_ERR("JPG", "OOM FloydSteinbergDitherer");
         return false;
       }
     }

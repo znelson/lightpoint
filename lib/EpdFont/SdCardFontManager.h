@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -10,7 +11,9 @@ struct SdCardFontFamilyInfo;
 
 class SdCardFontManager {
  public:
-  SdCardFontManager() = default;
+  // Both defined out-of-line so members holding unique_ptr<SdCardFont>
+  // instantiate where SdCardFont is complete
+  SdCardFontManager();
   ~SdCardFontManager();
   SdCardFontManager(const SdCardFontManager&) = delete;
   SdCardFontManager& operator=(const SdCardFontManager&) = delete;
@@ -40,7 +43,7 @@ class SdCardFontManager {
 
  private:
   struct LoadedFont {
-    SdCardFont* font;  // heap-allocated, owned
+    std::unique_ptr<SdCardFont> font;  // owned; the renderer's map holds a non-owning pointer
     int fontId;
     uint8_t size;
   };
