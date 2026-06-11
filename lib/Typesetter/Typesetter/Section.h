@@ -51,7 +51,7 @@ class Section {
  public:
   // Bump when binary layout changes. Mismatching versions cause loadHeader
   // to fail and the cache is regenerated from source.
-  static constexpr uint8_t FILE_VERSION = 25;
+  static constexpr uint8_t FILE_VERSION = 26;
 
   explicit Section(std::string filePath) : filePath_(std::move(filePath)) {}
   ~Section() = default;
