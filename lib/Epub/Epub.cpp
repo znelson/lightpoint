@@ -86,10 +86,10 @@ bool Epub::parseContentOpf(BookMetadataCache::BookMetadata& bookMetadata, const 
   if (bookMetadata.coverItemHref.empty() && !opfParser.guideCoverPageHref.empty()) {
     LOG_DBG("EBP", "No cover from metadata, trying guide cover page: %s", opfParser.guideCoverPageHref.c_str());
     size_t coverPageSize;
-    uint8_t* coverPageData = readItemContentsToBytes(opfParser.guideCoverPageHref, &coverPageSize, true);
+    const auto coverPageData = readItemContentsToBytes(opfParser.guideCoverPageHref, &coverPageSize);
     if (coverPageData) {
-      const std::string coverPageHtml(reinterpret_cast<char*>(coverPageData), coverPageSize);
-      free(coverPageData);
+      // View the buffer directly - the search below only needs find/substr
+      const std::string_view coverPageHtml(reinterpret_cast<const char*>(coverPageData.get()), coverPageSize);
 
       // Determine base path of the cover page for resolving relative image references
       std::string coverPageBase;
@@ -105,8 +105,8 @@ bool Epub::parseContentOpf(BookMetadataCache::BookMetadata& bookMetadata, const 
         while (pos != std::string::npos) {
           pos += strlen(pattern);
           const auto endPos = coverPageHtml.find('"', pos);
-          if (endPos != std::string::npos) {
-            const auto ref = std::string_view{coverPageHtml}.substr(pos, endPos - pos);
+          if (endPos != std::string_view::npos) {
+            const auto ref = coverPageHtml.substr(pos, endPos - pos);
             // Cover BMP generation supports JPG/PNG only; skip GIF so an unsupported wrapper image
             // does not block a later supported cover reference.
             if (FsHelpers::hasPngExtension(ref) || FsHelpers::hasJpgExtension(ref)) {
@@ -173,25 +173,23 @@ bool Epub::parseTocNcxFile() const {
     return false;
   }
 
-  const auto ncxBuffer = static_cast<uint8_t*>(malloc(1024));
+  const auto ncxBuffer = makeUniqueNoThrow<uint8_t[]>(1024);
   if (!ncxBuffer) {
     LOG_ERR("EBP", "OOM toc ncx parser");
     return false;
   }
 
   while (tempNcxFile.available()) {
-    const auto readSize = tempNcxFile.read(ncxBuffer, 1024);
+    const auto readSize = tempNcxFile.read(ncxBuffer.get(), 1024);
     if (readSize == 0) break;
-    const auto processedSize = ncxParser.write(ncxBuffer, readSize);
+    const auto processedSize = ncxParser.write(ncxBuffer.get(), readSize);
 
     if (processedSize != readSize) {
       LOG_ERR("EBP", "Could not process all toc ncx data");
-      free(ncxBuffer);
       return false;
     }
   }
 
-  free(ncxBuffer);
   // Explicitly close() file before calling halStorage.remove()
   tempNcxFile.close();
   halStorage.remove(tmpNcxPath.c_str());
@@ -232,24 +230,22 @@ bool Epub::parseTocNavFile() const {
     return false;
   }
 
-  const auto navBuffer = static_cast<uint8_t*>(malloc(1024));
+  const auto navBuffer = makeUniqueNoThrow<uint8_t[]>(1024);
   if (!navBuffer) {
     LOG_ERR("EBP", "OOM toc nav parser");
     return false;
   }
 
   while (tempNavFile.available()) {
-    const auto readSize = tempNavFile.read(navBuffer, 1024);
-    const auto processedSize = navParser.write(navBuffer, readSize);
+    const auto readSize = tempNavFile.read(navBuffer.get(), 1024);
+    const auto processedSize = navParser.write(navBuffer.get(), readSize);
 
     if (processedSize != readSize) {
       LOG_ERR("EBP", "Could not process all toc nav data");
-      free(navBuffer);
       return false;
     }
   }
 
-  free(navBuffer);
   // Explicitly close() file before calling halStorage.remove()
   tempNavFile.close();
   halStorage.remove(tmpNavPath.c_str());
@@ -772,7 +768,8 @@ bool Epub::generateThumbBmp(int height) const {
   return false;
 }
 
-uint8_t* Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size, const bool trailingNullByte) const {
+std::unique_ptr<uint8_t[]> Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size,
+                                                         const bool trailingNullByte) const {
   if (itemHref.empty()) {
     LOG_DBG("EBP", "Failed to read item, empty href");
     return nullptr;
@@ -780,7 +777,7 @@ uint8_t* Epub::readItemContentsToBytes(const std::string& itemHref, size_t* size
 
   const std::string path = FsHelpers::normalisePath(itemHref);
 
-  const auto content = ZipFile(filepath).readFileToMemory(path.c_str(), size, trailingNullByte);
+  auto content = ZipFile(filepath).readFileToMemory(path.c_str(), size, trailingNullByte);
   if (!content) {
     LOG_DBG("EBP", "Failed to read item %s", path.c_str());
     return nullptr;

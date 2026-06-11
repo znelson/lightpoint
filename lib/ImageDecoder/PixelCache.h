@@ -2,22 +2,24 @@
 
 #include <HalStorage.h>
 #include <Logging.h>
+#include <Memory.h>
 #include <stdint.h>
 
 #include <cstring>
+#include <memory>
 #include <string>
 
 // Cache buffer for storing 2-bit pixels (4 levels) during decode.
 // Packs 4 pixels per byte, MSB first.
 struct PixelCache {
-  uint8_t* buffer;
+  std::unique_ptr<uint8_t[]> buffer;
   int width;
   int height;
   int bytesPerRow;
   int originX;  // config.x - to convert screen coords to cache coords
   int originY;  // config.y
 
-  PixelCache() : buffer(nullptr), width(0), height(0), bytesPerRow(0), originX(0), originY(0) {}
+  PixelCache() : width(0), height(0), bytesPerRow(0), originX(0), originY(0) {}
   PixelCache(const PixelCache&) = delete;
   PixelCache& operator=(const PixelCache&) = delete;
   PixelCache(PixelCache&&) = delete;
@@ -36,12 +38,11 @@ struct PixelCache {
       LOG_ERR("IMG", "Cache buffer too large: %d bytes for %dx%d (limit %d)", bufferSize, w, h, MAX_CACHE_BYTES);
       return false;
     }
-    buffer = (uint8_t*)malloc(bufferSize);
+    buffer = makeUniqueNoThrow<uint8_t[]>(bufferSize);  // zero-initialized
     if (buffer) {
-      memset(buffer, 0, bufferSize);
       LOG_DBG("IMG", "Allocated cache buffer: %d bytes for %dx%d", bufferSize, w, h);
     }
-    return buffer;
+    return buffer != nullptr;
   }
 
   void setPixel(int screenX, int screenY, uint8_t value) {
@@ -68,17 +69,10 @@ struct PixelCache {
     uint16_t h = height;
     cacheFile.write(&w, 2);
     cacheFile.write(&h, 2);
-    cacheFile.write(buffer, bytesPerRow * height);
+    cacheFile.write(buffer.get(), bytesPerRow * height);
     cacheFile.close();
 
     LOG_DBG("IMG", "Cache written: %s (%dx%d, %d bytes)", cachePath.c_str(), width, height, 4 + bytesPerRow * height);
     return true;
-  }
-
-  ~PixelCache() {
-    if (buffer) {
-      free(buffer);
-      buffer = nullptr;
-    }
   }
 };

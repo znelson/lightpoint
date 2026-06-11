@@ -4,6 +4,7 @@
 #include <HalStorage.h>
 
 #include <deque>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -61,7 +62,8 @@ class ZipFile {
   size_t fillUncompressedSizes(std::deque<SizeTarget>& targets, std::deque<uint32_t>& sizes);
   // Due to the memory required to run each of these, it is recommended to not preopen the zip file for multiple
   // These functions will open and close the zip as needed
-  uint8_t* readFileToMemory(const char* filename, size_t* size = nullptr, bool trailingNullByte = false);
+  std::unique_ptr<uint8_t[]> readFileToMemory(const char* filename, size_t* size = nullptr,
+                                              bool trailingNullByte = false);
   bool readFileToStream(const char* filename, Print& out, size_t chunkSize);
 
   bool enumerateFilePaths(FunctionRef<void(std::string_view)> callback);

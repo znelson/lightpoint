@@ -142,6 +142,33 @@ TEST_F(MemoryTest, Array_ZeroSizedAllocationIsValid) {
   ASSERT_NE(buf, nullptr);
 }
 
+// ---- makeUniqueNoThrowForOverwrite<T[]>(n) -- uninitialized array form --------
+
+TEST_F(MemoryTest, ForOverwrite_ReturnsUniquePtrArray) {
+  auto buf = makeUniqueNoThrowForOverwrite<uint8_t[]>(8);
+  static_assert(std::is_same_v<decltype(buf), std::unique_ptr<uint8_t[]>>);
+  ASSERT_NE(buf, nullptr);
+}
+
+TEST_F(MemoryTest, ForOverwrite_WriteableThroughSubscript) {
+  auto buf = makeUniqueNoThrowForOverwrite<uint8_t[]>(4);
+  ASSERT_NE(buf, nullptr);
+  buf[0] = 0xBE;
+  buf[3] = 0xEF;
+  EXPECT_EQ(buf[0], 0xBE);
+  EXPECT_EQ(buf[3], 0xEF);
+}
+
+TEST_F(MemoryTest, ForOverwrite_DestructorsRunOnScopeExit) {
+  // Default-init still runs constructors/destructors for class types.
+  {
+    auto buf = makeUniqueNoThrowForOverwrite<Counted[]>(6);
+    ASSERT_NE(buf, nullptr);
+    EXPECT_EQ(Counted::liveCount, 6);
+  }
+  EXPECT_EQ(Counted::liveCount, 0);
+}
+
 // ---- ScopedCleanup -----------------------------------------------------------
 
 TEST(ScopedCleanupTest, FiresOnScopeExit) {

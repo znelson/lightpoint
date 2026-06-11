@@ -33,6 +33,18 @@ std::unique_ptr<T> makeUniqueNoThrow(size_t count) {
   return std::unique_ptr<T>(new (std::nothrow) Elem[count]());
 }
 
+// Like makeUniqueNoThrow<T[]>, but default-initializes the elements (no zero-fill),
+// mirroring std::make_unique_for_overwrite. Use only when every element is provably
+// written before it is read - e.g. a buffer that is immediately memcpy'd or read
+// into in full. When in doubt, use makeUniqueNoThrow: the zero-fill is cheap
+// insurance against reading uninitialized bytes after a short read.
+template <typename T>
+  requires std::is_unbounded_array_v<T>
+std::unique_ptr<T> makeUniqueNoThrowForOverwrite(size_t count) {
+  using Elem = std::remove_extent_t<T>;
+  return std::unique_ptr<T>(new (std::nothrow) Elem[count]);
+}
+
 // Helper struct to call a cleanup function on exit from any scope.
 // Use with a lambda to avoid unnecessary allocations from std::function/std::bind:
 // Example:

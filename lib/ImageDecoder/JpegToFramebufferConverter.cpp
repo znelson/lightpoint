@@ -170,7 +170,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
 
   DirectCacheWriter cw;
   if (caching) {
-    cw.init(ctx->cache.buffer, ctx->cache.bytesPerRow, ctx->cache.originX);
+    cw.init(ctx->cache.buffer.get(), ctx->cache.bytesPerRow, ctx->cache.originX);
   }
 
   // === 1:1 fast path: no scaling math ===
