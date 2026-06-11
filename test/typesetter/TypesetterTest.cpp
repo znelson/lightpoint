@@ -599,3 +599,99 @@ TEST_F(TypesetterFixture, AutoDetectedRtlFromContentReordersWords) {
   EXPECT_EQ(words[0], kAhalan);
   EXPECT_EQ(words[1], kShalom);
 }
+
+// --- Hanging indent regression -------------------------------------------
+//
+// PR #1700 (RTL support) added an `xpos < 0 ? 0 : xpos` clamp at the per-word
+// push sites in extractLine. For RTL the clamp absorbs a legitimate underflow
+// case; for LTR it silently truncated negative first-word positions produced
+// by CSS `text-indent: <negative>` (hanging indent) to 0 while leaving the
+// cursor variable uncorrected -- collapsing the gap to the next word and
+// producing visible character overlap.
+
+namespace {
+
+std::vector<int16_t> lineXPosAt(const Page& page, const size_t lineIndex) {
+  size_t seen = 0;
+  for (const auto& el : page.elements) {
+    if (el->getTag() != TAG_PageLine) continue;
+    if (seen == lineIndex) {
+      auto* line = static_cast<const PageLine*>(el.get());
+      return line->getBlock()->getWordXpos();
+    }
+    ++seen;
+  }
+  return {};
+}
+
+size_t pageLineCount(const Page& page) {
+  size_t n = 0;
+  for (const auto& el : page.elements) {
+    if (el->getTag() == TAG_PageLine) ++n;
+  }
+  return n;
+}
+
+}  // namespace
+
+TEST_F(TypesetterFixture, HangingIndentFirstWordKeepsNegativeXPos) {
+  // CSS analog: p.hanging { text-indent: -10px } with default Justify alignment.
+  BlockStyle style;
+  style.textIndent = -10;
+  style.textIndentDefined = true;
+
+  auto ts = makeTypesetter();
+  ts.submitParagraph(makeParagraph(/*wordCount=*/2, /*wordLen=*/4, style));
+  ts.finish();
+
+  ASSERT_EQ(emitted.size(), 1u);
+  const auto xpos = lineXPosAt(*emitted[0].page, 0);
+  ASSERT_EQ(xpos.size(), 2u);
+  // Pre-fix: clamped to 0 -- inter-word gap collapses by |textIndent| and the
+  // visible glyphs of word 0 overlap the start of word 1.
+  EXPECT_EQ(xpos[0], -10);
+  // Last line of a Justify paragraph carries no justifyExtra, so the gap is
+  // exactly word width + space advance.
+  EXPECT_EQ(xpos[1] - xpos[0], 4 * GfxRenderer::kPxPerChar + GfxRenderer::kSpaceAdvance);
+}
+
+TEST_F(TypesetterFixture, ZeroTextIndentPositionsFirstWordAtZero) {
+  // Pins that an explicit `text-indent: 0` is not accidentally swept into the
+  // hanging-indent branch by a future refactor of resolveFirstLineIndent.
+  BlockStyle style;
+  style.textIndent = 0;
+  style.textIndentDefined = true;
+
+  auto ts = makeTypesetter();
+  ts.submitParagraph(makeParagraph(/*wordCount=*/2, /*wordLen=*/4, style));
+  ts.finish();
+
+  ASSERT_EQ(emitted.size(), 1u);
+  const auto xpos = lineXPosAt(*emitted[0].page, 0);
+  ASSERT_EQ(xpos.size(), 2u);
+  EXPECT_EQ(xpos[0], 0);
+}
+
+TEST_F(TypesetterFixture, HangingIndentAppliesOnlyToFirstLineOfWrappedParagraph) {
+  // Guards the breakIndex == 0 gate in resolveFirstLineIndent: the first line
+  // starts at textIndent, every continuation line starts at 0.
+  BlockStyle style;
+  style.textIndent = -10;
+  style.textIndentDefined = true;
+
+  // Word width 40 + space 5 = 45 px per word. Viewport 600 px fits 13 words
+  // per line, so 20 words wraps to two lines.
+  auto ts = makeTypesetter();
+  ts.submitParagraph(makeParagraph(/*wordCount=*/20, /*wordLen=*/4, style));
+  ts.finish();
+
+  ASSERT_EQ(emitted.size(), 1u);
+  ASSERT_GE(pageLineCount(*emitted[0].page), 2u);
+
+  const auto line0 = lineXPosAt(*emitted[0].page, 0);
+  const auto line1 = lineXPosAt(*emitted[0].page, 1);
+  ASSERT_FALSE(line0.empty());
+  ASSERT_FALSE(line1.empty());
+  EXPECT_EQ(line0.front(), -10);
+  EXPECT_EQ(line1.front(), 0);
+}
