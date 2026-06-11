@@ -362,6 +362,7 @@ sdkApiThatTakesOwnership(obj);  // SDK calls delete
 - **ALWAYS `LOG_ERR` before returning false** on OOM
 - **Use `.get()`** to pass the raw pointer to C-style APIs; ownership stays with the `unique_ptr`
 - **`new (std::nothrow)` directly only** when a C API takes ownership; document why in a comment
+- **`makeUniqueNoThrow<T[]>` zero-fills the array.** When that cost matters AND every element is provably written before it is read (e.g. an immediate full-size `memcpy`), use `makeUniqueNoThrowForOverwrite<T[]>(n)` — the nothrow analogue of `std::make_unique_for_overwrite`
 
 **Examples in codebase**:
 - Memory utilities: [Memory.h](../lib/Utility/Memory.h) (`makeUniqueNoThrow`)

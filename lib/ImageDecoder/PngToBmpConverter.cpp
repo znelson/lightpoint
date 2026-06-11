@@ -510,13 +510,17 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
   ctx.rawRowBytes = rawRowBytes;
   ctx.paletteSize = 0;
 
-  // Allocate scanline buffers
+  // Allocate scanline buffers. They stay raw malloc because PngDecodeContext must
+  // keep its layout for the uzlib callback cast (reader is the first member), so the
+  // ScopedCleanup below frees them on every exit path (they are swapped during decode).
   ctx.currentRow = static_cast<uint8_t*>(malloc(rawRowBytes));
   ctx.previousRow = static_cast<uint8_t*>(calloc(rawRowBytes, 1));
-  if (!ctx.currentRow || !ctx.previousRow) {
-    LOG_ERR("PNG", "OOM scanline buffers (%u bytes each)", rawRowBytes);
+  const ScopedCleanup rowsCleanup{[&ctx] {
     free(ctx.currentRow);
     free(ctx.previousRow);
+  }};
+  if (!ctx.currentRow || !ctx.previousRow) {
+    LOG_ERR("PNG", "OOM scanline buffers (%u bytes each)", rawRowBytes);
     return false;
   }
 
@@ -552,16 +556,12 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
 
   if (!foundIdat) {
     LOG_ERR("PNG", "No IDAT chunk found");
-    free(ctx.currentRow);
-    free(ctx.previousRow);
     return false;
   }
 
   // Initialize streaming decompressor with 32KB ring buffer for back-reference history
   if (!ctx.reader.init(true)) {
     LOG_ERR("PNG", "Failed to init inflate reader");
-    free(ctx.currentRow);
-    free(ctx.previousRow);
     return false;
   }
   ctx.reader.setReadCallback(pngIdatReadCallback);
@@ -613,11 +613,9 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
   }
 
   // Allocate BMP row buffer
-  auto* rowBuffer = static_cast<uint8_t*>(malloc(bytesPerRow));
+  const auto rowBuffer = makeUniqueNoThrow<uint8_t[]>(bytesPerRow);
   if (!rowBuffer) {
     LOG_ERR("PNG", "OOM row buffer");
-    free(ctx.currentRow);
-    free(ctx.previousRow);
     return false;
   }
 
@@ -630,9 +628,6 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
     atkinson1BitDitherer = makeUniqueNoThrow<Atkinson1BitDitherer>(outWidth);
     if (!atkinson1BitDitherer || !atkinson1BitDitherer->valid()) {
       LOG_ERR("PNG", "OOM Atkinson1BitDitherer");
-      free(rowBuffer);
-      free(ctx.currentRow);
-      free(ctx.previousRow);
       return false;
     }
   } else if (!USE_8BIT_OUTPUT) {
@@ -640,18 +635,12 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
       atkinsonDitherer = makeUniqueNoThrow<AtkinsonDitherer>(outWidth);
       if (!atkinsonDitherer || !atkinsonDitherer->valid()) {
         LOG_ERR("PNG", "OOM AtkinsonDitherer");
-        free(rowBuffer);
-        free(ctx.currentRow);
-        free(ctx.previousRow);
         return false;
       }
     } else if (USE_FLOYD_STEINBERG) {
       fsDitherer = makeUniqueNoThrow<FloydSteinbergDitherer>(outWidth);
       if (!fsDitherer || !fsDitherer->valid()) {
         LOG_ERR("PNG", "OOM FloydSteinbergDitherer");
-        free(rowBuffer);
-        free(ctx.currentRow);
-        free(ctx.previousRow);
         return false;
       }
     }
@@ -668,9 +657,6 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
     rowCount = makeUniqueNoThrow<uint16_t[]>(outWidth);
     if (!rowAccum || !rowCount) {
       LOG_ERR("PNG", "OOM scaling accumulators");
-      free(rowBuffer);
-      free(ctx.currentRow);
-      free(ctx.previousRow);
       return false;
     }
     nextOutY_srcStart = scaleY_fp;
@@ -678,12 +664,9 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
 
   // Allocate grayscale row buffer - batch-convert each scanline to avoid
   // per-pixel getPixelGray() switch overhead in the hot loops
-  auto* grayRow = static_cast<uint8_t*>(malloc(width));
+  const auto grayRow = makeUniqueNoThrow<uint8_t[]>(width);
   if (!grayRow) {
     LOG_ERR("PNG", "OOM grayscale row buffer");
-    free(rowBuffer);
-    free(ctx.currentRow);
-    free(ctx.previousRow);
     return false;
   }
 
@@ -699,11 +682,11 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
     }
 
     // Batch-convert entire scanline to grayscale (one branch, tight loop)
-    convertScanlineToGray(ctx, grayRow);
+    convertScanlineToGray(ctx, grayRow.get());
 
     if (!needsScaling) {
       // Direct output (no scaling)
-      memset(rowBuffer, 0, bytesPerRow);
+      memset(rowBuffer.get(), 0, bytesPerRow);
 
       if (USE_8BIT_OUTPUT && !oneBit) {
         for (int x = 0; x < outWidth; x++) {
@@ -738,7 +721,7 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
         else if (fsDitherer)
           fsDitherer->nextRow();
       }
-      bmpOut.write(rowBuffer, bytesPerRow);
+      bmpOut.write(rowBuffer.get(), bytesPerRow);
     } else {
       // Area-averaging scaling (same as JpegToBmpConverter)
       for (int outX = 0; outX < outWidth; outX++) {
@@ -767,7 +750,7 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
       // Output all rows whose boundaries we've crossed (handles both up and downscaling)
       // For upscaling, one source row may produce multiple output rows
       while (srcY_fp >= nextOutY_srcStart && currentOutY < outHeight) {
-        memset(rowBuffer, 0, bytesPerRow);
+        memset(rowBuffer.get(), 0, bytesPerRow);
 
         if (USE_8BIT_OUTPUT && !oneBit) {
           for (int x = 0; x < outWidth; x++) {
@@ -805,7 +788,7 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
             fsDitherer->nextRow();
         }
 
-        bmpOut.write(rowBuffer, bytesPerRow);
+        bmpOut.write(rowBuffer.get(), bytesPerRow);
         currentOutY++;
 
         nextOutY_srcStart = static_cast<uint32_t>(currentOutY + 1) * scaleY_fp;
@@ -827,12 +810,6 @@ bool PngToBmpConverter::pngFileToBmpStreamInternal(HalFile& pngFile, Print& bmpO
     ctx.previousRow = ctx.currentRow;
     ctx.currentRow = temp;
   }
-
-  // Clean up
-  free(grayRow);
-  free(rowBuffer);
-  free(ctx.currentRow);
-  free(ctx.previousRow);
 
   if (success) {
     LOG_DBG("PNG", "Successfully converted PNG to BMP");

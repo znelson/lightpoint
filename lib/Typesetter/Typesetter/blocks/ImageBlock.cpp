@@ -57,7 +57,7 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
 
   // Read and render row by row to minimize memory usage
   const int bytesPerRow = (cachedWidth + 3) / 4;  // 2 bits per pixel, 4 pixels per byte
-  uint8_t* rowBuffer = (uint8_t*)malloc(bytesPerRow);
+  auto rowBuffer = makeUniqueNoThrow<uint8_t[]>(bytesPerRow);
   if (!rowBuffer) {
     LOG_ERR("IMG", "OOM row buffer");
     return false;
@@ -67,9 +67,8 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
   pw.init(renderer);
 
   for (int row = 0; row < cachedHeight; row++) {
-    if (cacheFile.read(rowBuffer, bytesPerRow) != bytesPerRow) {
+    if (cacheFile.read(rowBuffer.get(), bytesPerRow) != bytesPerRow) {
       LOG_ERR("IMG", "Cache read error at row %d", row);
-      free(rowBuffer);
       return false;
     }
 
@@ -84,7 +83,6 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
     }
   }
 
-  free(rowBuffer);
   LOG_DBG("IMG", "Cache render complete");
   return true;
 }

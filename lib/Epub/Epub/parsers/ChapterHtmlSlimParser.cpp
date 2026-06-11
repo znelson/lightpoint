@@ -15,7 +15,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <new>
 
 #include "Epub.h"
 #include "Epub/css/BlockStyleFactory.h"

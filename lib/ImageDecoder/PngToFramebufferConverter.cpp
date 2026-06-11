@@ -37,7 +37,7 @@ struct PngContext {
   PixelCache cache;
   bool caching{false};
 
-  uint8_t* grayLineBuffer{nullptr};
+  std::unique_ptr<uint8_t[]> grayLineBuffer;
 };
 
 // File I/O callbacks use pFile->fHandle to access the HalFile*,
@@ -185,7 +185,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
   if (outY >= ctx->screenHeight) return 1;
 
   // Convert entire source line to grayscale (improves cache locality)
-  convertLineToGray(pDraw->pPixels, ctx->grayLineBuffer, srcWidth, pDraw->iPixelType, pDraw->pPalette,
+  convertLineToGray(pDraw->pPixels, ctx->grayLineBuffer.get(), srcWidth, pDraw->iPixelType, pDraw->pPalette,
                     pDraw->iHasAlpha);
 
   // Render scaled row using Bresenham-style integer stepping (no floating-point division)
@@ -202,7 +202,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
 
   DirectCacheWriter cw;
   if (caching) {
-    cw.init(ctx->cache.buffer, ctx->cache.bytesPerRow, ctx->cache.originX);
+    cw.init(ctx->cache.buffer.get(), ctx->cache.bytesPerRow, ctx->cache.originX);
     cw.beginRow(outY, ctx->config->y);
   }
 
@@ -341,7 +341,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
 
   // Allocate grayscale line buffer on demand (~3.2 KB) - freed after decode
   const size_t grayBufSize = PNG_MAX_BUFFERED_PIXELS / 2;
-  ctx.grayLineBuffer = static_cast<uint8_t*>(malloc(grayBufSize));
+  ctx.grayLineBuffer = makeUniqueNoThrow<uint8_t[]>(grayBufSize);
   if (!ctx.grayLineBuffer) {
     LOG_ERR("PNG", "OOM gray line buffer");
     return false;
@@ -368,8 +368,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
   rc = png->decode(&ctx, 0);
   [[maybe_unused]] const uint32_t decodeTime = halPlatform.millis() - decodeStart;
 
-  free(ctx.grayLineBuffer);
-  ctx.grayLineBuffer = nullptr;
+  ctx.grayLineBuffer.reset();
 
   if (rc != PNG_SUCCESS) {
     LOG_ERR("PNG", "Decode failed: %d", rc);
