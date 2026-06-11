@@ -723,7 +723,7 @@ uint32_t SdCardFont::prewarmStyle(uint8_t styleIdx, const uint32_t* codepoints, 
 
   // Build mini intervals from sorted codepoints
   freeStyleMiniData(s);
-  
+
   // Free partially-built mini data (and restore the stub) on any error return below
   ScopedCleanup freeOnError{[&] { freeStyleMiniData(s); }};
 
