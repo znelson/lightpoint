@@ -73,8 +73,10 @@ class Bitmap {
   Bitmap(Bitmap&&) = delete;
   Bitmap& operator=(Bitmap&&) = delete;
   BmpReaderError parseHeaders();
-  BmpReaderError readNextRow(uint8_t* data, uint8_t* rowBuffer) const;
-  BmpReaderError rewindToData() const;
+  // Stateful row iterator: each call returns the next row and advances the
+  // dithering error state, hence non-const. rewindToData() restarts it.
+  BmpReaderError readNextRow(uint8_t* data, uint8_t* rowBuffer);
+  BmpReaderError rewindToData();
   int getWidth() const { return width; }
   int getHeight() const { return height; }
   bool isTopDown() const { return topDown; }
@@ -99,9 +101,9 @@ class Bitmap {
   int rowBytes = 0;
   uint8_t paletteLum[256] = {};
 
-  // Dithering state (mutable for const methods)
-  mutable int prevRowY = -1;  // Track row progression for error propagation
+  // Dithering state, advanced by readNextRow()
+  int prevRowY = -1;  // Track row progression for error propagation
 
-  mutable std::unique_ptr<AtkinsonDitherer> atkinsonDitherer;
-  mutable std::unique_ptr<FloydSteinbergDitherer> fsDitherer;
+  std::unique_ptr<AtkinsonDitherer> atkinsonDitherer;
+  std::unique_ptr<FloydSteinbergDitherer> fsDitherer;
 };
