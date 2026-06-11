@@ -51,6 +51,16 @@ std::unique_ptr<T> makeUniqueNoThrowForOverwrite(size_t count) {
 //   auto jpeg = makeUniqueNoThrow<JPEGDEC>();
 //   ScopedCleanup cleanup{[&jpeg]{ jpeg->close(); }};
 //
+// For "cleanup only on failure" (free partial state on error paths, keep it on
+// success), call dismiss() once the resource is fully built:
+//   ScopedCleanup freeOnError{[&]{ freePartialState(); }};
+//   ... early returns here run the cleanup ...
+//   freeOnError.dismiss();  // success - keep the state
+//
+// Declare instances const unless dismiss() is needed: a const guard cannot be
+// dismissed, so constness documents that the cleanup is unconditional.
+//   return true;
+//
 template <typename F>
 struct [[nodiscard]] ScopedCleanup final {
   const F fn;
@@ -59,7 +69,13 @@ struct [[nodiscard]] ScopedCleanup final {
   ScopedCleanup& operator=(const ScopedCleanup&) = delete;
   ScopedCleanup(ScopedCleanup&&) = delete;
   ScopedCleanup& operator=(ScopedCleanup&&) = delete;
-  ~ScopedCleanup() { fn(); }
+  void dismiss() { active = false; }
+  ~ScopedCleanup() {
+    if (active) fn();
+  }
+
+ private:
+  bool active = true;
 };
 
 template <typename F>

@@ -10,6 +10,7 @@
 #include <FsHelpers.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <Memory.h>
 
 #include <cstring>
 
@@ -42,12 +43,15 @@ XtcError XtcParser::open(const char* filepath) {
     return m_lastError;
   }
 
+  // Every path closes the file: m_file is a member, so it persists beyond this
+  // function. On success it is reopened on-demand for page table lookups and
+  // bitmap reads; closing here frees its internal SdFat buffers.
+  const ScopedCleanup fileCloser{[this] { m_file.close(); }};
+
   // Read header
   m_lastError = readHeader();
   if (m_lastError != XtcError::OK) {
     LOG_DBG("XTC", "Failed to read header: %s", errorToString(m_lastError));
-    // Explicit close() required: member variable persists beyond function scope
-    m_file.close();
     return m_lastError;
   }
 
@@ -56,15 +60,11 @@ XtcError XtcParser::open(const char* filepath) {
     m_lastError = readTitle();
     if (m_lastError != XtcError::OK) {
       LOG_DBG("XTC", "Failed to read title: %s", errorToString(m_lastError));
-      // Explicit close() required: member variable persists beyond function scope
-      m_file.close();
       return m_lastError;
     }
     m_lastError = readAuthor();
     if (m_lastError != XtcError::OK) {
       LOG_DBG("XTC", "Failed to read author: %s", errorToString(m_lastError));
-      // Explicit close() required: member variable persists beyond function scope
-      m_file.close();
       return m_lastError;
     }
     // Trim excess capacity from metadata strings
@@ -76,8 +76,6 @@ XtcError XtcParser::open(const char* filepath) {
   m_lastError = readFirstPageInfo();
   if (m_lastError != XtcError::OK) {
     LOG_DBG("XTC", "Failed to read first page info: %s", errorToString(m_lastError));
-    // Explicit close() required: member variable persists beyond function scope
-    m_file.close();
     return m_lastError;
   }
 
@@ -88,10 +86,6 @@ XtcError XtcParser::open(const char* filepath) {
   // chapterOffset field even if the bytes read into that slot are non-zero.
   m_hasChapters = (m_header.hasChapters == 1 && m_header.pageTableOffset >= sizeof(XtcHeader));
   m_chaptersLoaded = false;
-
-  // Close the source file to free its internal SdFat buffers.
-  // It will be reopened on-demand for page table lookups and bitmap reads.
-  m_file.close();
 
   m_isOpen = true;
   LOG_DBG("XTC", "Opened file: %s (%u pages, %dx%d)", filepath, m_header.pageCount, m_defaultWidth, m_defaultHeight);
