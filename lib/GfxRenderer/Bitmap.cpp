@@ -1,5 +1,7 @@
 #include "Bitmap.h"
 
+#include <Memory.h>
+
 #include <cstdlib>
 #include <cstring>
 
@@ -12,14 +14,6 @@
 // For cover images, dithering is done in JpegToBmpConverter.cpp instead.
 constexpr bool USE_ATKINSON = true;  // Use Atkinson dithering instead of Floyd-Steinberg
 // ============================================================================
-
-Bitmap::~Bitmap() {
-  delete[] errorCurRow;
-  delete[] errorNextRow;
-
-  delete atkinsonDitherer;
-  delete fsDitherer;
-}
 
 uint16_t Bitmap::readLE16(HalFile& f) {
   const int c0 = f.read();
@@ -76,6 +70,8 @@ const char* Bitmap::errorToString(BmpReaderError err) {
 
     case BmpReaderError::OomRowBuffer:
       return "OomRowBuffer";
+    case BmpReaderError::OomDitherer:
+      return "OomDitherer";
     case BmpReaderError::ShortReadRow:
       return "ShortReadRow";
   }
@@ -168,9 +164,17 @@ BmpReaderError Bitmap::parseHeaders() {
   const bool highColor = !nativePalette;
   if (highColor && dithering) {
     if (USE_ATKINSON) {
-      atkinsonDitherer = new AtkinsonDitherer(width);
+      atkinsonDitherer = makeUniqueNoThrow<AtkinsonDitherer>(width);
+      if (!atkinsonDitherer || !atkinsonDitherer->valid()) {
+        atkinsonDitherer.reset();
+        return BmpReaderError::OomDitherer;
+      }
     } else {
-      fsDitherer = new FloydSteinbergDitherer(width);
+      fsDitherer = makeUniqueNoThrow<FloydSteinbergDitherer>(width);
+      if (!fsDitherer || !fsDitherer->valid()) {
+        fsDitherer.reset();
+        return BmpReaderError::OomDitherer;
+      }
     }
   }
 

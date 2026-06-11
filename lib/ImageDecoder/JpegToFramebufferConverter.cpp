@@ -10,7 +10,6 @@
 
 #include <cstdlib>
 #include <memory>
-#include <new>
 
 #include "DirectPixelWriter.h"
 #include "DitherUtils.h"
@@ -52,13 +51,12 @@ struct JpegContext {
 // File I/O callbacks use pFile->fHandle to access the HalFile*,
 // avoiding the need for global file state.
 void* jpegOpen(const char* filename, int32_t* size) {
-  HalFile* f = new HalFile();
-  if (!halStorage.openFileForRead("JPG", std::string(filename), *f)) {
-    delete f;
+  auto f = makeUniqueNoThrow<HalFile>();
+  if (!f || !halStorage.openFileForRead("JPG", std::string(filename), *f)) {
     return nullptr;
   }
   *size = f->size();
-  return f;
+  return f.release();  // jpegClose deletes it
 }
 
 void jpegClose(void* handle) {
@@ -350,9 +348,9 @@ bool JpegToFramebufferConverter::getDimensionsStatic(const std::string& imagePat
     return false;
   }
 
-  std::unique_ptr<JPEGDEC> jpeg(new (std::nothrow) JPEGDEC());
+  auto jpeg = makeUniqueNoThrow<JPEGDEC>();
   if (!jpeg) {
-    LOG_ERR("JPG", "Failed to allocate JPEG decoder for dimensions");
+    LOG_ERR("JPG", "OOM JPEG decoder for dimensions");
     return false;
   }
 
@@ -380,9 +378,9 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
     return false;
   }
 
-  std::unique_ptr<JPEGDEC> jpeg(new (std::nothrow) JPEGDEC());
+  auto jpeg = makeUniqueNoThrow<JPEGDEC>();
   if (!jpeg) {
-    LOG_ERR("JPG", "Failed to allocate JPEG decoder");
+    LOG_ERR("JPG", "OOM JPEG decoder");
     return false;
   }
 
@@ -474,7 +472,7 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
   ctx.caching = !config.cachePath.empty();
   if (ctx.caching) {
     if (!ctx.cache.allocate(destWidth, destHeight, config.x, config.y)) {
-      LOG_ERR("JPG", "Failed to allocate cache buffer, continuing without caching");
+      LOG_ERR("JPG", "OOM cache buffer, continuing without caching");
       ctx.caching = false;
     }
   }

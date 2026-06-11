@@ -93,7 +93,7 @@ std::unique_ptr<PageHorizontalRule> PageHorizontalRule::deserialize(HalFile& fil
 
   auto rule = makeUniqueNoThrow<PageHorizontalRule>(width, thickness, xPos, yPos);
   if (!rule) {
-    LOG_ERR("PGE", "Deserialization failed: could not allocate PageHorizontalRule");
+    LOG_ERR("PGE", "OOM allocating PageHorizontalRule during deserialize");
   }
   return rule;
 }

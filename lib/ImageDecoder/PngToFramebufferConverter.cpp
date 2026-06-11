@@ -10,7 +10,6 @@
 
 #include <cstdlib>
 #include <memory>
-#include <new>
 
 #include "DirectPixelWriter.h"
 #include "DitherUtils.h"
@@ -44,13 +43,12 @@ struct PngContext {
 // File I/O callbacks use pFile->fHandle to access the HalFile*,
 // avoiding the need for global file state.
 void* pngOpenWithHandle(const char* filename, int32_t* size) {
-  HalFile* f = new HalFile();
-  if (!halStorage.openFileForRead("PNG", std::string(filename), *f)) {
-    delete f;
+  auto f = makeUniqueNoThrow<HalFile>();
+  if (!f || !halStorage.openFileForRead("PNG", std::string(filename), *f)) {
     return nullptr;
   }
   *size = f->size();
-  return f;
+  return f.release();  // pngCloseWithHandle deletes it
 }
 
 void pngCloseWithHandle(void* handle) {
@@ -247,9 +245,9 @@ bool PngToFramebufferConverter::getDimensionsStatic(const std::string& imagePath
     return false;
   }
 
-  std::unique_ptr<PNG> png(new (std::nothrow) PNG());
+  auto png = makeUniqueNoThrow<PNG>();
   if (!png) {
-    LOG_ERR("PNG", "Failed to allocate PNG decoder for dimensions");
+    LOG_ERR("PNG", "OOM PNG decoder for dimensions");
     return false;
   }
 
@@ -279,9 +277,9 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
   }
 
   // Heap-allocate PNG decoder (~42 KB) - freed at end of function
-  std::unique_ptr<PNG> png(new (std::nothrow) PNG());
+  auto png = makeUniqueNoThrow<PNG>();
   if (!png) {
-    LOG_ERR("PNG", "Failed to allocate PNG decoder");
+    LOG_ERR("PNG", "OOM PNG decoder");
     return false;
   }
 
@@ -345,7 +343,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
   const size_t grayBufSize = PNG_MAX_BUFFERED_PIXELS / 2;
   ctx.grayLineBuffer = static_cast<uint8_t*>(malloc(grayBufSize));
   if (!ctx.grayLineBuffer) {
-    LOG_ERR("PNG", "Failed to allocate gray line buffer");
+    LOG_ERR("PNG", "OOM gray line buffer");
     return false;
   }
 
@@ -361,7 +359,7 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
       LOG_DBG("PNG", "Skipping cache: %zu bytes exceeds PNG limit (%zu)", cacheSize, PNG_MAX_CACHE_BYTES);
       ctx.caching = false;
     } else if (!ctx.cache.allocate(ctx.dstWidth, ctx.dstHeight, config.x, config.y)) {
-      LOG_ERR("PNG", "Failed to allocate cache buffer, continuing without caching");
+      LOG_ERR("PNG", "OOM cache buffer, continuing without caching");
       ctx.caching = false;
     }
   }

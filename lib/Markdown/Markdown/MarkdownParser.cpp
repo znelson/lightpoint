@@ -384,7 +384,7 @@ struct MarkdownParser::ParagraphState {
   bool beginBlock(const BlockStyle& style) {
     currentBlock = makeUniqueNoThrow<ParsedText>(extraParagraphSpacing, hyphenationEnabled, focusReadingEnabled);
     if (!currentBlock) {
-      LOG_ERR("MDP", "OOM: ParsedText");
+      LOG_ERR("MDP", "OOM ParsedText");
       return false;
     }
     currentBlock->setBlockStyle(style);
@@ -419,7 +419,7 @@ bool MarkdownParser::parse() {
   state =
       makeUniqueNoThrow<ParagraphState>(extraParagraphSpacing, hyphenationEnabled, focusReadingEnabled, defaultAlign);
   if (!state) {
-    LOG_ERR("MDP", "OOM: ParagraphState");
+    LOG_ERR("MDP", "OOM ParagraphState");
     return false;
   }
   if (!state->beginBlock(state->makeBodyStyle())) {
@@ -428,7 +428,7 @@ bool MarkdownParser::parse() {
 
   auto buffer = makeUniqueNoThrow<uint8_t[]>(CHUNK_SIZE + 1);
   if (!buffer) {
-    LOG_ERR("MDP", "Failed to allocate read buffer");
+    LOG_ERR("MDP", "OOM read buffer");
     return false;
   }
 
@@ -626,7 +626,7 @@ void MarkdownParser::emitCodeLine(const std::string& text) {
   // No extra spacing, no hyphenation, no focus reading inside code blocks
   auto block = makeUniqueNoThrow<ParsedText>(false, false, false);
   if (!block) {
-    LOG_ERR("MDP", "OOM: ParsedText (code line)");
+    LOG_ERR("MDP", "OOM ParsedText (code line)");
     return;
   }
   block->setBlockStyle(style);

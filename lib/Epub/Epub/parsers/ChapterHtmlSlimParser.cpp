@@ -7,6 +7,7 @@
 #include <ImageDecoderFactory.h>
 #include <ImageToFramebufferDecoder.h>
 #include <Logging.h>
+#include <Memory.h>
 #include <Typesetter/Page.h>
 #include <Utf8.h>
 #include <XmlParserUtils.h>
@@ -144,6 +145,13 @@ void ChapterHtmlSlimParser::updateEffectiveInlineStyle() {
 
 // flush the contents of partWordBuffer to currentTextBlock
 void ChapterHtmlSlimParser::flushPartWordBuffer() {
+  // No block to flush into (allocation failed in startNewTextBlock) - drop the word
+  if (!currentTextBlock) {
+    partWordBufferIndex = 0;
+    nextWordContinues = false;
+    return;
+  }
+
   // Determine font style from depth-based tracking and CSS effective style
   const bool isBold = boldUntilDepth < depth || effectiveBold;
   const bool isItalic = italicUntilDepth < depth || effectiveItalic;
@@ -208,7 +216,11 @@ void ChapterHtmlSlimParser::startNewTextBlock(const BlockStyle& blockStyle) {
   // If the pending anchor is a TOC chapter boundary, force a page break after the previous
   // block is flushed so the chapter starts on a fresh page.
   flushPendingAnchor();
-  currentTextBlock.reset(new ParsedText(extraParagraphSpacing, hyphenationEnabled, focusReadingEnabled, blockStyle));
+  currentTextBlock =
+      makeUniqueNoThrow<ParsedText>(extraParagraphSpacing, hyphenationEnabled, focusReadingEnabled, blockStyle);
+  if (!currentTextBlock) {
+    LOG_ERR("EHP", "OOM ParsedText; dropping block");
+  }
 }
 
 void ChapterHtmlSlimParser::emitHorizontalRule(const BlockStyle& blockStyle) {
@@ -733,7 +745,7 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
       self->startNewTextBlock(accumulated.withoutBottom());
       self->updateEffectiveInlineStyle();
 
-      if (strcmp(name, "li") == 0) {
+      if (strcmp(name, "li") == 0 && self->currentTextBlock) {
         self->currentTextBlock->addWord("\xe2\x80\xa2", EpdFontFamily::REGULAR);
       }
     }
@@ -1002,7 +1014,7 @@ void XMLCALL ChapterHtmlSlimParser::characterData(void* userData, const XML_Char
   // There should be enough here to build out 1-2 full pages and doing this will free up a lot of
   // memory.
   // Spotted when reading Intermezzo, there are some really long text blocks in there.
-  if (self->currentTextBlock->size() > 750) {
+  if (self->currentTextBlock && self->currentTextBlock->size() > 750) {
     LOG_DBG("EHP", "Text block too long, splitting into multiple pages");
     self->typesetter.partialFlush(*self->currentTextBlock);
   }
@@ -1167,7 +1179,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   bool done = false;
 
   if (!parser) {
-    LOG_ERR("EHP", "Couldn't allocate memory for parser");
+    LOG_ERR("EHP", "OOM parser");
     return false;
   }
 
@@ -1195,7 +1207,7 @@ bool ChapterHtmlSlimParser::parseAndBuildPages() {
   do {
     void* const buf = XML_GetBuffer(parser, PARSE_BUFFER_SIZE);
     if (!buf) {
-      LOG_ERR("EHP", "Couldn't allocate memory for buffer");
+      LOG_ERR("EHP", "OOM buffer");
       destroyXmlParser(parser);
       file.close();
       return false;

@@ -11,11 +11,11 @@
 //
 // Single object:
 //   auto obj = makeUniqueNoThrow<PNG>();
-//   if (!obj) { LOG_ERR("TAG", "OOM"); return false; }
+//   if (!obj) { LOG_ERR("TAG", "OOM PNG decoder"); return false; }
 //
 // Array:
 //   auto buf = makeUniqueNoThrow<uint8_t[]>(size);
-//   if (!buf) { LOG_ERR("TAG", "OOM"); return false; }
+//   if (!buf) { LOG_ERR("TAG", "OOM buffer (%u bytes)"); return false; }
 //   buf[0] = 0xFF;
 //   someApi(buf.get(), size);
 //

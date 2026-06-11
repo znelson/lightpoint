@@ -142,7 +142,7 @@ bool TxtReaderActivity::buildSectionCache(uint16_t viewportWidth, uint16_t viewp
   const size_t fileSize = txt->getFileSize();
   auto buffer = makeUniqueNoThrow<uint8_t[]>(CHUNK_SIZE + 1);
   if (!buffer) {
-    LOG_ERR("TRS", "Failed to allocate read buffer");
+    LOG_ERR("TRS", "OOM read buffer");
     cache.closeAndRemove();
     return false;
   }
@@ -150,7 +150,7 @@ bool TxtReaderActivity::buildSectionCache(uint16_t viewportWidth, uint16_t viewp
   size_t offset = 0;
   auto currentBlock = makeUniqueNoThrow<ParsedText>(extraParagraphSpacing, hyphenationEnabled, focusReadingEnabled);
   if (!currentBlock) {
-    LOG_ERR("TRS", "OOM: ParsedText");
+    LOG_ERR("TRS", "OOM ParsedText");
     cache.closeAndRemove();
     return false;
   }
@@ -180,7 +180,7 @@ bool TxtReaderActivity::buildSectionCache(uint16_t viewportWidth, uint16_t viewp
 
         currentBlock = makeUniqueNoThrow<ParsedText>(extraParagraphSpacing, hyphenationEnabled, focusReadingEnabled);
         if (!currentBlock) {
-          LOG_ERR("TRS", "OOM: ParsedText");
+          LOG_ERR("TRS", "OOM ParsedText");
           cache.closeAndRemove();
           return false;
         }

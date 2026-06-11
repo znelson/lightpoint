@@ -58,7 +58,7 @@ find src -name "*.cpp" -o -name "*.h" | xargs clang-format -i
 6. `constexpr` First: Compile-time constants and lookup tables must be `constexpr`, not just `static const`. This moves computation to compile time, enables dead-branch elimination, and guarantees flash placement. Use `static constexpr` for class-level constants.
 7. `std::vector` Pre-allocation: Always call `.reserve(N)` before any `push_back()` loop. Each growth event allocates a new block (2×), copies all elements, then frees the old one — three heap operations that fragment DRAM. When the final size is unknown, estimate conservatively.
 8. SD Write Throttling: Settings (`/.crosspoint/settings.json`) and reader progress (`/.crosspoint/epub_<hash>/progress.bin`) both persist to the SD card via `HalStorage` -- not SPIFFS or NVS. The reader does not use SPIFFS for runtime state at all. Even so, throttle writes: an SD write is ~20-30 ms on the page-turn hot path (measured), and FatFS over SD-SPI serialises against other SD I/O. Guard settings writes with a value-change check (`if (newVal == _current) return;`). Debounce progress saves -- write on activity exit or every N page turns, not on every turn. SD wear is not the driver here (the card has wear-leveling and a 6-byte write per turn is negligible); page-turn latency is.
-9. `new` is not nothrow on ESP32: With `-fno-exceptions`, bare `new` that fails calls `abort()` — it does NOT return `nullptr`. Always use `new (std::nothrow)` and null-check the result, or use `makeUniqueNoThrow<T>()` from `lib/Memory/Memory.h`. Never write bare `new` for any fallible allocation.
+9. `new` is not nothrow on ESP32: With `-fno-exceptions`, bare `new` that fails calls `abort()` — it does NOT return `nullptr`. Always use `new (std::nothrow)` and null-check the result, or use `makeUniqueNoThrow<T>()` from `lib/Utility/Memory.h`. Never write bare `new` for any fallible allocation.
 
 ---
 
@@ -295,7 +295,7 @@ fwrite(&b, 1, 1, fp);
 
 ### Heap Buffer Allocation
 
-**Prefer `makeUniqueNoThrow` over `malloc`.** Both are nothrow (return `nullptr` on OOM rather than calling `abort()`), but `malloc` requires a manual `free` on every return path — a common source of leaks. `makeUniqueNoThrow<uint8_t[]>(size)` from `lib/Memory/Memory.h` frees automatically when it goes out of scope.
+**Prefer `makeUniqueNoThrow` over `malloc`.** Both are nothrow (return `nullptr` on OOM rather than calling `abort()`), but `malloc` requires a manual `free` on every return path — a common source of leaks. `makeUniqueNoThrow<uint8_t[]>(size)` from `lib/Utility/Memory.h` frees automatically when it goes out of scope.
 
 **Preferred pattern**:
 ```cpp
@@ -303,7 +303,7 @@ fwrite(&b, 1, 1, fp);
 
 auto buffer = makeUniqueNoThrow<uint8_t[]>(bufferSize);
 if (!buffer) {
-  LOG_ERR("MODULE", "OOM: %d bytes", bufferSize);
+  LOG_ERR("MODULE", "OOM %d bytes", bufferSize);
   return false;
 }
 
@@ -315,7 +315,7 @@ processData(buffer.get(), bufferSize);
 ```cpp
 auto* buffer = static_cast<uint8_t*>(malloc(bufferSize));  // or new (std::nothrow) uint8_t[bufferSize]
 if (!buffer) {
-  LOG_ERR("MODULE", "OOM: %d bytes", bufferSize);
+  LOG_ERR("MODULE", "OOM %d bytes", bufferSize);
   return false;
 }
 sdkApiThatTakesOwnership(buffer, bufferSize);  // SDK calls free() / delete[]
@@ -327,23 +327,23 @@ sdkApiThatTakesOwnership(buffer, bufferSize);  // SDK calls free() / delete[]
 - **Raw allocation only** when a C API takes ownership; document why in a comment
 
 **Examples in codebase**:
-- Memory utilities: [Memory.h](../lib/Memory/Memory.h) (`makeUniqueNoThrow`)
+- Memory utilities: [Memory.h](../lib/Utility/Memory.h) (`makeUniqueNoThrow`)
 - Cover image buffers: [HomeActivity.cpp:166](../src/activities/home/HomeActivity.cpp)
 - Bitmap rendering: [GfxRenderer.cpp:439-440](../lib/GfxRenderer/GfxRenderer.cpp)
 
 ### Heap Allocation with `new`: Always Use `makeUniqueNoThrow`
 
-**CRITICAL**: With `-fno-exceptions`, bare `new` on OOM calls `abort()` — it does NOT return `nullptr`. Always use `makeUniqueNoThrow` from `lib/Memory/Memory.h`, which wraps `new (std::nothrow)` and returns a `std::unique_ptr` that is null on OOM and automatically frees on scope exit.
+**CRITICAL**: With `-fno-exceptions`, bare `new` on OOM calls `abort()` — it does NOT return `nullptr`. Always use `makeUniqueNoThrow` from `lib/Utility/Memory.h`, which wraps `new (std::nothrow)` and returns a `std::unique_ptr` that is null on OOM and automatically frees on scope exit.
 
 **Preferred pattern**:
 ```cpp
 #include <Memory.h>
 
 auto obj = makeUniqueNoThrow<MyClass>(args);
-if (!obj) { LOG_ERR("MOD", "OOM: MyClass"); return false; }
+if (!obj) { LOG_ERR("MOD", "OOM MyClass"); return false; }
 
 auto buf = makeUniqueNoThrow<uint8_t[]>(size);
-if (!buf) { LOG_ERR("MOD", "OOM: %d bytes", size); return false; }
+if (!buf) { LOG_ERR("MOD", "OOM %d bytes", size); return false; }
 
 // Pass to C APIs via .get(); unique_ptr frees automatically on return
 someApi(buf.get(), size);
@@ -352,7 +352,7 @@ someApi(buf.get(), size);
 **`new (std::nothrow)` directly is acceptable** when the object must be passed to a C API that takes ownership and calls `delete` itself:
 ```cpp
 auto* obj = new (std::nothrow) MyClass(args);
-if (!obj) { LOG_ERR("MOD", "OOM: MyClass"); return false; }
+if (!obj) { LOG_ERR("MOD", "OOM MyClass"); return false; }
 sdkApiThatTakesOwnership(obj);  // SDK calls delete
 ```
 
@@ -364,7 +364,7 @@ sdkApiThatTakesOwnership(obj);  // SDK calls delete
 - **`new (std::nothrow)` directly only** when a C API takes ownership; document why in a comment
 
 **Examples in codebase**:
-- Memory utilities: [Memory.h](../lib/Memory/Memory.h) (`makeUniqueNoThrow`)
+- Memory utilities: [Memory.h](../lib/Utility/Memory.h) (`makeUniqueNoThrow`)
 
 ---
 

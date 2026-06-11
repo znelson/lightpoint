@@ -9,7 +9,7 @@
 bool TocNavParser::setup() {
   parser = XML_ParserCreate(nullptr);
   if (!parser) {
-    LOG_DBG("NAV", "Couldn't allocate memory for parser");
+    LOG_DBG("NAV", "OOM parser");
     return false;
   }
 
@@ -32,7 +32,7 @@ size_t TocNavParser::write(const uint8_t* buffer, const size_t size) {
   while (remainingInBuffer > 0) {
     void* const buf = XML_GetBuffer(parser, 1024);
     if (!buf) {
-      LOG_DBG("NAV", "Couldn't allocate memory for buffer");
+      LOG_DBG("NAV", "OOM buffer");
       destroyXmlParser(parser);
       return 0;
     }

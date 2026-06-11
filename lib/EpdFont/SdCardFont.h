@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -142,7 +143,7 @@ class SdCardFont {
     uint32_t bitmapFileOffset = 0;
 
     // Full intervals loaded from file (kept in RAM for codepoint lookup)
-    EpdUnicodeInterval* fullIntervals = nullptr;
+    std::unique_ptr<EpdUnicodeInterval[]> fullIntervals;
 
     // Persistent kern-class + ligature tables (lazy-loaded on first prewarm).
     // The full kern MATRIX is NOT resident — on Literata-class fonts a single
@@ -150,9 +151,9 @@ class SdCardFont {
     // alongside bitmaps + framebuffer on a 380KB device. Only kernLeftClasses
     // and kernRightClasses (small codepoint→classId tables, ~3KB each) stay
     // resident; the matrix is reconstructed per-page as miniKernMatrix.
-    EpdKernClassEntry* kernLeftClasses = nullptr;
-    EpdKernClassEntry* kernRightClasses = nullptr;
-    EpdLigaturePair* ligaturePairs = nullptr;
+    std::unique_ptr<EpdKernClassEntry[]> kernLeftClasses;
+    std::unique_ptr<EpdKernClassEntry[]> kernRightClasses;
+    std::unique_ptr<EpdLigaturePair[]> ligaturePairs;
     bool kernLigLoaded = false;
 
     // Stub EpdFontData returned when not prewarmed
@@ -160,9 +161,9 @@ class SdCardFont {
 
     // Mini EpdFontData built during prewarm
     EpdFontData miniData{};
-    EpdUnicodeInterval* miniIntervals = nullptr;
-    EpdGlyph* miniGlyphs = nullptr;
-    uint8_t* miniBitmap = nullptr;
+    std::unique_ptr<EpdUnicodeInterval[]> miniIntervals;
+    std::unique_ptr<EpdGlyph[]> miniGlyphs;
+    std::unique_ptr<uint8_t[]> miniBitmap;
     uint32_t miniIntervalCount = 0;
     uint32_t miniGlyphCount = 0;
 
@@ -172,13 +173,13 @@ class SdCardFont {
     // miniKernMatrix is a small miniKernLeftClassCount × miniKernRightClassCount
     // flat matrix. Typical Latin page: ~25×25 matrix = ~625 bytes per style vs
     // ~36KB for the full Literata matrix — ~50× reduction.
-    EpdKernClassEntry* miniKernLeftClasses = nullptr;
-    EpdKernClassEntry* miniKernRightClasses = nullptr;
+    std::unique_ptr<EpdKernClassEntry[]> miniKernLeftClasses;
+    std::unique_ptr<EpdKernClassEntry[]> miniKernRightClasses;
     uint16_t miniKernLeftEntryCount = 0;
     uint16_t miniKernRightEntryCount = 0;
     uint8_t miniKernLeftClassCount = 0;
     uint8_t miniKernRightClassCount = 0;
-    int8_t* miniKernMatrix = nullptr;
+    std::unique_ptr<int8_t[]> miniKernMatrix;
 
     // The EpdFont whose data pointer we manage
     EpdFont epdFont{&stubData};
@@ -202,7 +203,7 @@ class SdCardFont {
   static constexpr uint32_t OVERFLOW_CAPACITY = 8;
   struct OverflowEntry {
     EpdGlyph glyph;
-    uint8_t* bitmap = nullptr;
+    std::unique_ptr<uint8_t[]> bitmap;
     uint32_t codepoint = 0;
     uint8_t styleIdx = 0;
   };
@@ -221,7 +222,7 @@ class SdCardFont {
   // (across calls to clearCache()) so repeated indexing of the same font
   // amortizes SD reads. Cleared only on font unload or clearPersistentCache().
   static constexpr uint32_t ADVANCE_CACHE_LIMIT = 768;
-  AdvanceEntry* advanceTable_[MAX_STYLES] = {};
+  std::unique_ptr<AdvanceEntry[]> advanceTable_[MAX_STYLES];
   uint32_t advanceTableSize_[MAX_STYLES] = {};
   bool advanceTableLookup(uint8_t styleIdx, uint32_t codepoint, uint16_t* outAdvance) const;
   // Merge sortedNew (sorted by codepoint, no overlap with existing) into the
@@ -242,7 +243,7 @@ class SdCardFont {
   void applyKernLigaturePointers(PerStyle& s, EpdFontData& data) const;
   void applyGlyphMissCallback(uint8_t styleIdx);
   int32_t findGlobalGlyphIndex(const PerStyle& s, uint32_t codepoint) const;
-  uint32_t fetchAdvancesForCodepoints(uint32_t* codepoints, uint32_t cpCount, uint8_t styleMask);
+  uint32_t fetchAdvancesForCodepoints(const uint32_t* codepoints, uint32_t cpCount, uint8_t styleMask);
   template <typename Iter>
   std::optional<uint32_t> buildAdvanceTableRange(Iter begin, Iter end, bool includeSpace, bool includeHyphen,
                                                  uint8_t styleMask);

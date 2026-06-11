@@ -933,7 +933,7 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
   auto* rowBytes = static_cast<uint8_t*>(malloc(bitmap.getRowBytes()));
 
   if (!outputRow || !rowBytes) {
-    LOG_ERR("GFX", "!! Failed to allocate BMP row buffers");
+    LOG_ERR("GFX", "OOM BMP row buffers");
     free(outputRow);
     free(rowBytes);
     return;
@@ -1015,7 +1015,7 @@ void GfxRenderer::drawBitmap1Bit(const Bitmap& bitmap, const int x, const int y,
   auto* rowBytes = static_cast<uint8_t*>(malloc(bitmap.getRowBytes()));
 
   if (!outputRow || !rowBytes) {
-    LOG_ERR("GFX", "!! Failed to allocate 1-bit BMP row buffers");
+    LOG_ERR("GFX", "OOM 1-bit BMP row buffers");
     free(outputRow);
     free(rowBytes);
     return;
@@ -1082,7 +1082,7 @@ void GfxRenderer::fillPolygon(const int* xPoints, const int* yPoints, int numPoi
   // Allocate node buffer for scanline algorithm
   auto* nodeX = static_cast<int*>(malloc(numPoints * sizeof(int)));
   if (!nodeX) {
-    LOG_ERR("GFX", "!! Failed to allocate polygon node buffer");
+    LOG_ERR("GFX", "OOM polygon node buffer");
     return;
   }
 
@@ -1624,7 +1624,7 @@ bool GfxRenderer::storeBwBuffer() {
     bwBufferChunks[i] = static_cast<uint8_t*>(malloc(chunkSize));
 
     if (!bwBufferChunks[i]) {
-      LOG_ERR("GFX", "!! Failed to allocate BW buffer chunk %zu (%zu bytes)", i, chunkSize);
+      LOG_ERR("GFX", "OOM BW buffer chunk %zu (%zu bytes)", i, chunkSize);
       // Free previously allocated chunks
       freeBwBufferChunks();
       return false;
