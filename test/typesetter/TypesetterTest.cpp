@@ -63,8 +63,8 @@ class TypesetterFixture : public ::testing::Test {
     return n;
   }
 
-  std::shared_ptr<ImageBlock> makeImage(int16_t width, int16_t height) {
-    return std::make_shared<ImageBlock>("dummy.png", width, height);
+  std::unique_ptr<ImageBlock> makeImage(int16_t width, int16_t height) {
+    return std::make_unique<ImageBlock>("dummy.png", width, height);
   }
 
   // Build a ParsedText with `wordCount` ASCII words of equal byte length.

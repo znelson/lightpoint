@@ -578,12 +578,12 @@ void XMLCALL ChapterHtmlSlimParser::startElement(void* userData, const XML_Char*
                 }
 
                 // Create ImageBlock and hand it to the typesetter for placement.
-                auto imageBlock = std::make_shared<ImageBlock>(cachedImagePath, displayWidth, displayHeight);
+                auto imageBlock = makeUniqueNoThrow<ImageBlock>(cachedImagePath, displayWidth, displayHeight);
                 if (!imageBlock) {
-                  LOG_ERR("EHP", "Failed to create ImageBlock");
+                  LOG_ERR("EHP", "OOM ImageBlock");
                   return;
                 }
-                self->typesetter.submitImage(imageBlock, imageMarginTop, imageMarginBottom);
+                self->typesetter.submitImage(std::move(imageBlock), imageMarginTop, imageMarginBottom);
 
                 // The image consumed the empty block's accumulated vertical spacing.
                 // Reset the block so the Vertical merge in startNewTextBlock doesn't

@@ -45,6 +45,25 @@ std::unique_ptr<T> makeUniqueNoThrowForOverwrite(size_t count) {
   return std::unique_ptr<T>(new (std::nothrow) Elem[count]);
 }
 
+// Nothrow analogue of std::make_shared. Returns nullptr if the object
+// allocation fails instead of calling abort().
+//
+//   auto block = makeSharedNoThrow<TextBlock>(args...);
+//   if (!block) { LOG_ERR("TAG", "OOM TextBlock"); return; }
+//
+// Caveats vs std::make_shared:
+// - Two allocations (object + control block) instead of one fused block.
+// - Only the object allocation is nothrow-checked. The shared_ptr control
+//   block (~24 bytes) is still allocated with throwing new and aborts on
+//   failure; if the heap cannot serve that, no graceful path remains anyway.
+template <typename T, typename... Args>
+  requires(!std::is_array_v<T>)
+std::shared_ptr<T> makeSharedNoThrow(Args&&... args) {
+  auto obj = makeUniqueNoThrow<T>(std::forward<Args>(args)...);
+  if (!obj) return nullptr;
+  return std::shared_ptr<T>(std::move(obj));
+}
+
 // Helper struct to call a cleanup function on exit from any scope.
 // Use with a lambda to avoid unnecessary allocations from std::function/std::bind:
 // Example:

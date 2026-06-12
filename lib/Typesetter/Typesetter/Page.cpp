@@ -24,6 +24,9 @@ std::unique_ptr<PageLine> PageLine::deserialize(HalFile& file) {
   serialization::readPod(file, yPos);
 
   auto tb = TextBlock::deserialize(file);
+  if (!tb) {
+    return nullptr;  // TextBlock::deserialize logged the cause
+  }
   auto line = makeUniqueNoThrow<PageLine>(std::move(tb), xPos, yPos);
   if (!line) {
     LOG_ERR("PGE", "OOM allocating PageLine during deserialize");
@@ -51,6 +54,9 @@ std::unique_ptr<PageImage> PageImage::deserialize(HalFile& file) {
   serialization::readPod(file, yPos);
 
   auto ib = ImageBlock::deserialize(file);
+  if (!ib) {
+    return nullptr;  // ImageBlock::deserialize logged the cause
+  }
   auto img = makeUniqueNoThrow<PageImage>(std::move(ib), xPos, yPos);
   if (!img) {
     LOG_ERR("PGE", "OOM allocating PageImage during deserialize");
@@ -148,9 +154,15 @@ std::unique_ptr<Page> Page::deserialize(HalFile& file) {
 
     if (tag == TAG_PageLine) {
       auto pl = PageLine::deserialize(file);
+      if (!pl) {
+        return nullptr;
+      }
       page->elements.push_back(std::move(pl));
     } else if (tag == TAG_PageImage) {
       auto pi = PageImage::deserialize(file);
+      if (!pi) {
+        return nullptr;
+      }
       page->elements.push_back(std::move(pi));
     } else if (tag == TAG_PageHorizontalRule) {
       auto rule = PageHorizontalRule::deserialize(file);

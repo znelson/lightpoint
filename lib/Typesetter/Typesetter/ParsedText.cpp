@@ -3,6 +3,8 @@
 #include <BidiUtils.h>
 #include <GfxRenderer.h>
 #include <Hyphenator.h>
+#include <Logging.h>
+#include <Memory.h>
 #include <Utf8.h>
 
 #include <algorithm>
@@ -269,7 +271,7 @@ int ParsedText::resolveFirstLineIndent(const bool isFirstLine) const {
 }
 // Consumes data to minimize memory usage
 void ParsedText::layoutAndExtractLines(const GfxRenderer& renderer, const int fontId, const uint16_t viewportWidth,
-                                       FunctionRef<void(std::shared_ptr<TextBlock>)> processLine,
+                                       FunctionRef<void(std::unique_ptr<TextBlock>)> processLine,
                                        const bool includeLastLine) {
   if (words.empty()) {
     return;
@@ -636,7 +638,7 @@ bool ParsedText::hyphenateWordAtIndex(const size_t wordIndex, const int availabl
 
 void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const std::vector<uint16_t>& wordWidths,
                              const std::vector<bool>& continuesVec, const std::vector<size_t>& lineBreakIndices,
-                             FunctionRef<void(std::shared_ptr<TextBlock>)> processLine, const GfxRenderer& renderer,
+                             FunctionRef<void(std::unique_ptr<TextBlock>)> processLine, const GfxRenderer& renderer,
                              const int fontId) {
   const size_t lineBreak = lineBreakIndices[breakIndex];
   const size_t lastBreakAt = breakIndex > 0 ? lineBreakIndices[breakIndex - 1] : 0;
@@ -913,8 +915,13 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
   }
 
   if (!lineHasFocusSplit) {
-    processLine(std::make_shared<TextBlock>(std::move(lineWords), std::move(lineXPos), std::move(lineWordStyles),
-                                            std::vector<uint8_t>{}, std::vector<uint16_t>{}, blockStyle));
+    auto block = makeUniqueNoThrow<TextBlock>(std::move(lineWords), std::move(lineXPos), std::move(lineWordStyles),
+                                              std::vector<uint8_t>{}, std::vector<uint16_t>{}, blockStyle);
+    if (!block) {
+      LOG_ERR("PTX", "OOM TextBlock; dropping line");
+      return;
+    }
+    processLine(std::move(block));
     return;
   }
 
@@ -959,6 +966,11 @@ void ParsedText::extractLine(const size_t breakIndex, const int pageWidth, const
     }
   }
 
-  processLine(std::make_shared<TextBlock>(std::move(outWords), std::move(outXPos), std::move(outStyles),
-                                          std::move(outBoundaries), std::move(outSuffixX), blockStyle));
+  auto block = makeUniqueNoThrow<TextBlock>(std::move(outWords), std::move(outXPos), std::move(outStyles),
+                                            std::move(outBoundaries), std::move(outSuffixX), blockStyle);
+  if (!block) {
+    LOG_ERR("PTX", "OOM TextBlock; dropping line");
+    return;
+  }
+  processLine(std::move(block));
 }

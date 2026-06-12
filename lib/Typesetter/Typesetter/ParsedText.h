@@ -37,7 +37,7 @@ class ParsedText {
                             std::vector<uint16_t>& wordWidths, bool allowFallbackBreaks);
   void extractLine(size_t breakIndex, int pageWidth, const std::vector<uint16_t>& wordWidths,
                    const std::vector<bool>& continuesVec, const std::vector<size_t>& lineBreakIndices,
-                   FunctionRef<void(std::shared_ptr<TextBlock>)> processLine, const GfxRenderer& renderer, int fontId);
+                   FunctionRef<void(std::unique_ptr<TextBlock>)> processLine, const GfxRenderer& renderer, int fontId);
   std::vector<uint16_t> calculateWordWidths(const GfxRenderer& renderer, int fontId);
 
  public:
@@ -61,5 +61,5 @@ class ParsedText {
   const std::string& getWord(size_t i) const { return words[i]; }
   EpdFontFamily::Style getWordStyle(size_t i) const { return wordStyles[i]; }
   void layoutAndExtractLines(const GfxRenderer& renderer, int fontId, uint16_t viewportWidth,
-                             FunctionRef<void(std::shared_ptr<TextBlock>)> processLine, bool includeLastLine = true);
+                             FunctionRef<void(std::unique_ptr<TextBlock>)> processLine, bool includeLastLine = true);
 };
