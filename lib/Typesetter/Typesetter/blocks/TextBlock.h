@@ -6,13 +6,12 @@
 #include <string>
 #include <vector>
 
-#include "Block.h"
 #include "BlockStyle.h"
 
 class GfxRenderer;
 
 // Represents a line of text on a page
-class TextBlock final : public Block {
+class TextBlock final {
  private:
   std::vector<std::string> words;
   std::vector<int16_t> wordXpos;
@@ -40,16 +39,13 @@ class TextBlock final : public Block {
         wordFocusBoundary(std::move(focus_boundary)),
         wordFocusSuffixX(std::move(focus_suffix_x)),
         blockStyle(blockStyle) {}
-  ~TextBlock() override = default;
   void setBlockStyle(const BlockStyle& blockStyle) { this->blockStyle = blockStyle; }
   const BlockStyle& getBlockStyle() const { return blockStyle; }
   const std::vector<std::string>& getWords() const { return words; }
   const std::vector<int16_t>& getWordXpos() const { return wordXpos; }
-  bool isEmpty() override { return words.empty(); }
   size_t wordCount() const { return words.size(); }
   // given a renderer works out where to break the words into lines
   void render(const GfxRenderer& renderer, int fontId, int x, int y) const;
-  BlockType getType() override { return TEXT_BLOCK; }
   bool serialize(HalFile& file) const;
   static std::unique_ptr<TextBlock> deserialize(HalFile& file);
 };

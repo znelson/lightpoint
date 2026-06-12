@@ -36,10 +36,10 @@ class Activity {
 
   // If immediate is true, the update will be triggered immediately.
   // Otherwise, it will be deferred until the end of the current loop iteration.
-  virtual void requestUpdate(bool immediate = false);
+  void requestUpdate(bool immediate = false);
 
   // Request an immediate render and block until it completes.
-  virtual void requestUpdateAndWait();
+  void requestUpdateAndWait();
 
   virtual bool skipLoopDelay() { return false; }
   virtual bool preventAutoSleep() { return false; }
