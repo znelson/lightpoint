@@ -50,7 +50,7 @@ bool loadHeaderFrom(Section& sec, const Params& p) {
 // fail deserialization than silently return the wrong content.
 std::unique_ptr<Page> makePage(uint16_t id) {
   auto page = std::make_unique<Page>();
-  page->elements.push_back(std::make_shared<PageHorizontalRule>(/*width=*/static_cast<uint16_t>(id + 1),
+  page->elements.push_back(std::make_unique<PageHorizontalRule>(/*width=*/static_cast<uint16_t>(id + 1),
                                                                 /*thickness=*/2,
                                                                 /*xPos=*/10, /*yPos=*/20));
   return page;
@@ -298,6 +298,35 @@ TEST_F(SectionTest, GetPageForListItemIndex) {
   EXPECT_EQ(reader.getPageForListItemIndex(3), std::optional<uint16_t>{1});
   EXPECT_EQ(reader.getPageForListItemIndex(7), std::optional<uint16_t>{2});
   EXPECT_EQ(reader.getPageForListItemIndex(99), std::optional<uint16_t>{2});
+}
+
+// --- Corrupt page recovery --------------------------------------------------
+
+// The test build stubs TextBlock::serialize as a write-nothing no-op and
+// TextBlock::deserialize as always-nullptr (see PageStubs.cpp), so a page
+// containing a PageLine round-trips straight into the corrupt-cache path:
+// the block payload is missing on read, exactly like a truncated or garbled
+// section.bin in production. loadPage must fail the whole page rather than
+// return a Page holding a PageLine with a null block, which would crash at
+// render time.
+TEST_F(SectionTest, LoadPageFailsCleanlyWhenBlockDeserializeFails) {
+  Section sec(kPath);
+  Params p;
+  ASSERT_TRUE(sec.openForWrite());
+  writeHeaderFrom(sec, p);
+
+  auto page = std::make_unique<Page>();
+  auto block = std::make_unique<TextBlock>(std::vector<std::string>{"word"}, std::vector<int16_t>{0},
+                                           std::vector<EpdFontFamily::Style>{EpdFontFamily::REGULAR},
+                                           std::vector<uint8_t>{}, std::vector<uint16_t>{});
+  page->elements.push_back(std::make_unique<PageLine>(std::move(block), /*xPos=*/0, /*yPos=*/0));
+  const uint32_t off = sec.writePage(std::move(page));
+  ASSERT_NE(off, 0u);
+  ASSERT_TRUE(sec.finalize({{off, 0, 0}}, /*anchors=*/{}));
+
+  Section reader(kPath);
+  ASSERT_TRUE(loadHeaderFrom(reader, p));
+  EXPECT_EQ(reader.loadPage(0), nullptr);
 }
 
 // --- clearCache -----------------------------------------------------------

@@ -16,7 +16,7 @@ Typesetter::Typesetter(GfxRenderer& renderer, int fontId, float lineCompression,
       viewportHeight(viewportHeight),
       completePageFn(completePageFn) {}
 
-void Typesetter::addLineToPage(std::shared_ptr<TextBlock> line) {
+void Typesetter::addLineToPage(std::unique_ptr<TextBlock> line) {
   const int lineHeight = renderer.getLineHeight(fontId) * lineCompression;
 
   if (!currentPage) {
@@ -50,7 +50,12 @@ void Typesetter::addLineToPage(std::shared_ptr<TextBlock> line) {
 
   // Apply horizontal left inset (margin + padding) as x position offset
   const int16_t xOffset = line->getBlockStyle().leftInset();
-  currentPage->elements.push_back(std::make_shared<PageLine>(line, xOffset, currentPageNextY));
+  auto pageLine = makeUniqueNoThrow<PageLine>(std::move(line), xOffset, currentPageNextY);
+  if (!pageLine) {
+    LOG_ERR("TYP", "OOM PageLine; dropping line");
+    return;
+  }
+  currentPage->elements.push_back(std::move(pageLine));
   currentPageNextY += lineHeight;
 }
 
@@ -85,8 +90,9 @@ void Typesetter::submitParagraph(std::unique_ptr<ParsedText> paragraph) {
   const uint16_t effectiveWidth =
       (horizontalInset < viewportWidth) ? static_cast<uint16_t>(viewportWidth - horizontalInset) : viewportWidth;
 
-  paragraph->layoutAndExtractLines(renderer, fontId, effectiveWidth,
-                                   [this](const std::shared_ptr<TextBlock>& textBlock) { addLineToPage(textBlock); });
+  paragraph->layoutAndExtractLines(renderer, fontId, effectiveWidth, [this](std::unique_ptr<TextBlock> textBlock) {
+    addLineToPage(std::move(textBlock));
+  });
 
   // Fallback: transfer any remaining pending links to current page.
   // Normally addLineToPage handles this via word-index tracking, but this catches
@@ -124,10 +130,10 @@ void Typesetter::partialFlush(ParsedText& block) {
       (horizontalInset < viewportWidth) ? static_cast<uint16_t>(viewportWidth - horizontalInset) : viewportWidth;
   block.layoutAndExtractLines(
       renderer, fontId, effectiveWidth,
-      [this](const std::shared_ptr<TextBlock>& textBlock) { addLineToPage(textBlock); }, false);
+      [this](std::unique_ptr<TextBlock> textBlock) { addLineToPage(std::move(textBlock)); }, false);
 }
 
-void Typesetter::submitImage(std::shared_ptr<ImageBlock> imageBlock, const int16_t marginTop,
+void Typesetter::submitImage(std::unique_ptr<ImageBlock> imageBlock, const int16_t marginTop,
                              const int16_t marginBottom) {
   if (!imageBlock) {
     LOG_ERR("TYP", "Null ImageBlock submitted");
@@ -160,12 +166,12 @@ void Typesetter::submitImage(std::shared_ptr<ImageBlock> imageBlock, const int16
   currentPageNextY += marginTop;
 
   const int xPos = (viewportWidth - displayWidth) / 2;
-  auto pageImage = std::make_shared<PageImage>(imageBlock, static_cast<int16_t>(xPos), currentPageNextY);
+  auto pageImage = makeUniqueNoThrow<PageImage>(std::move(imageBlock), static_cast<int16_t>(xPos), currentPageNextY);
   if (!pageImage) {
-    LOG_ERR("TYP", "Failed to create PageImage");
+    LOG_ERR("TYP", "OOM PageImage");
     return;
   }
-  currentPage->elements.push_back(pageImage);
+  currentPage->elements.push_back(std::move(pageImage));
   currentPageNextY += displayHeight + marginBottom;
 }
 
@@ -212,7 +218,7 @@ void Typesetter::submitHorizontalRule(const BlockStyle& blockStyle) {
     LOG_ERR("TYP", "OOM allocating PageHorizontalRule");
     return;
   }
-  currentPage->elements.push_back(std::shared_ptr<PageHorizontalRule>(std::move(pageRule)));
+  currentPage->elements.push_back(std::move(pageRule));
   currentPageNextY = static_cast<int16_t>(currentPageNextY + ruleThickness + bottomSpacing);
 }
 

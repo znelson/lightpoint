@@ -42,7 +42,7 @@ class Typesetter {
 
   // Place an image with the given vertical margins. Forces a page break if
   // the image plus its margins won't fit in the remaining viewport.
-  void submitImage(std::shared_ptr<ImageBlock> imageBlock, int16_t marginTop, int16_t marginBottom);
+  void submitImage(std::unique_ptr<ImageBlock> imageBlock, int16_t marginTop, int16_t marginBottom);
 
   // Emit a horizontal rule with surrounding spacing derived from `blockStyle`.
   // Width is fixed at a quarter of the effective viewport width, centered.
@@ -92,5 +92,5 @@ class Typesetter {
   uint16_t xpathParagraphIndex = 0;
   uint16_t xpathListItemIndex = 0;
 
-  void addLineToPage(std::shared_ptr<TextBlock> line);
+  void addLineToPage(std::unique_ptr<TextBlock> line);
 };

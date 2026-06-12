@@ -189,7 +189,7 @@ if (Storage.openFileForRead("MODULE", "/path/to/file.bin", file)) {
 * Use #pragma once for all header files.
 
 ### Memory Safety and RAII
-* Smart Pointers: Prefer std::unique_ptr. Avoid std::shared_ptr (unnecessary atomic overhead for a single-core RISC-V).
+* Smart Pointers: Prefer std::unique_ptr. Avoid std::shared_ptr (unnecessary atomic overhead for a single-core RISC-V). Where shared ownership is genuinely required, use `makeSharedNoThrow` from `lib/Utility/Memory.h` — never `std::make_shared`, which aborts on OOM (see Heap Allocation section).
 * RAII: Use destructors for cleanup. Call `vTaskDelete()` explicitly for deterministic task release. Do NOT call `file.close()` on local `HalFile` variables — `Impl::~Impl()`'s `fclose` handles it at scope exit (see HalFile resource lifetime in Critical Build Flags).
 
 ### ESP32-C3 Platform Pitfalls
@@ -356,16 +356,25 @@ if (!obj) { LOG_ERR("MOD", "OOM MyClass"); return false; }
 sdkApiThatTakesOwnership(obj);  // SDK calls delete
 ```
 
+**`std::shared_ptr`: use `makeSharedNoThrow`** — `std::make_shared` allocates with throwing `new` and aborts on OOM, so a null check after it is dead code. When shared ownership is genuinely required, use `makeSharedNoThrow<T>(args...)` from `lib/Utility/Memory.h` and null-check the result:
+```cpp
+auto obj = makeSharedNoThrow<MyClass>(args);
+if (!obj) { LOG_ERR("MOD", "OOM MyClass"); return; }
+```
+Caveat: only the object allocation is nothrow-checked. The ~24-byte control block is still allocated with throwing `new` (two allocations total, unlike `make_shared`'s fused block); if the heap cannot serve that, abort is the only remaining outcome anyway.
+
 **Rules**:
 - **Prefer `makeUniqueNoThrow`** — automatic cleanup eliminates leak risk on error paths
 - **NEVER use bare `new`** — always `makeUniqueNoThrow` or `new (std::nothrow)`
+- **NEVER use `std::make_shared`** — it aborts on OOM; use `makeSharedNoThrow` (and only where ownership is genuinely shared — prefer `unique_ptr` otherwise)
 - **ALWAYS `LOG_ERR` before returning false** on OOM
 - **Use `.get()`** to pass the raw pointer to C-style APIs; ownership stays with the `unique_ptr`
 - **`new (std::nothrow)` directly only** when a C API takes ownership; document why in a comment
 - **`makeUniqueNoThrow<T[]>` zero-fills the array.** When that cost matters AND every element is provably written before it is read (e.g. an immediate full-size `memcpy`), use `makeUniqueNoThrowForOverwrite<T[]>(n)` — the nothrow analogue of `std::make_unique_for_overwrite`
 
 **Examples in codebase**:
-- Memory utilities: [Memory.h](../lib/Utility/Memory.h) (`makeUniqueNoThrow`)
+- Memory utilities: [Memory.h](../lib/Utility/Memory.h) (`makeUniqueNoThrow`, `makeSharedNoThrow`)
+- Ownership in the typesetter pipeline is strictly linear (parser -> typesetter -> page element -> page), so it uses `unique_ptr` throughout: [Page.h](../lib/Typesetter/Typesetter/Page.h)
 
 ---
 
