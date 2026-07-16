@@ -173,26 +173,23 @@ void SleepActivity::renderDefaultSleepScreen() const {
     }
 
     // The logo is drawn after the invert so the artwork keeps its true tones
-    // on either page background. In dark mode only the square's corners
-    // outside the badge circle are painted to match the black page.
-    renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize);
-    if (dark) {
-      renderer.maskRoundedRectOutsideCorners(logoX, logoY, logoSize, logoSize, logoSize / 2, Color::Black);
-    }
+    // on either page background; its transparent pixels are skipped, letting
+    // the page show through.
+    renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize, Logo256Mask);
   };
 
   drawBwScreen();
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
 
   // Differential grayscale pass lifts the logo's gray levels (identical in
-  // both modes; the corners are white/level 3 and get no gray drive).
+  // both modes).
   renderer.clearScreen(0x00);
   renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
-  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize);
+  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize, Logo256Mask);
   renderer.copyGrayscaleLsbBuffers();
   renderer.clearScreen(0x00);
   renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize);
+  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize, Logo256Mask);
   renderer.copyGrayscaleMsbBuffers();
   renderer.displayGrayBuffer();
   renderer.setRenderMode(GfxRenderer::BW);

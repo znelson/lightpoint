@@ -23,7 +23,7 @@ void BootActivity::onEnter() {
   // white, the best standalone 1-bit rendition of the artwork; the sleep
   // screen does the full 4-level render instead (see docs/boot-logo.md).
   renderer.clearScreen();
-  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize, 2);
+  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize, Logo256Mask, 2);
   renderer.drawCenteredText(UI_10_FONT_ID, logoBottom + 10, tr(STR_LIGHTPOINT), true, EpdFontFamily::BOLD);
   renderer.drawCenteredText(SMALL_FONT_ID, logoBottom + 35, tr(STR_BOOTING));
   renderer.drawCenteredText(SMALL_FONT_ID, pageHeight - 30, LIGHTPOINT_VERSION);

@@ -887,7 +887,7 @@ void GfxRenderer::drawImage(const uint8_t bitmap[], const int x, const int y, co
 }
 
 void GfxRenderer::drawImage2Bit(const uint8_t bitmap[], const int x, const int y, const int width, const int height,
-                                const uint8_t bwWhiteThreshold) const {
+                                const uint8_t mask[], const uint8_t bwWhiteThreshold) const {
   // Hoist the per-mode predicate out of the pixel loop (same dispatch as
   // drawBitmap's 2-bit path). For the grayscale planes, "flagged" pixels get
   // a 1 bit (drawPixel state=false), everything else 0.
@@ -906,9 +906,14 @@ void GfxRenderer::drawImage2Bit(const uint8_t bitmap[], const int x, const int y
   }
 
   const int rowBytes = width / 4;
+  const int maskRowBytes = width / 8;
   for (int imgY = 0; imgY < height; imgY++) {
     const uint8_t* row = bitmap + imgY * rowBytes;
+    const uint8_t* maskRow = mask ? mask + imgY * maskRowBytes : nullptr;
     for (int imgX = 0; imgX < width; imgX++) {
+      if (maskRow && !(maskRow[imgX / 8] & (0x80 >> (imgX % 8)))) {
+        continue;
+      }
       const uint8_t val = row[imgX / 4] >> (6 - ((imgX * 2) % 8)) & 0x3;
       bool black;
       if (renderMode == BW) {

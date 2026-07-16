@@ -1,19 +1,27 @@
 """Convert the boot/sleep logo source PNG into a 4-level grayscale C header.
 
 Unlike scripts/convert_icon.py (small 1-bit thresholded UI icons), the logo is
-emitted as a single packed 2-bit image: 4 pixels per byte, MSB pair first,
-levels 0 (black) to 3 (white) -- the same row layout as Bitmap's 2-bit BMP
-path. GfxRenderer::drawImage2Bit decodes it at draw time, rendering the BW
-base or a differential grayscale plane depending on the current render mode,
-so no pre-expanded per-plane arrays are stored. Content is drawn through
-drawPixel, which handles screen orientation; no pre-rotation is needed.
+emitted as two arrays:
+
+  - Logo<size>:     packed 2-bit tones, 4 pixels/byte, MSB pair first,
+                    levels 0 (black) .. 3 (white) -- the same row layout as
+                    Bitmap's 2-bit BMP path
+  - Logo<size>Mask: packed 1-bit opacity, 8 pixels/byte, MSB first,
+                    1 = opaque
+
+GfxRenderer::drawImage2Bit decodes them at draw time, rendering the BW base
+or a differential grayscale plane depending on the current render mode and
+skipping masked-out pixels, so the page background shows through transparent
+regions on both light and dark screens. Content is drawn through drawPixel,
+which handles screen orientation; no pre-rotation is needed.
+
+The source PNG's alpha channel defines the mask (alpha >= 128 is opaque); a
+source without alpha converts fully opaque. The converter makes no assumption
+about the artwork's shape -- background presentation is carried entirely by
+the source asset's transparency. Transparent pixels store tone 3 (white) so
+they stay unflagged in the grayscale planes even if drawn without the mask.
 
 See docs/boot-logo.md for the full regeneration workflow.
-
-The source art is expected to be a circular badge on a black background
-(see src/images/Logo256.png). The converter masks everything outside the
-badge circle to white and draws a thin black outline ring, because the
-badge's own white ring is invisible against the white screen background.
 """
 
 import os
@@ -22,55 +30,25 @@ import sys
 USAGE = 'Usage: python scripts/convert_logo.py [input.png [size [preview.png]]]'
 
 
-def find_badge_circle(img):
-    """Locate the badge circle: scan the center row/column for the outermost
-    bright pixels (the badge's white ring)."""
-    width, height = img.size
-    bbox = img.point(lambda p: 255 if p > 40 else 0).getbbox()
-    if bbox is None:
-        sys.exit('error: source image has no bright content')
-    cx = (bbox[0] + bbox[2]) / 2
-    cy = (bbox[1] + bbox[3]) / 2
-    px = img.load()
-    row = [x for x in range(width) if px[x, int(cy)] > 40]
-    col = [y for y in range(height) if px[int(cx), y] > 40]
-    cx = (row[0] + row[-1]) / 2
-    cy = (col[0] + col[-1]) / 2
-    r = min(row[-1] - row[0], col[-1] - col[0]) / 2
-    return cx, cy, r
+def build_levels_and_opacity(input_path, size):
+    """Return two size x size matrices: gray levels 0-3 and opacity booleans."""
+    from PIL import Image
 
-
-def build_levels(input_path, size):
-    """Return a size x size matrix of gray levels 0 (black) .. 3 (white)."""
-    from PIL import Image, ImageDraw
-
-    img = Image.open(input_path)
-    if 'A' in img.mode:
-        background = Image.new('RGBA', img.size, (255, 255, 255, 255))
-        background.paste(img, mask=img.split()[-1])
-        img = background
-    img = img.convert('L')
-    cx, cy, r = find_badge_circle(img)
-
-    # White canvas, paste the source through a circular mask (slightly shrunk
-    # so no black background rim survives antialiasing at the edge).
-    mask = Image.new('L', img.size, 0)
-    ImageDraw.Draw(mask).ellipse([cx - r + 2, cy - r + 2, cx + r - 2, cy + r - 2], fill=255)
-    canvas = Image.new('L', img.size, 255)
-    canvas.paste(img, (0, 0), mask)
-
-    # Crop square around the circle with a small margin, then downscale.
-    side = int(r) + int(r * 0.02)
-    crop = canvas.crop((int(cx - side), int(cy - side), int(cx + side), int(cy + side)))
-    small = crop.resize((size, size), Image.LANCZOS)
-
-    # Outline ring so the badge keeps a boundary on the white page.
-    ring = max(2, round(size / 64))
-    ImageDraw.Draw(small).ellipse([ring // 2, ring // 2, size - 1 - ring // 2, size - 1 - ring // 2],
-                                  outline=0, width=ring)
-
-    px = small.load()
-    return [[min(3, (px[x, y] + 32) // 64) for x in range(size)] for y in range(size)]
+    img = Image.open(input_path).convert('LA').resize((size, size), Image.LANCZOS)
+    gray = img.getchannel('L').load()
+    alpha = img.getchannel('A').load()
+    levels = []
+    opacity = []
+    for y in range(size):
+        lrow = []
+        orow = []
+        for x in range(size):
+            opaque = alpha[x, y] >= 128
+            lrow.append(min(3, (gray[x, y] + 32) // 64) if opaque else 3)
+            orow.append(opaque)
+        levels.append(lrow)
+        opacity.append(orow)
+    return levels, opacity
 
 
 def pack_2bit(levels, size):
@@ -84,15 +62,42 @@ def pack_2bit(levels, size):
     return data
 
 
-def write_preview(levels, size, path):
+def pack_1bit(opacity, size):
+    data = bytearray()
+    for y in range(size):
+        for xb in range(size // 8):
+            byte = 0
+            for i in range(8):
+                if opacity[y][xb * 8 + i]:
+                    byte |= 0x80 >> i
+            data.append(byte)
+    return data
+
+
+def emit_array(f, name, comment, data):
+    f.write(f'// {comment}\n')
+    f.write(f'static const uint8_t {name}[] = {{\n')
+    vals = [f'0x{b:02x}' for b in data]
+    per_line = 19  # 4-space indent + 19 values fits ColumnLimit 120, clang-format stable
+    for i in range(0, len(vals), per_line):
+        f.write('    ' + ', '.join(vals[i:i + per_line]) + ',\n')
+    f.write('};\n')
+
+
+def write_preview(levels, opacity, size, path):
+    """Composite on white and black side by side: the on-screen appearance
+    of the light and dark screens."""
     from PIL import Image
 
-    recon = Image.new('L', (size, size))
-    px = recon.load()
-    for y in range(size):
-        for x in range(size):
-            px[x, y] = levels[y][x] * 85
-    recon.resize((size * 2, size * 2), Image.NEAREST).save(path)
+    prev = Image.new('L', (size * 2 + 30, size + 20), 128)
+    for panel, bg in enumerate((255, 0)):
+        img = Image.new('L', (size, size))
+        px = img.load()
+        for y in range(size):
+            for x in range(size):
+                px[x, y] = levels[y][x] * 85 if opacity[y][x] else bg
+        prev.paste(img, (10 + panel * (size + 10), 10))
+    prev.save(path)
     print(f'Wrote {path}')
 
 
@@ -107,30 +112,27 @@ def main():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(project_root, 'src', 'images', 'Logo256.png')
     size = int(sys.argv[2]) if len(sys.argv) > 2 else 256
-    if size % 4 != 0:
-        sys.exit('error: size must be a multiple of 4 (pixels are packed 4 per byte)')
+    if size % 8 != 0:
+        sys.exit('error: size must be a multiple of 8 (the mask packs 8 pixels per byte)')
 
-    levels = build_levels(input_path, size)
+    levels, opacity = build_levels_and_opacity(input_path, size)
     name = f'Logo{size}'
-    data = pack_2bit(levels, size)
     output_path = os.path.join(project_root, 'src', 'images', f'{name}.h')
     with open(output_path, 'w') as f:
         f.write('#pragma once\n#include <cstdint>\n\n')
         f.write('// Generated by scripts/convert_logo.py -- do not edit by hand.\n')
-        f.write(f'// Image dimensions: {size}x{size}, packed 2-bit grayscale (4 pixels/byte,\n')
-        f.write('// MSB pair first, levels 0=black .. 3=white). Render with\n')
-        f.write('// GfxRenderer::drawImage2Bit, which decodes the BW base or a differential\n')
-        f.write('// grayscale plane from this data per the current render mode.\n')
-        f.write(f'static const uint8_t {name}[] = {{\n')
-        vals = [f'0x{b:02x}' for b in data]
-        per_line = 19  # 4-space indent + 19 values fits ColumnLimit 120, clang-format stable
-        for i in range(0, len(vals), per_line):
-            f.write('    ' + ', '.join(vals[i:i + per_line]) + ',\n')
-        f.write('};\n')
-    print(f'Wrote {output_path} ({len(data)} bytes)')
+        f.write(f'// Image dimensions: {size}x{size}. Render with GfxRenderer::drawImage2Bit,\n')
+        f.write('// which decodes the BW base or a differential grayscale plane per the\n')
+        f.write('// current render mode and skips pixels the mask marks transparent.\n')
+        emit_array(f, name, 'Packed 2-bit tones: 4 pixels/byte, MSB pair first, 0=black .. 3=white',
+                   pack_2bit(levels, size))
+        f.write('\n')
+        emit_array(f, f'{name}Mask', 'Packed 1-bit opacity: 8 pixels/byte, MSB first, 1 = opaque',
+                   pack_1bit(opacity, size))
+    print(f'Wrote {output_path} ({size * size // 4} + {size * size // 8} bytes)')
 
     if len(sys.argv) > 3:
-        write_preview(levels, size, sys.argv[3])
+        write_preview(levels, opacity, size, sys.argv[3])
 
 
 if __name__ == '__main__':

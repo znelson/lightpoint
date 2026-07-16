@@ -17,16 +17,28 @@ python scripts/convert_logo.py src/images/Logo256.png 256 /tmp/logo_preview.png
 Requires Pillow (`scripts/requirements.txt`). To swap the artwork, replace
 `src/images/Logo256.png` and rerun the script.
 
+For artwork drawn on a solid black background (like the original badge
+export), `scripts/prepare_logo_source.py` produces the transparent source
+PNG:
+
+```bash
+python scripts/prepare_logo_source.py path/to/original.png  # then convert_logo.py
+```
+
 ## Source art requirements
 
-The converter expects a square image with a circular badge on a black
-background (it detects the badge by scanning for the outermost bright ring).
-It then:
+The source is a square grayscale PNG with an alpha channel. Transparency
+defines the background: pixels with alpha below 128 are omitted at draw time,
+letting the page (white on boot/LIGHT sleep, black on dark sleep) show
+through. The converter makes no assumption about the artwork's shape.
 
-- masks everything outside the badge circle to white, so the black corners of
-  the source do not render as a black square on the white screen;
-- draws a thin black outline ring, because the badge's own white ring is
-  invisible against the white page.
+For the current badge art, `prepare_logo_source.py` flood-filled the
+original's solid black background to transparent from the borders (the
+interior black sky is not border-connected, so it survives) and stroked the
+opaque region's boundary with a black ring of uniform thickness. The stroke
+follows the artwork's real, slightly non-circular edge -- no circle fitting
+-- giving the badge a boundary on the white page while disappearing into the
+black one.
 
 No pre-rotation is applied: the logo is rendered through
 `GfxRenderer::drawImage2Bit`, which draws via `drawPixel` and is therefore
@@ -34,16 +46,23 @@ orientation-correct (unlike `drawImage`, which copies bytes in panel-native
 orientation and requires pre-rotated data, as `scripts/convert_icon.py` does
 for the small UI icons).
 
-## Format: packed 2-bit grayscale
+## Format: packed 2-bit grayscale plus opacity mask
 
-The header contains a single array of `size * size / 4` bytes: 4 pixels per
-byte, MSB pair first, gray levels 0 (black) to 3 (white) -- the same row
-layout as the 2-bit BMP path in `Bitmap`/`drawBitmap`.
+The header contains two arrays:
 
-`GfxRenderer::drawImage2Bit` decodes it at draw time according to the current
-render mode, deriving each pass the differential grayscale refresh needs:
+- `Logo256`: `size * size / 4` bytes of tones, 4 pixels per byte, MSB pair
+  first, gray levels 0 (black) to 3 (white) -- the same row layout as the
+  2-bit BMP path in `Bitmap`/`drawBitmap`.
+- `Logo256Mask`: `size * size / 8` bytes of opacity, 8 pixels per byte, MSB
+  first, 1 = opaque. Built from the source alpha (>= 128 is opaque).
+  Transparent pixels store tone 3 so they stay unflagged in the grayscale
+  planes even if drawn without the mask.
 
-| Render mode     | Draws                                      |
+`GfxRenderer::drawImage2Bit` decodes them at draw time according to the
+current render mode, skipping transparent pixels in every mode and deriving
+each pass the differential grayscale refresh needs:
+
+| Render mode     | Draws (where opaque)                       |
 |-----------------|--------------------------------------------|
 | `BW`            | black where level < 3, white where level 3 |
 | `GRAYSCALE_LSB` | 1-bit where level == 1                     |
@@ -73,18 +92,15 @@ logo. This is the same re-render-then-cleanup pattern as
 `storeBwBuffer`/`restoreBwBuffer` alternative used by the EPUB reader).
 
 The artwork renders with the same tones on both the white (LIGHT) and black
-(dark/inverted) sleep backgrounds. The logo is drawn after `invertScreen()`,
-and in dark mode `SleepActivity` paints the square's corners outside the
-badge circle black (`maskRoundedRectOutsideCorners`) so they blend with the
-page; the corners are white (level 3) in the stored image and receive no
-gray drive.
+(dark/inverted) sleep backgrounds: the logo is drawn after `invertScreen()`,
+and its transparent background simply lets either page show through.
 
 ## Changing the size
 
-- The size must be a multiple of 4 (pixels are packed 4 per byte).
+- The size must be a multiple of 8 (the mask packs 8 pixels per byte).
 - Update `logoSize` in `BootActivity.cpp` and `SleepActivity.cpp`, and the
-  array name if you change it (`Logo<size>`).
-- Flash cost is `size * size / 4` bytes (16 KB at 256); RAM cost is zero.
+  array names if you change them (`Logo<size>`, `Logo<size>Mask`).
+- Flash cost is `3 * size * size / 8` bytes (24 KB at 256); RAM cost is zero.
   Decode happens per pixel at draw time, which is negligible next to the
   e-ink refresh and only runs on the boot and sleep screens.
 
