@@ -25,14 +25,20 @@ class EpubReaderBookmarksActivity final : public Activity {
   static constexpr uint16_t kMaxVisible = 16;
 
   // Resolved view of one bookmark entry: the on-disk record plus the small
-  // amount of derived state we want for display (chapter title, page within
-  // chapter, percent through book). Computed once per window load via ad-hoc
-  // Section reads against the spine's cache file.
+  // amount of derived state we want for display. Computed once per window load
+  // via a read-only SpineItem load against the spine's cache file.
+  //
+  // Two page coordinates are kept because they answer different questions:
+  // the spine-local pair drives the book-progress percent (Epub::calculate-
+  // ProgressForPage is spine-relative), while the chapter-relative pair drives
+  // the "X/Y" readout so it matches the reader's status bar.
   struct EntryView {
     BookmarkEntry bookmark;
-    uint16_t resolvedPage = 0;      // 0-based page within the chapter
-    uint16_t chapterPageCount = 0;  // total pages in chapter at last cache
-    std::string chapterTitle;       // empty string when no TOC entry maps
+    uint16_t spinePage = 0;         // 0-based page within the spine (percent)
+    uint16_t spinePageCount = 0;    // total pages in the spine (percent)
+    uint16_t chapterPage = 0;       // 0-based page within the chapter (display)
+    uint16_t chapterPageCount = 0;  // total pages in the chapter (display)
+    std::string chapterTitle;       // page-accurate title, empty when no TOC entry maps
     bool valid = false;
   };
 

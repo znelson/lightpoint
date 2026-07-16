@@ -1,11 +1,12 @@
 #include "EpubReaderBookmarksActivity.h"
 
+#include <Epub/SpineItem.h>
 #include <GfxRenderer.h>
 #include <I18n.h>
 #include <Logging.h>
-#include <Typesetter/Section.h>
 
 #include <algorithm>
+#include <optional>
 #include <string>
 
 #include "MappedInputManager.h"
@@ -20,12 +21,6 @@ constexpr int DELETE_MODE_DISPLAY = 1;
 constexpr int DELETE_MODE_CONFIRM = 2;
 
 constexpr int LINE_HEIGHT = 60;
-
-// Reuse the SpineItem cache-path convention so an ad-hoc Section for a
-// bookmark's spine reads the same cache file the EpubReaderActivity wrote.
-std::string sectionPathForSpine(const Epub& epub, uint16_t spineIndex) {
-  return epub.getCachePath() + "/sections/" + std::to_string(spineIndex) + ".bin";
-}
 }  // namespace
 
 void EpubReaderBookmarksActivity::onEnter() {
@@ -67,24 +62,49 @@ EpubReaderBookmarksActivity::EntryView EpubReaderBookmarksActivity::resolveEntry
   view.bookmark = entry;
   view.valid = true;
 
-  Section sec(sectionPathForSpine(*epub, entry.spineIndex));
-  view.chapterPageCount = sec.getCachedPageCount().value_or(0);
+  // Read-only load: never validates render params or removes the cache, so
+  // browsing bookmarks can't disturb the spine caches the reader relies on.
+  SpineItem spine(epub, entry.spineIndex, renderer);
+  if (!spine.loadForQuery()) {
+    // Cache missing or stale: fall back to a best-effort spine-level title and
+    // leave the page/percent readout suppressed (spinePageCount stays 0).
+    const auto tocIdx = epub->getTocIndexForSpineIndex(entry.spineIndex);
+    view.chapterTitle = tocIdx ? epub->getTocItem(*tocIdx).title : "";
+    return view;
+  }
+  view.spinePageCount = spine.getPageCount();
 
-  // Resolve paragraphIndex (with optional liIndex refinement) to a page in
-  // the chapter. liIndex first-appearance can land on a later page than the
-  // paragraph's first-appearance when the bookmark sits inside a list that
-  // spans pages; taking max keeps the resolution from regressing past the
-  // paragraph start.
-  uint16_t page = sec.getPageForParagraphIndex(entry.paragraphIndex).value_or(0);
+  // Resolve paragraphIndex (with optional liIndex refinement) to a spine page.
+  // liIndex first-appearance can land on a later page than the paragraph's
+  // first-appearance when the bookmark sits inside a list that spans pages;
+  // taking max keeps the resolution from regressing past the paragraph start.
+  uint16_t spinePage = spine.getPageForParagraphIndex(entry.paragraphIndex).value_or(0);
   if (entry.liIndex != BookmarkEntry::NO_LI_INDEX) {
-    if (const auto liPage = sec.getPageForListItemIndex(entry.liIndex)) {
-      page = std::max(page, *liPage);
+    if (const auto liPage = spine.getPageForListItemIndex(entry.liIndex)) {
+      spinePage = std::max(spinePage, *liPage);
     }
   }
-  view.resolvedPage = page;
+  view.spinePage = spinePage;
 
-  const auto tocIdx = epub->getTocIndexForSpineIndex(entry.spineIndex);
+  // Page-accurate chapter title: getTocIndexForPage walks this spine's
+  // anchor-derived boundaries, so a bookmark in a later sub-chapter of a
+  // multi-chapter spine resolves to that sub-chapter, not the spine's first.
+  const auto tocIdx = spine.getTocIndexForPage(spinePage);
   view.chapterTitle = tocIdx ? epub->getTocItem(*tocIdx).title : "";
+
+  // Chapter-relative page readout. getPageRangeForTocIndex gives the chapter's
+  // span within this spine: for single-spine chapters it matches the reader's
+  // status bar exactly. For a chapter spanning multiple spines it reflects only
+  // this spine's portion -- resolving the full span would mean loading every
+  // sibling spine, too much SD I/O for a list that resolves a window at a time.
+  const auto range = tocIdx ? spine.getPageRangeForTocIndex(*tocIdx) : std::nullopt;
+  if (range && range->endPage > range->startPage && spinePage >= range->startPage) {
+    view.chapterPage = spinePage - range->startPage;
+    view.chapterPageCount = range->endPage - range->startPage;
+  } else {
+    view.chapterPage = spinePage;
+    view.chapterPageCount = view.spinePageCount;
+  }
   return view;
 }
 
@@ -154,7 +174,7 @@ void EpubReaderBookmarksActivity::loop() {
               static_cast<unsigned>(windowStart + windowCount));
       return;
     }
-    setResult(PositionResult{view->bookmark.spineIndex, view->resolvedPage});
+    setResult(PositionResult{view->bookmark.spineIndex, view->spinePage});
     finish();
     return;
   }
@@ -232,10 +252,11 @@ void EpubReaderBookmarksActivity::render(RenderLock&&) {
     const auto* view = viewForIndex(target);
     if (!view) return "";
     const std::string title = view->chapterTitle.empty() ? std::string(tr(STR_UNNAMED)) : view->chapterTitle;
-    if (view->chapterPageCount == 0) return title;
-    const float intra = static_cast<float>(view->resolvedPage) / static_cast<float>(view->chapterPageCount);
-    const int percent = static_cast<int>(epub->calculateProgress(view->bookmark.spineIndex, intra) * 100.0f + 0.5f);
-    return std::to_string(percent) + "% - " + std::to_string(view->resolvedPage + 1) + "/" +
+    if (view->spinePageCount == 0) return title;
+    const int percent = static_cast<int>(
+        epub->calculateProgressForPage(view->bookmark.spineIndex, view->spinePage, view->spinePageCount) * 100.0f +
+        0.5f);
+    return std::to_string(percent) + "% - " + std::to_string(view->chapterPage + 1) + "/" +
            std::to_string(view->chapterPageCount) + " - " + title;
   };
   const auto getBookmarkIcon = [isPortrait](int /*index*/) { return isPortrait ? UIIcon::Bookmark : UIIcon::None; };

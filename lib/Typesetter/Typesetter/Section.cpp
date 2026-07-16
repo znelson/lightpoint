@@ -248,6 +248,15 @@ std::optional<uint16_t> Section::getCachedPageCount() const {
   return count;
 }
 
+bool Section::loadCachedPageCount() {
+  const auto count = getCachedPageCount();
+  if (!count) {
+    return false;
+  }
+  pageCount_ = *count;
+  return true;
+}
+
 bool Section::forEachAnchor(FunctionRef<bool(uint32_t keyLen)> predicate,
                             FunctionRef<bool(const std::string& key, uint16_t page)> consumer) const {
   HalFile f;

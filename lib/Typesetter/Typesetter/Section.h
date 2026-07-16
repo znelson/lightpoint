@@ -105,6 +105,11 @@ class Section {
   // settings changes.
   std::optional<uint16_t> getCachedPageCount() const;
 
+  // Populate pageCount from the cached header without validating render params
+  // and (unlike loadHeader) without removing the file on mismatch. False if the
+  // file is missing or the version doesn't match.
+  bool loadCachedPageCount();
+
   // Iterate the on-disk anchor map. Length-aware so callers can skip
   // allocating the key string for entries that can't match anything they
   // care about.
