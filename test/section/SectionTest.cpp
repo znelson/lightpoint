@@ -146,6 +146,53 @@ TEST_F(SectionTest, MultiPageRoundTrip) {
   }
 }
 
+// --- Query-mode page count ------------------------------------------------
+
+TEST_F(SectionTest, LoadCachedPageCountReadsCountWithoutValidatingParams) {
+  Section sec(kPath);
+  Params p;
+  ASSERT_TRUE(sec.openForWrite());
+  writeHeaderFrom(sec, p);
+  std::vector<PageLutEntry> lut;
+  for (uint16_t i = 0; i < 5; i++) {
+    const uint32_t off = sec.writePage(makePage(i));
+    ASSERT_NE(off, 0u);
+    lut.push_back({off, 0, 0});
+  }
+  ASSERT_TRUE(sec.finalize(lut, /*anchors=*/{}));
+
+  // Query-mode load populates pageCount without taking render params and,
+  // unlike loadHeader, leaves the file in place.
+  Section reader(kPath);
+  ASSERT_TRUE(reader.loadCachedPageCount());
+  EXPECT_EQ(reader.getPageCount(), 5u);
+  EXPECT_TRUE(halStorage.exists(kPath));
+}
+
+TEST_F(SectionTest, LoadCachedPageCountRejectsVersionMismatchWithoutRemoving) {
+  Section sec(kPath);
+  Params p;
+  ASSERT_TRUE(sec.openForWrite());
+  writeHeaderFrom(sec, p);
+  ASSERT_TRUE(sec.finalize({}, {}));
+
+  // Tamper the version byte (offset 0). Unlike loadHeader, query-mode load
+  // must reject without deleting the file.
+  std::string fileBytes;
+  {
+    HalFile f;
+    ASSERT_TRUE(halStorage.openFileForRead("T", kPath, f));
+    fileBytes.resize(f.size());
+    f.read(fileBytes.data(), fileBytes.size());
+  }
+  fileBytes[0] = static_cast<char>(Section::FILE_VERSION + 1);
+  test_stubs::seedHalFileContent(kPath, fileBytes);
+
+  Section reader(kPath);
+  EXPECT_FALSE(reader.loadCachedPageCount());
+  EXPECT_TRUE(halStorage.exists(kPath));
+}
+
 // --- Anchor map -----------------------------------------------------------
 
 TEST_F(SectionTest, GetPageForAnchorFindsKnownAndRejectsUnknown) {

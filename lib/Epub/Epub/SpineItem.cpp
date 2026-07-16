@@ -27,6 +27,16 @@ bool SpineItem::loadCacheFile(const int fontId, const float lineCompression, con
   return true;
 }
 
+bool SpineItem::loadForQuery() {
+  // loadCachedPageCount must run first: buildTocBoundariesFromFile reads
+  // getPageCount() when filling the last boundary's endPage.
+  if (!section_.loadCachedPageCount()) {
+    return false;
+  }
+  buildTocBoundariesFromFile();
+  return true;
+}
+
 bool SpineItem::createCacheFile(const int fontId, const float lineCompression, const bool extraParagraphSpacing,
                                 const uint8_t paragraphAlignment, const uint16_t viewportWidth,
                                 const uint16_t viewportHeight, const bool hyphenationEnabled, const bool embeddedStyle,

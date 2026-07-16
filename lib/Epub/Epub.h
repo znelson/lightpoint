@@ -37,6 +37,10 @@ class Epub {
   void discoverCssFilesFromZip();
   void parseCssFiles() const;
 
+  // Byte-weighted primitive: maps a [0,1] fraction through a spine to book
+  // progress. Page-based callers use calculateProgressForPage (public) instead.
+  float calculateProgress(uint16_t currentSpineIndex, float currentSpineRead) const;
+
  public:
   explicit Epub(std::string filepath, const std::string& cacheDir) : filepath(std::move(filepath)) {
     // create a cache key based on the filepath
@@ -82,10 +86,6 @@ class Epub {
   uint16_t getSpineIndexForTextReference() const;
 
   size_t getBookSize() const;
-
-  // Byte-weighted primitive: maps a [0,1] fraction through a spine to book
-  // progress. Page-based callers use calculateProgressForPage (public) instead.
-  float calculateProgress(uint16_t currentSpineIndex, float currentSpineRead) const;
 
   // Book progress (0.0-1.0) for a 0-based page within a spine. The 1-based
   // fraction ((pageInSpine + 1) / spinePageCount) makes the final page read as

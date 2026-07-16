@@ -73,6 +73,11 @@ class SpineItem {
                        uint16_t viewportWidth, uint16_t viewportHeight, bool hyphenationEnabled, bool embeddedStyle,
                        uint8_t imageRendering, bool focusReadingEnabled, FunctionRef<void()> popupFn = nullptr);
 
+  // Read-only load for TOC/page queries: populates pageCount and tocBoundaries
+  // from the cache, without loadCacheFile's render-param validation (which
+  // removes the cache on mismatch). False if the cache is missing or stale.
+  bool loadForQuery();
+
   bool clearCache() const { return section_.clearCache(); }
   std::unique_ptr<Page> loadPageFromSectionFile();
 
