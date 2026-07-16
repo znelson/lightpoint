@@ -967,6 +967,18 @@ float Epub::calculateProgress(const uint16_t currentSpineIndex, const float curr
   return totalProgress / static_cast<float>(bookSize);
 }
 
+float Epub::calculateProgressForPage(const uint16_t spineIndex, const uint16_t pageInSpine,
+                                     const uint16_t spinePageCount) const {
+  if (spinePageCount == 0) {
+    return calculateProgress(spineIndex, 0.0f);
+  }
+  float intra = static_cast<float>(pageInSpine + 1) / static_cast<float>(spinePageCount);
+  if (intra > 1.0f) {
+    intra = 1.0f;
+  }
+  return calculateProgress(spineIndex, intra);
+}
+
 std::optional<uint16_t> Epub::resolveHrefToSpineIndex(const std::string& href) const {
   if (!bookMetadataCache || !bookMetadataCache->isLoaded()) return std::nullopt;
 

@@ -250,9 +250,9 @@ void EpubReaderActivity::loop() {
       const int totalPages = getChapterTotalPages();
       float bookProgress = 0.0f;
       if (epub->getBookSize() > 0 && spineItem && spineItem->getPageCount() > 0) {
-        const float chapterProgress =
-            static_cast<float>(spineItem->currentPage) / static_cast<float>(spineItem->getPageCount());
-        bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+        bookProgress =
+            epub->calculateProgressForPage(currentSpineIndex, spineItem->currentPage, spineItem->getPageCount()) *
+            100.0f;
       }
       const int bookProgressPercent = clampPercent(static_cast<int>(bookProgress + 0.5f));
       startActivityForResult(std::make_unique<EpubReaderMenuActivity>(renderer, mappedInput, epub->getTitle(),
@@ -543,9 +543,9 @@ void EpubReaderActivity::onReaderMenuConfirm(EpubReaderMenuActivity::MenuAction 
     case EpubReaderMenuActivity::MenuAction::GO_TO_PERCENT: {
       float bookProgress = 0.0f;
       if (epub && epub->getBookSize() > 0 && spineItem && spineItem->getPageCount() > 0) {
-        const float chapterProgress =
-            static_cast<float>(spineItem->currentPage) / static_cast<float>(spineItem->getPageCount());
-        bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+        bookProgress =
+            epub->calculateProgressForPage(currentSpineIndex, spineItem->currentPage, spineItem->getPageCount()) *
+            100.0f;
       }
       const int initialPercent = clampPercent(static_cast<int>(bookProgress + 0.5f));
       startActivityForResult(std::make_unique<ReaderPercentSelectionActivity>(renderer, mappedInput, initialPercent),
@@ -999,10 +999,8 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const uint16
 
 void EpubReaderActivity::renderStatusBar() const {
   // Calculate progress in book
-  const int currentPage = spineItem->currentPage + 1;
-  const float pageCount = spineItem->getPageCount();
-  const float sectionChapterProg = (pageCount > 0) ? (static_cast<float>(currentPage) / pageCount) : 0;
-  const float bookProgress = epub->calculateProgress(currentSpineIndex, sectionChapterProg) * 100;
+  const float bookProgress =
+      epub->calculateProgressForPage(currentSpineIndex, spineItem->currentPage, spineItem->getPageCount()) * 100;
 
   // Use chapter-relative page counts when available
   const int chapterPage = getChapterRelativePage() + 1;
@@ -1253,11 +1251,9 @@ ScreenshotInfo EpubReaderActivity::getScreenshotInfo() const {
     info.currentPage = spineItem->currentPage + 1;
     info.totalPages = spineItem->getPageCount();
     if (epub && epub->getBookSize() > 0 && info.totalPages > 0) {
-      const float chapterProgress = static_cast<float>(spineItem->currentPage) / static_cast<float>(info.totalPages);
-      int pct = static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f + 0.5f);
-      if (pct < 0) pct = 0;
-      if (pct > 100) pct = 100;
-      info.progressPercent = pct;
+      const int pct = static_cast<int>(
+          epub->calculateProgressForPage(currentSpineIndex, spineItem->currentPage, info.totalPages) * 100.0f + 0.5f);
+      info.progressPercent = clampPercent(pct);
     }
   }
   return info;

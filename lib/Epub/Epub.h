@@ -82,7 +82,16 @@ class Epub {
   uint16_t getSpineIndexForTextReference() const;
 
   size_t getBookSize() const;
+
+  // Byte-weighted primitive: maps a [0,1] fraction through a spine to book
+  // progress. Page-based callers use calculateProgressForPage (public) instead.
   float calculateProgress(uint16_t currentSpineIndex, float currentSpineRead) const;
+
+  // Book progress (0.0-1.0) for a 0-based page within a spine. The 1-based
+  // fraction ((pageInSpine + 1) / spinePageCount) makes the final page read as
+  // a full 1.0. Shared by all progress readouts so the convention can't drift.
+  float calculateProgressForPage(uint16_t spineIndex, uint16_t pageInSpine, uint16_t spinePageCount) const;
+
   CssParser* getCssParser() const { return cssParser.get(); }
   std::optional<uint16_t> resolveHrefToSpineIndex(const std::string& href) const;
 };
