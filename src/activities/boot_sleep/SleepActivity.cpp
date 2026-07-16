@@ -16,7 +16,7 @@
 #include "activities/reader/ReaderUtils.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
-#include "images/Logo120.h"
+#include "images/Logo256.h"
 #include "images/MoonIcon.h"
 
 void SleepActivity::onEnter() {
@@ -156,17 +156,52 @@ void SleepActivity::renderDefaultSleepScreen() const {
   const auto pageWidth = renderer.getScreenWidth();
   const auto pageHeight = renderer.getScreenHeight();
 
-  renderer.clearScreen();
-  renderer.drawImage(Logo120, (pageWidth - 120) / 2, (pageHeight - 120) / 2, 120, 120);
-  renderer.drawCenteredText(UI_10_FONT_ID, pageHeight / 2 + 70, tr(STR_LIGHTPOINT), true, EpdFontFamily::BOLD);
-  renderer.drawCenteredText(SMALL_FONT_ID, pageHeight / 2 + 95, tr(STR_SLEEPING));
+  constexpr int logoSize = 256;
+  const int logoX = (pageWidth - logoSize) / 2;
+  const int logoY = (pageHeight - logoSize) / 2;
+  const int logoBottom = logoY + logoSize;
+  const bool dark = SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT;
 
-  // Make sleep screen dark unless light is selected in settings
-  if (SETTINGS.sleepScreen != CrossPointSettings::SLEEP_SCREEN_MODE::LIGHT) {
-    renderer.invertScreen();
-  }
+  const auto drawBwScreen = [&] {
+    renderer.clearScreen();
+    renderer.drawCenteredText(UI_10_FONT_ID, logoBottom + 10, tr(STR_LIGHTPOINT), true, EpdFontFamily::BOLD);
+    renderer.drawCenteredText(SMALL_FONT_ID, logoBottom + 35, tr(STR_SLEEPING));
 
+    // Make sleep screen dark unless light is selected in settings
+    if (dark) {
+      renderer.invertScreen();
+    }
+
+    // The logo is drawn after the invert so the artwork keeps its true tones
+    // on either page background. In dark mode only the square's corners
+    // outside the badge circle are painted to match the black page.
+    renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize);
+    if (dark) {
+      renderer.maskRoundedRectOutsideCorners(logoX, logoY, logoSize, logoSize, logoSize / 2, Color::Black);
+    }
+  };
+
+  drawBwScreen();
   renderer.displayBuffer(HalDisplay::HALF_REFRESH);
+
+  // Differential grayscale pass lifts the logo's gray levels (identical in
+  // both modes; the corners are white/level 3 and get no gray drive).
+  renderer.clearScreen(0x00);
+  renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
+  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize);
+  renderer.copyGrayscaleLsbBuffers();
+  renderer.clearScreen(0x00);
+  renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
+  renderer.drawImage2Bit(Logo256, logoX, logoY, logoSize, logoSize);
+  renderer.copyGrayscaleMsbBuffers();
+  renderer.displayGrayBuffer();
+  renderer.setRenderMode(GfxRenderer::BW);
+
+  // Re-render the BW frame and re-sync controller RAM so any later refresh
+  // compares against the real frame instead of the grayscale planes (same
+  // pattern as XtcReaderActivity's grayscale path).
+  drawBwScreen();
+  renderer.cleanupGrayscaleWithFrameBuffer();
 }
 
 void SleepActivity::renderBitmapSleepScreen(Bitmap& bitmap) const {

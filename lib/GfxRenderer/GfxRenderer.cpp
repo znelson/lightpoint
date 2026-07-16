@@ -886,6 +886,41 @@ void GfxRenderer::drawImage(const uint8_t bitmap[], const int x, const int y, co
   display.drawImage(bitmap, rotatedX, rotatedY, width, height);
 }
 
+void GfxRenderer::drawImage2Bit(const uint8_t bitmap[], const int x, const int y, const int width, const int height,
+                                const uint8_t bwWhiteThreshold) const {
+  // Hoist the per-mode predicate out of the pixel loop (same dispatch as
+  // drawBitmap's 2-bit path). For the grayscale planes, "flagged" pixels get
+  // a 1 bit (drawPixel state=false), everything else 0.
+  uint8_t flagA = 0;
+  uint8_t flagB = 0;
+  switch (renderMode) {
+    case GRAYSCALE_LSB:
+      flagA = flagB = 1;
+      break;
+    case GRAYSCALE_MSB:
+      flagA = 1;
+      flagB = 2;
+      break;
+    case BW:
+      break;
+  }
+
+  const int rowBytes = width / 4;
+  for (int imgY = 0; imgY < height; imgY++) {
+    const uint8_t* row = bitmap + imgY * rowBytes;
+    for (int imgX = 0; imgX < width; imgX++) {
+      const uint8_t val = row[imgX / 4] >> (6 - ((imgX * 2) % 8)) & 0x3;
+      bool black;
+      if (renderMode == BW) {
+        black = val < bwWhiteThreshold;
+      } else {
+        black = !(val == flagA || val == flagB);
+      }
+      drawPixel(x + imgX, y + imgY, black);
+    }
+  }
+}
+
 void GfxRenderer::drawIcon(const uint8_t bitmap[], const int x, const int y, const int width, const int height) const {
   display.drawImageTransparent(bitmap, y, getScreenWidth() - width - x, height, width);
 }

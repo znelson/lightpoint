@@ -190,6 +190,12 @@ class GfxRenderer {
   void fillRoundedRect(int x, int y, int width, int height, int cornerRadius, bool roundTopLeft, bool roundTopRight,
                        bool roundBottomLeft, bool roundBottomRight, Color color) const;
   void drawImage(const uint8_t bitmap[], int x, int y, int width, int height) const;
+  // Draws a packed 2-bit grayscale image (4 pixels/byte, MSB pair first,
+  // levels 0=black..3=white). BW mode renders levels below bwWhiteThreshold
+  // black (default 3 keeps grays black, as a grayscale base pass requires);
+  // GRAYSCALE_LSB/MSB render the differential grayscale planes. Unlike
+  // drawImage, content is orientation-correct (drawn via drawPixel).
+  void drawImage2Bit(const uint8_t bitmap[], int x, int y, int width, int height, uint8_t bwWhiteThreshold = 3) const;
   void drawIcon(const uint8_t bitmap[], int x, int y, int width, int height) const;
   void drawBitmap(Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight, float cropX = 0, float cropY = 0) const;
   void drawBitmap1Bit(Bitmap& bitmap, int x, int y, int maxWidth, int maxHeight) const;
