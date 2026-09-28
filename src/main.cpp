@@ -35,8 +35,8 @@
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
 
-MappedInputManager mappedInputManager(halGPIO);
 GfxRenderer renderer(halDisplay);
+MappedInputManager mappedInputManager(halGPIO, renderer);
 ActivityManager activityManager(renderer, mappedInputManager);
 FontDecompressor fontDecompressor;
 SdCardFontSystem sdFontSystem;
