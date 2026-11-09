@@ -193,17 +193,22 @@ int pngDrawCallback(PNGDRAW* pDraw) {
   int outXBase = ctx->config->x;
   int screenWidth = ctx->screenWidth;
   bool useDithering = ctx->config->useDithering;
-  bool caching = ctx->caching;
 
   // Pre-compute orientation and render-mode state once per row
   DirectPixelWriter pw;
   pw.init(*ctx->renderer);
   pw.beginRow(outY);
 
+  // Rows arrive top to bottom, one per callback: flush everything above this
+  // row and point the single-row cache band at it.
   DirectCacheWriter cw;
+  if (ctx->caching && !ctx->cache.advanceTo(dstY)) {
+    ctx->caching = false;
+  }
+  const bool caching = ctx->caching;
   if (caching) {
-    cw.init(ctx->cache.buffer.get(), ctx->cache.bytesPerRow, ctx->cache.originX);
-    cw.beginRow(outY, ctx->config->y);
+    cw.init(ctx->cache.band.get(), ctx->cache.bytesPerRow, ctx->cache.originX);
+    cw.beginRow(outY, ctx->cache.bandScreenY());
   }
 
   int srcX = 0;
@@ -347,21 +352,13 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
     return false;
   }
 
-  // Allocate cache buffer using SCALED dimensions.
-  // PNG decode is fast enough (~135ms for 400x600) that caching provides minimal benefit
-  // for larger images, while the cache buffer competes with the 44KB PNG decoder for heap.
-  // Skip caching when the buffer would exceed the framebuffer size (48KB).
-  static constexpr size_t PNG_MAX_CACHE_BYTES = 48000;
+  // Stream the cache to disk using SCALED dimensions. One row is written per
+  // draw callback, so a single-row band is enough and the cache no longer
+  // competes with the 44KB PNG decoder for heap.
   ctx.caching = !config.cachePath.empty();
-  if (ctx.caching) {
-    size_t cacheSize = (size_t)((ctx.dstWidth + 3) / 4) * ctx.dstHeight;
-    if (cacheSize > PNG_MAX_CACHE_BYTES) {
-      LOG_DBG("PNG", "Skipping cache: %zu bytes exceeds PNG limit (%zu)", cacheSize, PNG_MAX_CACHE_BYTES);
-      ctx.caching = false;
-    } else if (!ctx.cache.allocate(ctx.dstWidth, ctx.dstHeight, config.x, config.y)) {
-      LOG_ERR("PNG", "OOM cache buffer, continuing without caching");
-      ctx.caching = false;
-    }
+  if (ctx.caching && !ctx.cache.begin(config.cachePath, ctx.dstWidth, ctx.dstHeight, config.x, config.y, 1)) {
+    LOG_ERR("PNG", "Cache unavailable, continuing without caching");
+    ctx.caching = false;
   }
 
   const uint32_t decodeStart = halPlatform.millis();
@@ -377,9 +374,9 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
 
   LOG_DBG("PNG", "PNG decoding complete - render time: %u ms", decodeTime);
 
-  // Write cache file if caching was enabled and buffer was allocated
+  // Flush the remaining cache rows if caching survived the decode
   if (ctx.caching) {
-    ctx.cache.writeToFile(config.cachePath);
+    ctx.cache.finish();
   }
 
   return true;

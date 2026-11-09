@@ -144,7 +144,7 @@ struct DirectPixelWriter {
   }
 };
 
-// Direct cache writer that eliminates per-pixel overhead from PixelCache::setPixel().
+// Direct cache writer for the PixelCache row band: no per-pixel bounds or offset math.
 // Pre-computes row pointer so the inner loop is just byte index + bit manipulation.
 //
 // Caller guarantees coordinates are within cache bounds.
