@@ -437,12 +437,15 @@ TEST(Utf8IsCjkBreakable, RangeEndpointsAreInRange) {
     uint32_t lo, hi;
   };
   constexpr Range ranges[] = {
+      {0x1100, 0x11FF},    // Hangul Jamo
       {0x3000, 0x303F},    // CJK Symbols and Punctuation
       {0x3040, 0x309F},    // Hiragana
       {0x30A0, 0x30FF},    // Katakana
+      {0x3130, 0x318F},    // Hangul Compatibility Jamo
       {0x3400, 0x4DBF},    // CJK Extension A
       {0x4E00, 0x9FFF},    // CJK Unified Ideographs
       {0xAC00, 0xD7AF},    // Hangul Syllables
+      {0xD7B0, 0xD7FF},    // Hangul Jamo Extended-B
       {0xF900, 0xFAFF},    // CJK Compatibility Ideographs
       {0xFE30, 0xFE4F},    // CJK Compatibility Forms
       {0xFF01, 0xFF60},    // Fullwidth Latin / Punctuation
@@ -461,13 +464,17 @@ TEST(Utf8IsCjkBreakable, GapCodepointsAreNotInRange) {
   // in a gap and must miss; together they exercise every "between two arms"
   // transition without tripping on adjacent ranges.
   constexpr uint32_t gaps[] = {
+      0x10FF,   // just below Hangul Jamo
+      0x1200,   // just above Hangul Jamo (..11FF)
       0x2FFF,   // just below CJK Symbols
-      0x3100,   // gap between Katakana (..30FF) and Ext A (3400..)
+      0x3100,   // gap between Katakana (..30FF) and Hangul Compat Jamo (3130..)
+      0x312F,   // upper end of the same gap
+      0x3190,   // gap between Hangul Compat Jamo (..318F) and Ext A (3400..)
       0x33FF,   // upper end of the same gap
       0x4DC0,   // gap between Ext A (..4DBF) and CJK Unified (4E00..)
       0xA000,   // gap between CJK Unified (..9FFF) and Hangul (AC00..)
       0xABFF,   // upper end of the same gap
-      0xD7B0,   // gap between Hangul (..D7AF) and Compat Ideographs (F900..)
+      0xD800,   // gap between Hangul Jamo Ext-B (..D7FF) and Compat Ideographs (F900..)
       0xE000,   // private use area, still in that gap
       0xFB00,   // gap between Compat Ideographs (..FAFF) and Compat Forms (FE30..)
       0xFE50,   // gap between Compat Forms (..FE4F) and Fullwidth (FF01..)
