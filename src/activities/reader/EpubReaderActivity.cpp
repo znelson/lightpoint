@@ -241,7 +241,9 @@ void EpubReaderActivity::loop() {
     requestUpdate();
   }
 
-  // Enter reader menu activity.
+  // Enter reader menu activity on short-press Confirm. A long-press that added a
+  // bookmark sets ignoreNextConfirmRelease so the release following the hold does
+  // not also open the menu.
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (ignoreNextConfirmRelease) {
       ignoreNextConfirmRelease = false;
