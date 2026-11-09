@@ -131,7 +131,6 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   if (stride <= 0 || blockH <= 0 || validW <= 0) return 1;
 
   const bool useDithering = ctx->config->useDithering;
-  const bool caching = ctx->caching;
   const int32_t fineScaleFPX = ctx->fineScaleFPX;
   const int32_t invScaleFPX = ctx->invScaleFPX;
   const int32_t fineScaleFPY = ctx->fineScaleFPY;
@@ -168,17 +167,29 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   DirectPixelWriter pw;
   pw.init(renderer);
 
+  // The decoder delivers MCU rows top to bottom, so every cache row above this
+  // block is complete and can be flushed; the band then holds this block's rows.
   DirectCacheWriter cw;
-  if (caching) {
-    cw.init(ctx->cache.buffer.get(), ctx->cache.bytesPerRow, ctx->cache.originX);
+  if (ctx->caching) {
+    if (!ctx->cache.advanceTo(dstYStart)) {
+      ctx->caching = false;
+    } else if (!ctx->cache.holdsRows(dstYStart, dstYEnd - dstYStart)) {
+      LOG_ERR("JPG", "Block rows %d-%d exceed cache band, dropping cache", dstYStart, dstYEnd);
+      ctx->cache.abandon();
+      ctx->caching = false;
+    } else {
+      cw.init(ctx->cache.band.get(), ctx->cache.bytesPerRow, ctx->cache.originX);
+    }
   }
+  const bool caching = ctx->caching;
+  const int cacheBandY = caching ? ctx->cache.bandScreenY() : 0;
 
   // === 1:1 fast path: no scaling math ===
   if (fineScaleFPX == FP_ONE && fineScaleFPY == FP_ONE) {
     for (int dstY = dstYStart; dstY < dstYEnd; dstY++) {
       const int outY = cfgY + dstY;
       pw.beginRow(outY);
-      if (caching) cw.beginRow(outY, ctx->config->y);
+      if (caching) cw.beginRow(outY, cacheBandY);
       const uint8_t* row = &pixels[(dstY - blockY) * stride];
       for (int dstX = dstXStart; dstX < dstXEnd; dstX++) {
         const int outX = cfgX + dstX;
@@ -212,7 +223,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
     for (int dstY = dstYStart; dstY < dstYEnd; dstY++) {
       const int outY = cfgY + dstY;
       pw.beginRow(outY);
-      if (caching) cw.beginRow(outY, ctx->config->y);
+      if (caching) cw.beginRow(outY, cacheBandY);
       const int32_t srcFyFP = dstY * invScaleFPY;
       const int32_t fy = srcFyFP & FP_MASK;
       const int32_t fyInv = FP_ONE - fy;
@@ -309,7 +320,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   for (int dstY = dstYStart; dstY < dstYEnd; dstY++) {
     const int outY = cfgY + dstY;
     pw.beginRow(outY);
-    if (caching) cw.beginRow(outY, ctx->config->y);
+    if (caching) cw.beginRow(outY, cacheBandY);
     const int32_t srcFyFP = dstY * invScaleFPY;
     int ly = (srcFyFP >> FP_SHIFT) - blockY;
     if (ly < 0) ly = 0;
@@ -468,11 +479,15 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
   jpeg->setPixelType(EIGHT_BIT_GRAYSCALE);
   jpeg->setUserPointer(&ctx);
 
-  // Allocate cache buffer using final output dimensions
+  // Stream the cache to disk using final output dimensions. The band must hold
+  // the destination rows of one draw callback: at most one MCU row (16 source
+  // rows before JPEGDEC's built-in scaling) times the fine scale.
   ctx.caching = !config.cachePath.empty();
   if (ctx.caching) {
-    if (!ctx.cache.allocate(destWidth, destHeight, config.x, config.y)) {
-      LOG_ERR("JPG", "OOM cache buffer, continuing without caching");
+    const int mcuRows = (16 + jpegScaleDenom - 1) / jpegScaleDenom;
+    const int bandRows = (int)(((int64_t)mcuRows * ctx.fineScaleFPY) >> FP_SHIFT) + 2;
+    if (!ctx.cache.begin(config.cachePath, destWidth, destHeight, config.x, config.y, bandRows)) {
+      LOG_ERR("JPG", "Cache unavailable, continuing without caching");
       ctx.caching = false;
     }
   }
@@ -488,9 +503,9 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
 
   LOG_DBG("JPG", "JPEG decoding complete - render time: %u ms", decodeTime);
 
-  // Write cache file if caching was enabled
+  // Flush the remaining cache rows if caching survived the decode
   if (ctx.caching) {
-    ctx.cache.writeToFile(config.cachePath);
+    ctx.cache.finish();
   }
 
   return true;
