@@ -188,6 +188,36 @@ relocations:
     to: lib/Typesetter/Typesetter/ParsedText.cpp
   - from: lib/Epub/Epub/ParsedText.h
     to: lib/Typesetter/Typesetter/ParsedText.h
+  - from: lib/Epub/Epub/Page.cpp
+    to: lib/Typesetter/Typesetter/Page.cpp
+  - from: lib/Epub/Epub/Page.h
+    to: lib/Typesetter/Typesetter/Page.h
+  - from: lib/Epub/Epub/converters/**
+    to: lib/ImageDecoder/**
+  - from: lib/Epub/Epub/hyphenation/**
+    to: lib/Hyphenation/**
+  - from: lib/JpegToBmpConverter/**
+    to: lib/ImageDecoder/**
+  - from: lib/PngToBmpConverter/**
+    to: lib/ImageDecoder/**
+  - from: lib/JsonParser/**
+    to: lib/JsonIO/**
+  - from: lib/FsHelpers/**
+    to: lib/Utility/**
+  - from: lib/InflateReader/**
+    to: lib/Utility/**
+  - from: lib/Serialization/**
+    to: lib/Utility/**
+  - from: lib/Utf8/**
+    to: lib/Utility/**
+  - from: lib/XmlParserUtils/**
+    to: lib/Utility/**
+  - from: lib/ZipFile/**
+    to: lib/Utility/**
+  - from: src/activities/reader/EpubReaderFootnotesActivity.cpp
+    to: src/activities/reader/ReaderLinkPickerActivity.cpp
+  - from: src/activities/reader/EpubReaderPercentSelectionActivity.cpp
+    to: src/activities/reader/ReaderPercentSelectionActivity.cpp
   - from: lib/Epub/Epub/blocks/**
     to: lib/Typesetter/Typesetter/blocks/**
   - from: lib/Epub/Epub/FootnoteEntry.h
