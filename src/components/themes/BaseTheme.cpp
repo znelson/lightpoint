@@ -13,6 +13,7 @@
 #include "I18n.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
+#include "components/icons/bookmark.h"
 #include "fontIds.h"
 
 // Internal constants
@@ -20,6 +21,27 @@ namespace {
 constexpr int homeMenuMargin = 20;
 constexpr int homeMarginTop = 30;
 constexpr int subtitleY = 738;
+constexpr int bookmarkStatusIconWidth = 16;
+constexpr int bookmarkStatusIconHeight = 14;
+constexpr int bookmarkStatusIconGap = 4;
+constexpr int bookmarkStatusIconTopCrop = 2;
+
+bool statusBarTextLaneVisible() {
+  return SETTINGS.statusBarChapterPageCount || SETTINGS.statusBarBookProgressPercentage ||
+         SETTINGS.statusBarTitle != CrossPointSettings::STATUS_BAR_TITLE::HIDE_TITLE || SETTINGS.statusBarBattery ||
+         (SETTINGS.statusBarClock && halClock.isAvailable());
+}
+
+void drawBookmarkStatusIcon(const GfxRenderer& renderer, const int x, const int y) {
+  constexpr int bytesPerRow = bookmarkStatusIconWidth / 8;
+  for (int row = 0; row < bookmarkStatusIconHeight; ++row) {
+    for (int col = 0; col < bookmarkStatusIconWidth; ++col) {
+      const uint8_t byte = BookmarkStatusIcon[(row + bookmarkStatusIconTopCrop) * bytesPerRow + col / 8];
+      const uint8_t mask = 1U << (7 - (col % 8));
+      renderer.drawPixel(x + col, y + row, (byte & mask) != 0);
+    }
+  }
+}
 
 }  // namespace
 
@@ -726,9 +748,10 @@ void BaseTheme::fillPopupProgress(const GfxRenderer& renderer, const Rect& layou
 
 void BaseTheme::drawStatusBar(GfxRenderer& renderer, const float bookProgress, const int currentPage,
                               const int pageCount, std::string title, const int paddingBottom, const int textYOffset,
-                              const bool fillMargin) const {
+                              const bool fillMargin, const bool isPageBookmarked) const {
   auto metrics = UITheme::getInstance().getMetrics();
   const auto margins = renderer.getOrientedViewableMargins();
+  const bool showStatusBarTextLane = statusBarTextLaneVisible();
 
   // Draw Progress Text
   const auto screenHeight = renderer.getScreenHeight();
@@ -772,14 +795,24 @@ void BaseTheme::drawStatusBar(GfxRenderer& renderer, const float bookProgress, c
     renderer.fillRect(barMarginLeft, progressBarY, barWidth, barHeight, true);
   }
 
+  // Draw Bookmark
+  const int leftClusterX = metrics.statusBarHorizontalMargin + margins.left + 1;
+  const bool showBookmarkIcon = showStatusBarTextLane && isPageBookmarked;
+  const int bookmarkReserveWidth = showBookmarkIcon ? (bookmarkStatusIconWidth + bookmarkStatusIconGap) : 0;
+  if (showBookmarkIcon) {
+    const int bookmarkY = textY + 5;
+    drawBookmarkStatusIcon(renderer, leftClusterX, bookmarkY);
+  }
+
   // Draw Battery
   const bool showBatteryPercentage =
       SETTINGS.hideBatteryPercentage == CrossPointSettings::HIDE_BATTERY_PERCENTAGE::HIDE_NEVER;
+  int leftClusterWidth = bookmarkReserveWidth;
   if (SETTINGS.statusBarBattery) {
-    GUI.drawBatteryLeft(
-        renderer,
-        Rect{metrics.statusBarHorizontalMargin + margins.left + 1, textY, metrics.batteryWidth, metrics.batteryHeight},
-        showBatteryPercentage);
+    GUI.drawBatteryLeft(renderer,
+                        Rect{leftClusterX + bookmarkReserveWidth, textY, metrics.batteryWidth, metrics.batteryHeight},
+                        showBatteryPercentage);
+    leftClusterWidth += showBatteryPercentage ? 50 : 20;
   }
 
   // Draw Clock (X3 only — DS3231 RTC)
@@ -803,8 +836,7 @@ void BaseTheme::drawStatusBar(GfxRenderer& renderer, const float bookProgress, c
     const int rendererableScreenWidth =
         renderer.getScreenWidth() - (metrics.statusBarHorizontalMargin * 2) - margins.left - margins.right;
 
-    const int batterySize = SETTINGS.statusBarBattery ? (showBatteryPercentage ? 50 : 20) : 0;
-    const int titleMarginLeft = batterySize + 30;
+    const int titleMarginLeft = leftClusterWidth + 30;
     const int clockReserve = clockTextWidth > 0 ? (clockTextWidth + 10) : 0;
     const int titleMarginRight = progressTextWidth + clockReserve + 30;
 

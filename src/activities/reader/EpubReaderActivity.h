@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "BookmarkEntry.h"
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
 
@@ -33,6 +34,22 @@ class EpubReaderActivity final : public Activity {
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
   bool showBookmarkMessage = false;
   bool ignoreNextConfirmRelease = false;
+  bool currentPageBookmarked = false;
+  bool bookmarkRemoved = false;  // true when last toggle removed (controls popup text)
+  // Bookmark cache (8 bytes per entry, store order): identity plus the page the
+  // bookmark resolves to in the CURRENT spine's layout, so page renders and
+  // toggles test membership in RAM. Rebuilt on enter and after writes;
+  // resolvedPage recomputed lazily per spine load (see resolveBookmarkPagesForSpine).
+  struct BookmarkKey {
+    uint16_t spineIndex;
+    uint16_t paragraphIndex;
+    uint16_t liIndex;
+    uint16_t resolvedPage;  // valid only while *bookmarkPagesResolvedForSpine == spineIndex
+  };
+  static constexpr uint16_t PAGE_UNRESOLVED = 0xFFFF;
+  std::vector<BookmarkKey> bookmarkKeys;
+  // Spine whose keys currently carry valid resolvedPage values, if any.
+  std::optional<uint16_t> bookmarkPagesResolvedForSpine;
   // Tracks whether this book is currently removed from Recent Books by the
   // removeReadBooksFromRecents feature (set at End-of-Book, cleared if paged back in).
   bool recentsEntryRemoved = false;
@@ -92,7 +109,10 @@ class EpubReaderActivity final : public Activity {
   // current spineItem's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
   uint16_t getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
+  void loadBookmarkKeys();
+  void resolveBookmarkPagesForSpine();
   void addBookmark();
+  void updateBookmarkFlag();
 
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);
