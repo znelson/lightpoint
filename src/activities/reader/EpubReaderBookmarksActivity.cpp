@@ -273,9 +273,6 @@ void EpubReaderBookmarksActivity::render(RenderLock&&) {
       GUI.drawHelpText(renderer, Rect{contentX, pageHeight - hintGutterBottom, contentWidth, LINE_HEIGHT},
                        tr(STR_HOLD_CONFIRM_TO_DELETE));
     }
-  } else {
-    GUI.drawHelpText(renderer, Rect{contentX, LINE_HEIGHT * 2, contentWidth, LINE_HEIGHT},
-                     tr(STR_BOOKMARK_INSTRUCTIONS));
   }
 
   const auto backLabel = confirmingDelete >= DELETE_MODE_DISPLAY ? tr(STR_CANCEL) : tr(STR_BACK);

@@ -6,6 +6,7 @@
 #include <optional>
 #include <vector>
 
+#include "BookmarkEntry.h"
 #include "EpubReaderMenuActivity.h"
 #include "activities/Activity.h"
 
@@ -33,6 +34,16 @@ class EpubReaderActivity final : public Activity {
   bool skipNextButtonCheck = false;  // Skip button processing for one frame after subactivity exit
   bool showBookmarkMessage = false;
   bool ignoreNextConfirmRelease = false;
+  bool currentPageBookmarked = false;
+  bool bookmarkRemoved = false;  // true when last toggle removed (controls popup text)
+  // Identity-only bookmark cache (6 bytes per entry, store order): lets page renders
+  // and toggles test membership without SD reads. Rebuilt on enter and after writes.
+  struct BookmarkKey {
+    uint16_t spineIndex;
+    uint16_t paragraphIndex;
+    uint16_t liIndex;
+  };
+  std::vector<BookmarkKey> bookmarkKeys;
   // Tracks whether this book is currently removed from Recent Books by the
   // removeReadBooksFromRecents feature (set at End-of-Book, cleared if paged back in).
   bool recentsEntryRemoved = false;
@@ -92,7 +103,9 @@ class EpubReaderActivity final : public Activity {
   // current spineItem's pageCount when chapterPageInfo is empty (non-TOC spines, pre-load).
   uint16_t getChapterTotalPages() const;
   void pageTurn(bool isForwardTurn);
+  void loadBookmarkKeys();
   void addBookmark();
+  void updateBookmarkFlag();
 
   // Footnote navigation
   void navigateToHref(const std::string& href, bool savePosition = false);
