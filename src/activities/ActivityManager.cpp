@@ -1,5 +1,6 @@
 #include "ActivityManager.h"
 
+#include <FontCacheManager.h>
 #include <HalPowerManager.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>

@@ -62,9 +62,9 @@ class SdCardFont {
   // Returns true if advance table is populated for at least one style.
   bool hasAdvanceTable() const;
 
-  // Free mini data for all styles, restore stub EpdFontData.
-  // Also clears the temporary advance table (built per layout pass) but
-  // preserves the persistent advance cache (reused across passes).
+  // Free mini data for all styles and restore stub EpdFontData.
+  // Preserves the persistent advance cache so repeated layout passes can reuse
+  // previously fetched metrics.
   void clearCache();
 
   // Drop the persistent advance cache. Call when unloading the SD font or
@@ -144,6 +144,16 @@ class SdCardFont {
 
     // Full intervals loaded from file (kept in RAM for codepoint lookup)
     std::unique_ptr<EpdUnicodeInterval[]> fullIntervals;
+    // Compact form used when every codepoint and offset fits in 16 bits:
+    // halves the resident interval table for CJK-sized interval lists.
+    struct BmpInterval16 {
+      uint16_t first;
+      uint16_t last;
+      uint16_t offset;
+    } __attribute__((packed));
+    static_assert(sizeof(BmpInterval16) == 6, "BmpInterval16 must remain compact");
+    std::unique_ptr<BmpInterval16[]> bmpIntervals;
+    bool intervalsAreBmp16 = false;
 
     // Persistent kern-class + ligature tables (lazy-loaded on first prewarm).
     // The full kern MATRIX is NOT resident — on Literata-class fonts a single

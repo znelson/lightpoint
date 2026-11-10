@@ -438,29 +438,27 @@ std::unique_ptr<uint8_t[]> ZipFile::readFileToMemory(const char* filename, size_
 
     // Continue out of block with data set
   } else if (fileStat.method == ZIP_METHOD_DEFLATED) {
-    // Read out deflated content from file
-    const auto deflatedData = makeUniqueNoThrow<uint8_t[]>(deflatedDataSize);
-    if (!deflatedData) {
-      LOG_ERR("ZIP", "OOM decompression buffer");
+    // Stream-inflate from the file so only a small read buffer is resident,
+    // never the whole deflated payload.
+    const auto fileReadBuffer = makeUniqueNoThrow<uint8_t[]>(1024);
+    if (!fileReadBuffer) {
+      LOG_ERR("ZIP", "OOM zip file read buffer");
       return nullptr;
     }
 
-    const size_t dataRead = file.read(deflatedData.get(), deflatedDataSize);
+    ZipInflateCtx ctx;
+    ctx.file = &file;
+    ctx.fileRemaining = deflatedDataSize;
+    ctx.readBuf = fileReadBuffer.get();
+    ctx.readBufSize = 1024;
 
-    if (dataRead != deflatedDataSize) {
-      LOG_ERR("ZIP", "Failed to read data, expected %d got %d", deflatedDataSize, dataRead);
+    if (!ctx.reader.init(true)) {
+      LOG_ERR("ZIP", "Failed to init inflate reader");
       return nullptr;
     }
+    ctx.reader.setReadCallback(zipReadCallback);
 
-    bool success = false;
-    {
-      InflateReader r;
-      r.init(false);
-      r.setSource(deflatedData.get(), deflatedDataSize);
-      success = r.read(data.get(), inflatedDataSize);
-    }
-
-    if (!success) {
+    if (!ctx.reader.read(data.get(), inflatedDataSize)) {
       LOG_ERR("ZIP", "Failed to inflate file");
       return nullptr;
     }
