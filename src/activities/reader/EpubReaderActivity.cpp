@@ -25,6 +25,7 @@
 #include "EpubReaderBookmarksActivity.h"
 #include "EpubReaderChapterSelectionActivity.h"
 #include "MappedInputManager.h"
+#include "ProgressFile.h"
 #include "ReaderLinkPickerActivity.h"
 #include "ReaderPercentSelectionActivity.h"
 #include "ReaderUtils.h"
@@ -828,11 +829,6 @@ void EpubReaderActivity::render(RenderLock&& lock) {
 }
 
 bool EpubReaderActivity::saveProgress(uint16_t spineIndex, uint16_t currentPage, uint16_t pageCount) {
-  HalFile f;
-  if (!halStorage.openFileForWrite("ERS", epub->getCachePath() + "/progress.bin", f)) {
-    LOG_ERR("ERS", "Could not open progress file for write!");
-    return false;
-  }
   uint8_t data[6];
   data[0] = spineIndex & 0xFF;
   data[1] = (spineIndex >> 8) & 0xFF;
@@ -840,9 +836,7 @@ bool EpubReaderActivity::saveProgress(uint16_t spineIndex, uint16_t currentPage,
   data[3] = (currentPage >> 8) & 0xFF;
   data[4] = pageCount & 0xFF;
   data[5] = (pageCount >> 8) & 0xFF;
-  const size_t written = f.write(data, sizeof(data));
-  if (written != sizeof(data)) {
-    LOG_ERR("ERS", "Short write saving progress: %u/%u bytes", (unsigned)written, (unsigned)sizeof(data));
+  if (!ProgressFile::writeAtomic(epub->getCachePath(), data, sizeof(data))) {
     return false;
   }
   LOG_DBG("ERS", "Progress saved: spine=%u page=%u", spineIndex, currentPage);
