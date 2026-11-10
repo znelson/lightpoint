@@ -1,0 +1,223 @@
+# Removed-features manifest for upstream (CrossPoint) merges.
+#
+# Consumers: scripts/upstream_sync.py (the reaper and anchor picker) and
+# merge resolvers (human or Claude). Process reference:
+# Vault/Chromanaut/docs/plans/upstream-merge-process.md ("Tooling plan").
+#
+# Format note: parsed by a small stdlib YAML-subset parser in
+# scripts/upstream_sync.py (same no-PyYAML policy as gen_i18n.py). Stick to
+# this file's existing shapes: block lists, "key: value" scalars, full-line
+# comments only. No flow mappings, anchors, or folded scalars.
+#
+# Semantics:
+#   features[].paths    - glob patterns. Any matching file that reappears
+#                         after a merge gets re-deleted (git rm).
+#   features[].symbols  - identifiers that must not appear anywhere in the
+#                         merged source tree; a hit means upstream added a
+#                         new reference (menu entry, wiring, include) that
+#                         needs stripping by hand.
+#   features[].settings - CrossPointSettings fields that stay deleted.
+#   features[].strings_prefixes - representative STR_ key prefixes for the
+#                         feature. The authoritative string ban list is
+#                         english.yaml itself: scripts/normalize_locales.py
+#                         drops any locale key absent from it, so removed
+#                         features' strings disappear mechanically.
+#   relocations         - upstream path -> LightPoint path. When upstream
+#                         modifies the old path and the merge reports
+#                         modify/delete, port the change to the new path
+#                         (git's rename detection catches most of these on
+#                         its own; this list is the fallback map). The
+#                         reaper warns on these but never auto-deletes.
+#   repo_meta.paths     - upstream community/branding files that stay
+#                         deleted; no code implications.
+#
+# Maintenance: add an entry whenever a feature is removed or an upstream
+# feature is rejected in a sync. Rejection-merge commit bodies are the other
+# half of the "considered and declined" record.
+#
+# Seeded 2026-09-23 from "git diff -M --diff-filter=D eb987351 main" plus
+# remerge-diffs of the 20 historical sync merges (#6..#130).
+
+features:
+  - name: koreader-sync
+    reason: Sync accounts/servers are out of scope for a dedicated reader
+    removed_in: "#11"
+    paths:
+      - lib/KOReaderSync/**
+      - src/activities/reader/KOReaderSyncActivity.*
+      - src/activities/settings/KOReaderAuthActivity.*
+      - src/activities/settings/KOReaderSettingsActivity.*
+    symbols:
+      - KOReaderSyncClient
+      - KOReaderCredentialStore
+      - KOReaderDocumentId
+      - ChapterXPathResolver
+      - ProgressMapper
+      - KOReaderSyncActivity
+      - KOReaderAuthActivity
+      - KOReaderSettingsActivity
+      - launchKOReaderSync
+      - longPressMenuFunction
+    settings:
+      - longPressMenuFunction
+    strings_prefixes:
+      - STR_KOREADER_
+      - STR_SYNC_
+      - STR_KOSYNC
+      - STR_LONG_PRESS_MENU
+
+  - name: legacy-settings-migration
+    reason: Pre-fork binary settings/language migration paths, dead in LightPoint
+    removed_in: "#12"
+    symbols:
+      - loadFromBinaryFile
+      - migrateLanguageBinaryFile
+
+  - name: web-server
+    reason: WiFi web server / browser file transfer / hotspot are out of scope
+    removed_in: "#13"
+    paths:
+      - src/network/CrossPointWebServer.*
+      - src/network/WebDAVHandler.*
+      - src/network/html/**
+      - src/activities/network/CrossPointWebServerActivity.*
+      - src/activities/network/NetworkModeSelectionActivity.*
+      - src/components/icons/hotspot.h
+      - src/components/icons/transfer.h
+      - scripts/build_html.py
+      - data/html/**
+      - docs/webserver*.md
+      - docs/images/wifi/**
+    symbols:
+      - CrossPointWebServer
+      - WebDAVHandler
+      - CrossPointWebServerActivity
+      - NetworkModeSelectionActivity
+    strings_prefixes:
+      - STR_UPLOAD_
+      - STR_HOTSPOT_
+      - STR_WEB_
+
+  - name: calibre-connect
+    reason: Calibre wireless-device protocol rode the removed network stack
+    removed_in: "#13"
+    paths:
+      - src/activities/network/CalibreConnectActivity.*
+    symbols:
+      - CalibreConnectActivity
+    strings_prefixes:
+      - STR_CALIBRE_
+
+  - name: opds
+    reason: OPDS catalog browsing/downloading is out of scope
+    removed_in: "#16"
+    paths:
+      - lib/OpdsParser/**
+      - src/OpdsServerStore.*
+      - src/activities/browser/OpdsBookBrowserActivity.*
+      - src/activities/settings/OpdsServerListActivity.*
+      - src/activities/settings/OpdsSettingsActivity.*
+    symbols:
+      - OpdsParser
+      - OpdsStream
+      - OpdsServerStore
+      - OpdsBookBrowserActivity
+      - OpdsServerListActivity
+      - OpdsSettingsActivity
+    settings:
+      - opdsServerUrl
+      - opdsUsername
+      - opdsPassword
+    strings_prefixes:
+      - STR_OPDS_
+
+  - name: qr-code
+    reason: QR display (web server pairing aid) went with the web server
+    removed_in: "#28"
+    paths:
+      - src/activities/reader/QrDisplayActivity.*
+      - src/util/QrUtils.*
+    symbols:
+      - QrDisplayActivity
+      - QrUtils
+
+  - name: auto-page-turn
+    reason: Out of scope; RAM/complexity for marginal reading benefit
+    removed_in: "#29"
+    strings_prefixes:
+      - STR_AUTO_PAGE_
+
+  - name: font-downloader
+    reason: On-device font download/install is out of scope (fonts ship in firmware)
+    removed_in: "#37"
+    paths:
+      - src/FontInstaller.*
+      - src/activities/settings/FontDownloadActivity.*
+      - src/network/HttpDownloader.*
+    symbols:
+      - FontInstaller
+      - FontDownloadActivity
+      - HttpDownloader
+    strings_prefixes:
+      - STR_FONT_DOWNLOAD
+      - STR_DOWNLOAD_
+
+  - name: builtin-font-trim
+    reason: Three built-in families only (Noto Serif, Noto Sans, Courier Prime)
+    removed_in: "#10-era"
+    paths:
+      - lib/EpdFont/builtinFonts/source/OpenDyslexic/**
+    notes: New upstream built-in families are rejected by default. SD-card font list additions (lib/EpdFont/scripts/sd-fonts.yaml) are fine - they cost SD space, not firmware RAM.
+
+relocations:
+  - from: lib/Memory/Memory.h
+    to: lib/Utility/Memory.h
+  - from: lib/Utf8/Utf8.h
+    to: lib/Utility/Utf8.h
+  - from: lib/Utf8/Utf8.cpp
+    to: lib/Utility/Utf8.cpp
+  - from: lib/ZipFile/ZipFile.h
+    to: lib/Utility/ZipFile.h
+  - from: lib/ZipFile/ZipFile.cpp
+    to: lib/Utility/ZipFile.cpp
+  - from: lib/Epub/Epub/Section.cpp
+    to: lib/Typesetter/Typesetter/Section.cpp
+  - from: lib/Epub/Epub/Section.h
+    to: lib/Typesetter/Typesetter/Section.h
+  - from: lib/Epub/Epub/ParsedText.cpp
+    to: lib/Typesetter/Typesetter/ParsedText.cpp
+  - from: lib/Epub/Epub/ParsedText.h
+    to: lib/Typesetter/Typesetter/ParsedText.h
+  - from: lib/Epub/Epub/blocks/**
+    to: lib/Typesetter/Typesetter/blocks/**
+  - from: lib/Epub/Epub/FootnoteEntry.h
+    to: lib/Typesetter/Typesetter/LinkEntry.h
+  - from: lib/Epub/Epub/converters/PixelCache.h
+    to: lib/ImageDecoder/PixelCache.h
+  - from: src/activities/reader/EpubReaderUtils.h
+    to: src/activities/reader/ReaderUtils.h
+  - from: src/activities/reader/EpubReaderPercentSelectionActivity.h
+    to: src/activities/reader/ReaderPercentSelectionActivity.h
+  - from: src/util/StringUtils.*
+    to: absorbed into call sites (lib/Epub, lib/Utility)
+  - from: src/util/UrlUtils.*
+    to: absorbed into lib/Epub (decodeUriEscapes and friends)
+  - from: src/util/BookmarkUtil.*
+    to: absorbed into reader bookmark activities
+  - from: src/activities/reader/EpubReaderFootnotesActivity.h
+    to: absorbed into ReaderLinkPickerActivity
+
+repo_meta:
+  reason: Upstream community/branding files; LightPoint is a personal fork
+  paths:
+    - .github/FUNDING.yml
+    - .github/PULL_REQUEST_TEMPLATE.md
+    - GOVERNANCE.md
+    - SCOPE.md
+    - USER_GUIDE.md
+    - docs/comparison.md
+    - docs/troubleshooting.md
+    - docs/contributing/README.md
+    - docs/contributing/development-workflow.md
+    - docs/images/comparison/**
+    - docs/images/cover.jpg
