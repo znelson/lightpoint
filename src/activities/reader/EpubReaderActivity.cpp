@@ -1057,6 +1057,9 @@ void EpubReaderActivity::renderStatusBar() const {
 }
 
 bool EpubReaderActivity::prepareSpineItem(const uint16_t viewportWidth, const uint16_t viewportHeight) {
+  // A fresh layout invalidates resolved bookmark pages - also for the SAME
+  // spine (orientation or setting changes relayout in place).
+  bookmarkPagesResolvedForSpine.reset();
   const auto filepath = epub->getSpineItem(currentSpineIndex).href;
   LOG_DBG("ERS", "Loading file: %s, index: %d", filepath.c_str(), currentSpineIndex);
   spineItem = std::make_unique<SpineItem>(epub, currentSpineIndex, renderer);
@@ -1249,10 +1252,33 @@ void EpubReaderActivity::loadBookmarkKeys() {
   bookmarkKeys.reserve(n);
   for (uint16_t i = 0; i < n; ++i) {
     if (const auto e = store.entryAt(i)) {
-      bookmarkKeys.push_back({e->spineIndex, e->paragraphIndex, e->liIndex});
+      bookmarkKeys.push_back({e->spineIndex, e->paragraphIndex, e->liIndex, PAGE_UNRESOLVED});
     }
   }
+  bookmarkPagesResolvedForSpine.reset();
   updateBookmarkFlag();
+}
+
+// Resolve each of this spine's bookmarks to a page in the current layout, with
+// the same max(paragraph page, list-item page) rule the bookmarks list uses, so
+// the page the list jumps to is the page that shows as bookmarked. Runs once
+// per spine load; page turns then test membership in RAM.
+void EpubReaderActivity::resolveBookmarkPagesForSpine() {
+  if (!spineItem) return;
+  for (auto& k : bookmarkKeys) {
+    if (k.spineIndex != currentSpineIndex) {
+      k.resolvedPage = PAGE_UNRESOLVED;
+      continue;
+    }
+    uint16_t page = spineItem->getPageForParagraphIndex(k.paragraphIndex).value_or(0);
+    if (k.liIndex != BookmarkEntry::NO_LI_INDEX) {
+      if (const auto liPage = spineItem->getPageForListItemIndex(k.liIndex)) {
+        page = std::max(page, *liPage);
+      }
+    }
+    k.resolvedPage = page;
+  }
+  bookmarkPagesResolvedForSpine = currentSpineIndex;
 }
 
 void EpubReaderActivity::addBookmark() {
@@ -1270,10 +1296,16 @@ void EpubReaderActivity::addBookmark() {
 
   BookmarkStore store(epub->getPath());
 
-  // Toggle: a repeat long-press on an already-bookmarked position removes it.
+  // Toggle: a repeat long-press on a page that shows as bookmarked removes that
+  // bookmark. Matching by resolved page (not page-top identity) keeps toggle,
+  // indicator, and the bookmarks list's jump target consistent.
+  if (bookmarkPagesResolvedForSpine != currentSpineIndex) {
+    resolveBookmarkPagesForSpine();
+  }
+  const uint16_t pageNow = spineItem->currentPage;
   for (size_t i = 0; i < bookmarkKeys.size(); ++i) {
     const auto& k = bookmarkKeys[i];
-    if (k.spineIndex == currentSpineIndex && k.paragraphIndex == paragraphIdx && k.liIndex == liIdx) {
+    if (k.spineIndex == currentSpineIndex && k.resolvedPage == pageNow) {
       if (store.eraseAt(static_cast<uint16_t>(i))) {
         bookmarkKeys.erase(bookmarkKeys.begin() + static_cast<ptrdiff_t>(i));
         currentPageBookmarked = false;
@@ -1316,11 +1348,12 @@ void EpubReaderActivity::updateBookmarkFlag() {
     currentPageBookmarked = false;
     return;
   }
+  if (bookmarkPagesResolvedForSpine != currentSpineIndex) {
+    resolveBookmarkPagesForSpine();
+  }
   const uint16_t page = spineItem->currentPage;
-  const uint16_t paragraphIdx = spineItem->getParagraphIndexForPage(page).value_or(0);
-  const uint16_t liIdx = spineItem->getListItemIndexForPage(page).value_or(BookmarkEntry::NO_LI_INDEX);
   currentPageBookmarked = std::any_of(bookmarkKeys.begin(), bookmarkKeys.end(), [&](const BookmarkKey& k) {
-    return k.spineIndex == currentSpineIndex && k.paragraphIndex == paragraphIdx && k.liIndex == liIdx;
+    return k.spineIndex == currentSpineIndex && k.resolvedPage == page;
   });
 }
 
