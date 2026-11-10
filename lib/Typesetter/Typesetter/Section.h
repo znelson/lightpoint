@@ -51,7 +51,8 @@ class Section {
  public:
   // Bump when binary layout changes. Mismatching versions cause loadHeader
   // to fail and the cache is regenerated from source.
-  static constexpr uint8_t FILE_VERSION = 28;
+  // v29: words NFC-composed at layout time; bump invalidates NFD section caches.
+  static constexpr uint8_t FILE_VERSION = 29;
 
   explicit Section(std::string filePath) : filePath_(std::move(filePath)) {}
   ~Section() = default;
